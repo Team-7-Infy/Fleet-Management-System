@@ -57,3 +57,6 @@ GoogleService-Info.plist
 
 # Supabase secrets (never commit these)
 supabase/.env
+
+# Xcode Configurations
+*.xcconfig
