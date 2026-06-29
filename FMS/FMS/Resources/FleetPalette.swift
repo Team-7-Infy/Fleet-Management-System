@@ -45,8 +45,12 @@ enum FleetPalette {
             return warning
         case .accepted:
             return secondary
-        case .rejected:
+        case .rejectionPending:
             return danger
+        case .rejected:
+            return neutral
+        case .inProgress:
+            return primary
         case .completed:
             return success
         }

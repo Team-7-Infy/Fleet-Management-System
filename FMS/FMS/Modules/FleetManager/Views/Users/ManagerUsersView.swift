@@ -38,6 +38,8 @@ struct ManagerUsersView: View {
     @Binding var selectedSegment: ManagerUserSegment
     @State private var searchText = ""
 
+    var openAddUser: () -> Void
+
     private var baseUsers: [User] {
         switch selectedSegment {
         case .drivers:
@@ -59,37 +61,56 @@ struct ManagerUsersView: View {
             return makeGroups([
                 ("On Trip", { isDriverOnTrip($0) }),
                 ("Assigned", { isDriverAssigned($0) && isDriverOnTrip($0) == false }),
-                ("Registered", { $0.isActive && isDriverOnTrip($0) == false && isDriverAssigned($0) == false }),
-                ("Inactive", { $0.isActive == false })
+                ("Registered", { isDriverOnTrip($0) == false && isDriverAssigned($0) == false })
             ])
         case .maintenance:
             return makeGroups([
-                ("Assigned Work", { $0.isActive && hasActiveWork($0) }),
-                ("Registered", { $0.isActive && hasActiveWork($0) == false }),
-                ("Inactive", { $0.isActive == false })
+                ("Assigned Work", { hasActiveWork($0) }),
+                ("Registered", { hasActiveWork($0) == false })
             ])
         }
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                ScreenHeader(title: "Users")
-                FleetSearchBar(text: $searchText)
-                FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
-                userList
+        ZStack(alignment: .bottomTrailing) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    ScreenHeader(title: "Users")
+                    FleetSearchBar(text: $searchText)
+
+                    Picker("User type", selection: $selectedSegment) {
+                        ForEach(ManagerUserSegment.allCases) { segment in
+                            Text(segment.title).tag(segment)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
+                    userList
+                }
+                .padding(.horizontal)
+                .padding(.top, 4)
+                .padding(.bottom, 16)
             }
-            .padding(.horizontal)
-            .padding(.top, 4)
+            .fleetScreenBackground()
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .refreshable {
+                await viewModel.load()
+                await tripsViewModel.load()
+                await maintenanceViewModel.load()
+            }
+
+            Button(action: openAddUser) {
+                Image(systemName: "plus")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(FleetPalette.primary, in: Circle())
+                    .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+            }
+            .padding(.trailing, 20)
             .padding(.bottom, 16)
-        }
-        .fleetScreenBackground()
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .refreshable {
-            await viewModel.load()
-            await tripsViewModel.load()
-            await maintenanceViewModel.load()
         }
     }
 
@@ -279,10 +300,13 @@ private struct ManagerUserCard: View {
 
 private struct ManagerUserDetailView: View {
     @Environment(\.dismiss) private var dismiss
-    var user: User
+    @State var user: User
     @ObservedObject var viewModel: UserManagementViewModel
     @ObservedObject var tripsViewModel: TripManagementViewModel
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
+    @State private var showEditSheet = false
+    @State private var showDeleteConfirm = false
+    @State private var editForm = FleetManagerUserForm()
 
     private var driverProfile: Driver? {
         viewModel.drivers.first { $0.userId == user.id }
@@ -317,22 +341,56 @@ private struct ManagerUserDetailView: View {
                 }
 
                 Button {
-                    Task {
-                        await viewModel.setActive(user, isActive: user.isActive == false)
-                        dismiss()
-                    }
+                    editForm = FleetManagerUserForm(
+                        firstName: user.fName,
+                        lastName: user.lName,
+                        email: user.email,
+                        aadhar: user.aadhar,
+                        contact: "\(user.contact)",
+                        address: user.address,
+                        role: user.role,
+                        licenceNumber: driverProfile?.licenceNum ?? "",
+                        vehicleType: driverProfile?.vehicleType ?? "van"
+                    )
+                    showEditSheet = true
                 } label: {
-                    Label(user.isActive ? "Deactivate User" : "Activate User", systemImage: user.isActive ? "pause.circle" : "play.circle")
+                    Label("Edit User", systemImage: "pencil")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(user.isActive ? FleetPalette.warning : FleetPalette.success)
+                .tint(FleetPalette.primary)
+
+                Button(role: .destructive) {
+                    showDeleteConfirm = true
+                } label: {
+                    Label("Delete User", systemImage: "trash")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
             }
             .padding()
         }
         .fleetScreenBackground()
         .navigationTitle(user.role == .driver ? "Driver Details" : "User Details")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showEditSheet) {
+            NavigationStack {
+                ManagerUserEditView(user: $user, viewModel: viewModel, form: $editForm)
+            }
+        }
+        .alert("Delete \(user.displayName)?", isPresented: $showDeleteConfirm) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                Task {
+                    if await viewModel.deleteUser(user) {
+                        dismiss()
+                    }
+                }
+            }
+        } message: {
+            Text("This action cannot be undone. The user and their login will be removed.")
+        }
     }
 
     private var header: some View {
@@ -412,6 +470,80 @@ private struct ManagerUserDetailView: View {
                 InfoRow(title: "Phone", value: "\(user.contact)")
                 InfoRow(title: "Aadhar", value: user.aadhar)
                 InfoRow(title: "Address", value: user.address)
+            }
+        }
+    }
+}
+
+private struct ManagerUserEditView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var user: User
+    @ObservedObject var viewModel: UserManagementViewModel
+    @Binding var form: FleetManagerUserForm
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                TextField("First name", text: $form.firstName)
+                    .textContentType(.givenName)
+                    .fleetField()
+                TextField("Last name", text: $form.lastName)
+                    .textContentType(.familyName)
+                    .fleetField()
+                TextField("Email / Login ID", text: $form.email)
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    .fleetField()
+                TextField("Aadhar", text: $form.aadhar)
+                    .keyboardType(.numberPad)
+                    .fleetField()
+                TextField("Contact", text: $form.contact)
+                    .keyboardType(.phonePad)
+                    .fleetField()
+                TextField("Address", text: $form.address, axis: .vertical)
+                    .lineLimit(2...4)
+                    .fleetField()
+
+                if user.role == .driver {
+                    TextField("Licence number", text: $form.licenceNumber)
+                        .textInputAutocapitalization(.characters)
+                        .fleetField()
+                }
+
+                FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
+
+                Button {
+                    Task {
+                        var updated = user
+                        updated.fName = form.firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        updated.lName = form.lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        updated.email = form.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                        updated.aadhar = form.aadhar.trimmingCharacters(in: .whitespacesAndNewlines)
+                        updated.address = form.address.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if let contact = form.contactValue {
+                            updated.contact = contact
+                        }
+                        if await viewModel.updateUser(updated) {
+                            user = updated
+                            dismiss()
+                        }
+                    }
+                } label: {
+                    Label("Save Changes", systemImage: "checkmark.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(FleetPalette.primary)
+                .disabled(form.isValid == false)
+            }
+            .padding()
+        }
+        .fleetScreenBackground()
+        .navigationTitle("Edit User")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") { dismiss() }
             }
         }
     }

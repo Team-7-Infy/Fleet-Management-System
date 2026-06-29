@@ -16,6 +16,7 @@ protocol MaintenanceServiceProtocol: AnyObject, Sendable {
     func deleteTask(id: UUID) async throws
     func updateTaskStatus(id: UUID, status: MaintenanceTaskStatus) async throws
     func assignPersonnel(taskId: UUID, personnelId: UUID) async throws
+    func fetchTasksForPersonnel(id: UUID) async throws -> [MaintenanceTask]
 
     func fetchTaskParts(taskId: UUID) async throws -> [MaintenanceTaskPart]
     func addTaskPart(_ taskPart: MaintenanceTaskPart) async throws

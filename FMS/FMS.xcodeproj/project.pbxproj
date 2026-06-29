@@ -7,9 +7,100 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		049343B037CC493187563B3B /* FMS/Modules/Maintenance/NewUI/Components/LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03B30D43FFC44E181A23257 /* FMS/Modules/Maintenance/NewUI/Components/LoadingView.swift */; };
+		0518D3D3D3974739913A910A /* FMS/Modules/Maintenance/NewUI/Theme/AppIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = E23CDBC61E6549CF83AFAB01 /* FMS/Modules/Maintenance/NewUI/Theme/AppIcon.swift */; };
+		09661A12066844109D842F36 /* FMS/Modules/Maintenance/NewUI/Theme/AppCornerRadius.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB013C9D855C4874A0AC191B /* FMS/Modules/Maintenance/NewUI/Theme/AppCornerRadius.swift */; };
+		0C7EFEBE4B704B2C833701CE /* FMS/Modules/Maintenance/NewUI/Navigation/RouteViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF17D56E0A934F778FFF114B /* FMS/Modules/Maintenance/NewUI/Navigation/RouteViewFactory.swift */; };
 		0DBDFEC82FEEA20000950D07 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 0DBDFEC72FEEA20000950D07 /* Supabase */; };
 		0DBDFECA2FEEAAEA00950D07 /* Secrets.debug.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 0DBDFEC92FEEAAEA00950D07 /* Secrets.debug.xcconfig */; };
 		0DBDFECC2FEEAB1500950D07 /* Secrets.release.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 0DBDFECB2FEEAB1500950D07 /* Secrets.release.xcconfig */; };
+		1181B1CAA3D749EDA18D8BDF /* FMS/Modules/Maintenance/NewUI/Components/SummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6996E401FBD14627A2032178 /* FMS/Modules/Maintenance/NewUI/Components/SummaryCard.swift */; };
+		1A939D398A484B599112C464 /* FMS/Modules/Maintenance/NewUI/ViewModels/Jobs/JobSummaryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC12323CAE174573B3020680 /* FMS/Modules/Maintenance/NewUI/ViewModels/Jobs/JobSummaryViewModel.swift */; };
+		1BA645D184BC467886F4DEB2 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28E233E78E4B4440B78FBFFF /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPProfileView.swift */; };
+		1E1C4C512E0E45429ABB1944 /* FMS/Modules/Maintenance/NewUI/Models/MaintenanceSchedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0EE15F8C4A4EA98DBE595D /* FMS/Modules/Maintenance/NewUI/Models/MaintenanceSchedule.swift */; };
+		20704593D3AD4F6EB4D324AF /* FMS/Modules/Maintenance/NewUI/Components/ReusableNavigationBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C14CDF3BF4145C18A33972F /* FMS/Modules/Maintenance/NewUI/Components/ReusableNavigationBar.swift */; };
+		228DD0FCBC31496FAFD34C11 /* FMS/Modules/Maintenance/NewUI/Core/Networking/APIEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57BBCDF0A7374A73B5B15CFE /* FMS/Modules/Maintenance/NewUI/Core/Networking/APIEndpoint.swift */; };
+		262F52CBE4FD44B8B2A3FA1B /* FMS/Modules/Maintenance/NewUI/Components/ProgressIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F571766A02646579860097E /* FMS/Modules/Maintenance/NewUI/Components/ProgressIndicatorView.swift */; };
+		2C5AF4BE450247DCA9CDDEFD /* FMS/Modules/Maintenance/NewUI/Models/InventoryItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB72B62440784472BFDFFD33 /* FMS/Modules/Maintenance/NewUI/Models/InventoryItem.swift */; };
+		2F0840B73AD24295ABF4B353 /* FMS/Modules/Maintenance/NewUI/Core/Utilities/AccessibilityText.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4025F449A8145C294FC2925 /* FMS/Modules/Maintenance/NewUI/Core/Utilities/AccessibilityText.swift */; };
+		3042A36F2A5B4309856D8E7D /* FMS/Modules/Maintenance/NewUI/Components/PhotoAttachmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0DEA57BB3648CC8DE5705A /* FMS/Modules/Maintenance/NewUI/Components/PhotoAttachmentView.swift */; };
+		30D3799853E645D797C5FE64 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/UpcomingMaintenanceListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A3891635BFD415B9936BD76 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/UpcomingMaintenanceListViewModel.swift */; };
+		337767A080264ACDA0D5C95F /* FMS/Modules/Maintenance/NewUI/Navigation/NavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22CAE633341F41B7BBA559E1 /* FMS/Modules/Maintenance/NewUI/Navigation/NavigationCoordinator.swift */; };
+		395D2D5A52B940F090CFFD00 /* FMS/Modules/Maintenance/NewUI/Views/Jobs/JobSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 116102DF1D5E42749030EEC5 /* FMS/Modules/Maintenance/NewUI/Views/Jobs/JobSummaryView.swift */; };
+		4AA52D00629F44EAA6DC644D /* FMS/Modules/Maintenance/NewUI/Models/WorkOrder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B6C2935363D483F9951D6A7 /* FMS/Modules/Maintenance/NewUI/Models/WorkOrder.swift */; };
+		4AEE3B29CDE24525AC6443DA /* FMS/Modules/Maintenance/NewUI/Components/MPSearchBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCA81831E19648F2BFF5B61E /* FMS/Modules/Maintenance/NewUI/Components/MPSearchBar.swift */; };
+		4C845B778D0148CEA70E2F39 /* FMS/Modules/Maintenance/NewUI/Models/MPInspectionItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 892B047CB922436F93D22809 /* FMS/Modules/Maintenance/NewUI/Models/MPInspectionItem.swift */; };
+		4D3D628B49E64B7E839E54DF /* FMS/Modules/Maintenance/NewUI/Components/MPStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD90B05BC9154A558E597A4C /* FMS/Modules/Maintenance/NewUI/Components/MPStatusBadge.swift */; };
+		4FE1A7E683C544879C2993FD /* FMS/Modules/Maintenance/NewUI/Models/Activity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C7F6E7C45C94FDD9C3BDF52 /* FMS/Modules/Maintenance/NewUI/Models/Activity.swift */; };
+		50FB440072554AEA82ABDCEE /* FMS/Modules/Maintenance/NewUI/Components/CardButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A75169F5B18E400EB2B98FDD /* FMS/Modules/Maintenance/NewUI/Components/CardButtonStyle.swift */; };
+		5D5B8B58117643C8896C3E6F /* FMS/Modules/Maintenance/NewUI/Core/Storage/LocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 645874872D654C638B2B24AF /* FMS/Modules/Maintenance/NewUI/Core/Storage/LocalStore.swift */; };
+		6062CFBADBD04E12ACF5660F /* FMS/Modules/Maintenance/NewUI/Theme/AppAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 684DEFEEB4E1429F86EA8059 /* FMS/Modules/Maintenance/NewUI/Theme/AppAnimation.swift */; };
+		607CDE9CCEE64F7CB647FF62 /* FMS/Modules/Maintenance/NewUI/Theme/AppShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 308C19845EF648BD99DBE2E0 /* FMS/Modules/Maintenance/NewUI/Theme/AppShadow.swift */; };
+		620C40F7FDA64CC4A880C4B4 /* FMS/Modules/Maintenance/NewUI/Views/Root/AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBA0BDD7B37648E5B7B678EF /* FMS/Modules/Maintenance/NewUI/Views/Root/AppRootView.swift */; };
+		635E7379F3004B4890F6C5BA /* FMS/Modules/Maintenance/NewUI/Core/Configuration/AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9794AEB766248AEB2AF6C21 /* FMS/Modules/Maintenance/NewUI/Core/Configuration/AppConfiguration.swift */; };
+		6865EB09ADA449129A05D8F9 /* FMS/Modules/Maintenance/NewUI/Components/ActivityRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175BD35D19964CF888B99AF3 /* FMS/Modules/Maintenance/NewUI/Components/ActivityRow.swift */; };
+		6A9462B042904A0AAA79B455 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/WorkOrderSuccessViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D553B23B09469E8A075699 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/WorkOrderSuccessViewModel.swift */; };
+		6B6F01AFDEB24C1A9E814E36 /* FMS/Modules/Maintenance/NewUI/Core/Managers/SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D024286BEEB41A494A1E55F /* FMS/Modules/Maintenance/NewUI/Core/Managers/SessionManager.swift */; };
+		6BD7441C3DF84080B24C279D /* FMS/Modules/Maintenance/NewUI/Navigation/AppRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DC26952E43C48EF9CDA27CD /* FMS/Modules/Maintenance/NewUI/Navigation/AppRoute.swift */; };
+		6C3A628DB2A34260B4797BD8 /* FMS/Modules/Maintenance/NewUI/Components/PrimaryButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99534CC08C6A45118574CBBB /* FMS/Modules/Maintenance/NewUI/Components/PrimaryButton.swift */; };
+		6CA18B01088746B8BCB53620 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEF89A6273E1412D96861014 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockNotificationService.swift */; };
+		6CC678288E494196A930E89C /* FMS/Modules/Maintenance/NewUI/Views/Root/RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73450B8E14548CCA53531F0 /* FMS/Modules/Maintenance/NewUI/Views/Root/RootTabView.swift */; };
+		71566BEA04D64108A3275905 /* FMS/Modules/Maintenance/NewUI/Mocks/PreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31F0B001B985458084EBDEE0 /* FMS/Modules/Maintenance/NewUI/Mocks/PreviewData.swift */; };
+		72150686DD424F22BBE73AC0 /* FMS/Modules/Maintenance/NewUI/Components/ToastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A66E8FF6C534603AFB001E7 /* FMS/Modules/Maintenance/NewUI/Components/ToastView.swift */; };
+		73C79FF4AFB14FDA897B2235 /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/PastWorkOrderDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4A1413A869C44EBB352B2EA /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/PastWorkOrderDetailsView.swift */; };
+		751DB0B2489E41F7B948B304 /* FMS/Modules/Maintenance/NewUI/Components/VehicleCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F973E53A3C42788CFF2F48 /* FMS/Modules/Maintenance/NewUI/Components/VehicleCard.swift */; };
+		771F41922A5B4668A1338847 /* FMS/Modules/Maintenance/NewUI/Models/JobStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EFC6C5C1A8D4F6C9B3E9489 /* FMS/Modules/Maintenance/NewUI/Models/JobStatus.swift */; };
+		7A2F3C647B964931AFE0BCE1 /* FMS/Modules/Maintenance/NewUI/Theme/AppTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D3F3007551B4D28882CE618 /* FMS/Modules/Maintenance/NewUI/Theme/AppTypography.swift */; };
+		7D49E1DDAA03410B8D285B51 /* FMS/Modules/Maintenance/NewUI/Core/Constants/AppConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8C4628E0029450DA7AD676B /* FMS/Modules/Maintenance/NewUI/Core/Constants/AppConstants.swift */; };
+		7D831B759B294A6A80E2E7E5 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/ActivityHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 454DCFCA3C9C40159C462DED /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/ActivityHistoryView.swift */; };
+		7F011BAD72C047FDB75CA5A0 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/PastWorkOrderDetailsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 404F82946D7C408D95964E55 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/PastWorkOrderDetailsViewModel.swift */; };
+		7FDB1A49B0984969B9B27C9D /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ActivityHistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81F09F9B5E724E159FF38B43 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ActivityHistoryViewModel.swift */; };
+		80A60FC041B44A77817A0142 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0756826F95CD4D4680140F07 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPDashboardView.swift */; };
+		80F2C6EDF67246499C2EF276 /* FMS/Modules/Maintenance/NewUI/Components/SectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E798FE6A34274003B3743274 /* FMS/Modules/Maintenance/NewUI/Components/SectionHeader.swift */; };
+		885E3237BF044BAF84BE035C /* FMS/Modules/Maintenance/NewUI/Extensions/String+Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = C92FE302199C496EA374EBA6 /* FMS/Modules/Maintenance/NewUI/Extensions/String+Accessibility.swift */; };
+		90E9CC5D3227424389EC4D41 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockActivityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D7C04D399749CEBAE9501B /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockActivityService.swift */; };
+		93B252A15DFE4380864173FC /* FMS/Modules/Maintenance/NewUI/Theme/AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5C420336544DF4A986D124 /* FMS/Modules/Maintenance/NewUI/Theme/AppTheme.swift */; };
+		95530FD91401429BA5869D07 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/AuthServicing.swift in Sources */ = {isa = PBXBuildFile; fileRef = F357C12F772642018CC52D04 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/AuthServicing.swift */; };
+		95549CAEF558422CBB8C3DE4 /* FMS/Modules/Maintenance/NewUI/Models/UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EA27EBB95F44F349AAC59C6 /* FMS/Modules/Maintenance/NewUI/Models/UserProfile.swift */; };
+		97EF8E359FFA462EB54FE9C7 /* FMS/Modules/Maintenance/NewUI/Theme/AppSpacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EBCD7F7379C45ECAF284D37 /* FMS/Modules/Maintenance/NewUI/Theme/AppSpacing.swift */; };
+		9AB15740211D43279569B8C5 /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/CompleteWorkOrderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2200BFC6EC1C441BAC1EB745 /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/CompleteWorkOrderView.swift */; };
+		A4B8444F53E94CE0BFD8263D /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/AddPartsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1BF0BEDE04C0392985A69 /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/AddPartsSheet.swift */; };
+		AA686CD17A1C4D4DA5562BB0 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/CompleteWorkOrderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79C6CAC28D414761882ED966 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/CompleteWorkOrderViewModel.swift */; };
+		AC7E08C3A3A4453CA5FBBC65 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/NotificationServicing.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1EF582B0C24C97A0E09642 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/NotificationServicing.swift */; };
+		AEC21537E44E42B7B1FB8C06 /* FMS/Modules/Maintenance/NewUI/Theme/AppColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0C2764BBA6F4B4797267343 /* FMS/Modules/Maintenance/NewUI/Theme/AppColor.swift */; };
+		AFBF8E9ABC204DF79E417D4D /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockVehicleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68758C6D42624C22A9EDF6A2 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockVehicleService.swift */; };
+		AFFAA0A6F2A349B9A02FE02A /* FMS/Modules/Maintenance/NewUI/Extensions/Date+Formatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 023BCB53D1454FDCA8324095 /* FMS/Modules/Maintenance/NewUI/Extensions/Date+Formatting.swift */; };
+		B207E0CEC4EF4F4D8EA06F75 /* FMS/Modules/Maintenance/NewUI/Views/Jobs/MyJobsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D92B5FD4BD8B45CFA1FF2763 /* FMS/Modules/Maintenance/NewUI/Views/Jobs/MyJobsView.swift */; };
+		B3E3AE4644154A5B84B5B422 /* FMS/Modules/Maintenance/NewUI/Core/Networking/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7CE7FF192AA471CBAE6A9B5 /* FMS/Modules/Maintenance/NewUI/Core/Networking/APIClient.swift */; };
+		B6F496729C6B4E81BD424F06 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/VehicleDetailsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B7F3B57F5B45F6AF33EAB8 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/VehicleDetailsViewModel.swift */; };
+		BE3F7C06B9AF415E8699E7AC /* FMS/Modules/Maintenance/NewUI/Navigation/WorkOrderFlowRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76FC33C4F77A4AF6B6A8CBBB /* FMS/Modules/Maintenance/NewUI/Navigation/WorkOrderFlowRoute.swift */; };
+		BE49FE79E2714A8AA5D9EB6F /* FMS/Modules/Maintenance/NewUI/AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D683B0B89CF4DE69D6D7586 /* FMS/Modules/Maintenance/NewUI/AppEnvironment.swift */; };
+		C2A9FBF3F9BB4D349C476419 /* FMS/Modules/Maintenance/NewUI/Components/OnHoldWorkOrderCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABFAA862002241A1876956CA /* FMS/Modules/Maintenance/NewUI/Components/OnHoldWorkOrderCard.swift */; };
+		C387C04FDD16437482EC47AC /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/WorkOrderSuccessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6CC50231B7444CBB7FF06F /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/WorkOrderSuccessView.swift */; };
+		C65B8BBB9F2C450AB528E574 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/ActivityServicing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17550373B8C54CFC8273228C /* FMS/Modules/Maintenance/NewUI/Services/Protocols/ActivityServicing.swift */; };
+		C689D7081CC945F881A11B8E /* FMS/Modules/Maintenance/NewUI/Core/Managers/FeatureFlagManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CBACEF442A24363BB1F04A1 /* FMS/Modules/Maintenance/NewUI/Core/Managers/FeatureFlagManager.swift */; };
+		CF21331C4F0645A79B3B0BD0 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/VehicleDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E2721BC1DC47CFBA471CAE /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/VehicleDetailsView.swift */; };
+		CFAAF38524B44729B47364E2 /* FMS/Modules/Maintenance/NewUI/Components/WorkOrderCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57676BFF74DD46798F3010A0 /* FMS/Modules/Maintenance/NewUI/Components/WorkOrderCard.swift */; };
+		D01E7E620BBD4AEF8DDC41CC /* FMS/Modules/Maintenance/NewUI/Core/LoadingState/LoadableState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C79CCAF94E4048EBA6C80E07 /* FMS/Modules/Maintenance/NewUI/Core/LoadingState/LoadableState.swift */; };
+		D0C9C4C809B54CADB7BB2641 /* FMS/Modules/Maintenance/NewUI/Core/DependencyInjection/AppDependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 548D1DF78CDB41D4A0553B52 /* FMS/Modules/Maintenance/NewUI/Core/DependencyInjection/AppDependencyContainer.swift */; };
+		D2727FF1DA8D4AE5BA0A5CB3 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ProfileViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3BAFB9929344A208373D353 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ProfileViewModel.swift */; };
+		D4DCD493606243DAB3ECF86F /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/UpcomingMaintenanceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD61688FF96649B98974D38D /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/UpcomingMaintenanceListView.swift */; };
+		D5190D5B0A1C4839ABE50DAD /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/MPDashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 487BE6E737EB47239DEC40A3 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/MPDashboardViewModel.swift */; };
+		D72EC761E33A4FFE95921FB6 /* FMS/Modules/Maintenance/NewUI/Components/BottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52AE5FFC83C24320B34F1FAB /* FMS/Modules/Maintenance/NewUI/Components/BottomSheet.swift */; };
+		DB056DE9322D4D74A4FC78F8 /* FMS/Modules/Maintenance/NewUI/ViewModels/Jobs/MyJobsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FDB2C5843134FF984E6F5A3 /* FMS/Modules/Maintenance/NewUI/ViewModels/Jobs/MyJobsViewModel.swift */; };
+		DBDC9E22465C482C8F2FB602 /* FMS/Modules/Maintenance/NewUI/Navigation/TabNavigationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 472DB3CE8E84449AAE5BAD01 /* FMS/Modules/Maintenance/NewUI/Navigation/TabNavigationState.swift */; };
+		DD619AC0B0A349B98D6D0AC9 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockWorkOrderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5E4428851C84EE1B6724E67 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockWorkOrderService.swift */; };
+		E65DBECC689C4F19B6EB07D9 /* FMS/Modules/Maintenance/NewUI/Navigation/AppTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BAFAB6F23934CCA84D4CC6E /* FMS/Modules/Maintenance/NewUI/Navigation/AppTab.swift */; };
+		E902BA28A35A47388D3CF42B /* FMS/Modules/Maintenance/NewUI/Services/Protocols/VehicleServicing.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD851BBBCF394A02ABF4600C /* FMS/Modules/Maintenance/NewUI/Services/Protocols/VehicleServicing.swift */; };
+		E9375C19AB5946E7A11AC61F /* FMS/Modules/Maintenance/NewUI/Components/InspectionChecklistItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA70FE88C37D44A3B887F597 /* FMS/Modules/Maintenance/NewUI/Components/InspectionChecklistItem.swift */; };
+		EB3008F2B5F74D11B852B5FE /* FMS/Modules/Maintenance/NewUI/Core/ErrorHandling/AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5134FC1890A4297A520472E /* FMS/Modules/Maintenance/NewUI/Core/ErrorHandling/AppError.swift */; };
+		F08092C544324836BFC250C8 /* FMS/Modules/Maintenance/NewUI/Components/MPEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DBB1821159D4AB292330789 /* FMS/Modules/Maintenance/NewUI/Components/MPEmptyStateView.swift */; };
+		F1CAB35346654C66944DC2A7 /* FMS/Modules/Maintenance/NewUI/Components/SecondaryButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 849C17524D284AF0B1A00FC8 /* FMS/Modules/Maintenance/NewUI/Components/SecondaryButton.swift */; };
+		F26BA84B3C764939994B2135 /* FMS/Modules/Maintenance/NewUI/Components/DetailRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9513E486C5534123AD72B72A /* FMS/Modules/Maintenance/NewUI/Components/DetailRow.swift */; };
+		F5C28FE02DC340F6AD20050B /* FMS/Modules/Maintenance/NewUI/Services/Protocols/WorkOrderServicing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29835357C30D475C89567AF3 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/WorkOrderServicing.swift */; };
+		F86D00A9646549AAB0696459 /* FMS/Modules/Maintenance/NewUI/Components/PriorityBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D411186E16F64B23A8B755AE /* FMS/Modules/Maintenance/NewUI/Components/PriorityBadge.swift */; };
+		FB37675B0D9C4005A64ADC07 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E094473459C24D979605E10C /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockAuthService.swift */; };
+		FC1B7F6C63764470B71311F7 /* FMS/Modules/Maintenance/NewUI/Models/Priority.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F41CFF1B424080B77E9BF6 /* FMS/Modules/Maintenance/NewUI/Models/Priority.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -30,11 +121,102 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		023BCB53D1454FDCA8324095 /* FMS/Modules/Maintenance/NewUI/Extensions/Date+Formatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FMS/Modules/Maintenance/NewUI/Extensions/Date+Formatting.swift"; sourceTree = "<group>"; };
+		0756826F95CD4D4680140F07 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPDashboardView.swift; sourceTree = "<group>"; };
+		0A66E8FF6C534603AFB001E7 /* FMS/Modules/Maintenance/NewUI/Components/ToastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/ToastView.swift; sourceTree = "<group>"; };
 		0DBDFD2C2FEE753800950D07 /* FMS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FMS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0DBDFD392FEE753A00950D07 /* FMSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FMSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0DBDFD432FEE753A00950D07 /* FMSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FMSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0DBDFEC92FEEAAEA00950D07 /* Secrets.debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.debug.xcconfig; sourceTree = "<group>"; };
 		0DBDFECB2FEEAB1500950D07 /* Secrets.release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.release.xcconfig; sourceTree = "<group>"; };
+		0EFC6C5C1A8D4F6C9B3E9489 /* FMS/Modules/Maintenance/NewUI/Models/JobStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Models/JobStatus.swift; sourceTree = "<group>"; };
+		116102DF1D5E42749030EEC5 /* FMS/Modules/Maintenance/NewUI/Views/Jobs/JobSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/Jobs/JobSummaryView.swift; sourceTree = "<group>"; };
+		17550373B8C54CFC8273228C /* FMS/Modules/Maintenance/NewUI/Services/Protocols/ActivityServicing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Services/Protocols/ActivityServicing.swift; sourceTree = "<group>"; };
+		175BD35D19964CF888B99AF3 /* FMS/Modules/Maintenance/NewUI/Components/ActivityRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/ActivityRow.swift; sourceTree = "<group>"; };
+		1DC26952E43C48EF9CDA27CD /* FMS/Modules/Maintenance/NewUI/Navigation/AppRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Navigation/AppRoute.swift; sourceTree = "<group>"; };
+		1F571766A02646579860097E /* FMS/Modules/Maintenance/NewUI/Components/ProgressIndicatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/ProgressIndicatorView.swift; sourceTree = "<group>"; };
+		2200BFC6EC1C441BAC1EB745 /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/CompleteWorkOrderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/WorkOrders/CompleteWorkOrderView.swift; sourceTree = "<group>"; };
+		22CAE633341F41B7BBA559E1 /* FMS/Modules/Maintenance/NewUI/Navigation/NavigationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Navigation/NavigationCoordinator.swift; sourceTree = "<group>"; };
+		28E233E78E4B4440B78FBFFF /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPProfileView.swift; sourceTree = "<group>"; };
+		29835357C30D475C89567AF3 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/WorkOrderServicing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Services/Protocols/WorkOrderServicing.swift; sourceTree = "<group>"; };
+		2DBB1821159D4AB292330789 /* FMS/Modules/Maintenance/NewUI/Components/MPEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/MPEmptyStateView.swift; sourceTree = "<group>"; };
+		2FDB2C5843134FF984E6F5A3 /* FMS/Modules/Maintenance/NewUI/ViewModels/Jobs/MyJobsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/ViewModels/Jobs/MyJobsViewModel.swift; sourceTree = "<group>"; };
+		308C19845EF648BD99DBE2E0 /* FMS/Modules/Maintenance/NewUI/Theme/AppShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Theme/AppShadow.swift; sourceTree = "<group>"; };
+		31F0B001B985458084EBDEE0 /* FMS/Modules/Maintenance/NewUI/Mocks/PreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Mocks/PreviewData.swift; sourceTree = "<group>"; };
+		3B5C420336544DF4A986D124 /* FMS/Modules/Maintenance/NewUI/Theme/AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Theme/AppTheme.swift; sourceTree = "<group>"; };
+		404F82946D7C408D95964E55 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/PastWorkOrderDetailsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/PastWorkOrderDetailsViewModel.swift; sourceTree = "<group>"; };
+		43D553B23B09469E8A075699 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/WorkOrderSuccessViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/WorkOrderSuccessViewModel.swift; sourceTree = "<group>"; };
+		454DCFCA3C9C40159C462DED /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/ActivityHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/Dashboard/ActivityHistoryView.swift; sourceTree = "<group>"; };
+		472DB3CE8E84449AAE5BAD01 /* FMS/Modules/Maintenance/NewUI/Navigation/TabNavigationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Navigation/TabNavigationState.swift; sourceTree = "<group>"; };
+		487BE6E737EB47239DEC40A3 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/MPDashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/MPDashboardViewModel.swift; sourceTree = "<group>"; };
+		4BAFAB6F23934CCA84D4CC6E /* FMS/Modules/Maintenance/NewUI/Navigation/AppTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Navigation/AppTab.swift; sourceTree = "<group>"; };
+		4C7F6E7C45C94FDD9C3BDF52 /* FMS/Modules/Maintenance/NewUI/Models/Activity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Models/Activity.swift; sourceTree = "<group>"; };
+		4EA27EBB95F44F349AAC59C6 /* FMS/Modules/Maintenance/NewUI/Models/UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Models/UserProfile.swift; sourceTree = "<group>"; };
+		52AE5FFC83C24320B34F1FAB /* FMS/Modules/Maintenance/NewUI/Components/BottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/BottomSheet.swift; sourceTree = "<group>"; };
+		548D1DF78CDB41D4A0553B52 /* FMS/Modules/Maintenance/NewUI/Core/DependencyInjection/AppDependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Core/DependencyInjection/AppDependencyContainer.swift; sourceTree = "<group>"; };
+		57676BFF74DD46798F3010A0 /* FMS/Modules/Maintenance/NewUI/Components/WorkOrderCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/WorkOrderCard.swift; sourceTree = "<group>"; };
+		57BBCDF0A7374A73B5B15CFE /* FMS/Modules/Maintenance/NewUI/Core/Networking/APIEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Core/Networking/APIEndpoint.swift; sourceTree = "<group>"; };
+		5A3891635BFD415B9936BD76 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/UpcomingMaintenanceListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/UpcomingMaintenanceListViewModel.swift; sourceTree = "<group>"; };
+		5B6C2935363D483F9951D6A7 /* FMS/Modules/Maintenance/NewUI/Models/WorkOrder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Models/WorkOrder.swift; sourceTree = "<group>"; };
+		5CBACEF442A24363BB1F04A1 /* FMS/Modules/Maintenance/NewUI/Core/Managers/FeatureFlagManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Core/Managers/FeatureFlagManager.swift; sourceTree = "<group>"; };
+		645874872D654C638B2B24AF /* FMS/Modules/Maintenance/NewUI/Core/Storage/LocalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Core/Storage/LocalStore.swift; sourceTree = "<group>"; };
+		684DEFEEB4E1429F86EA8059 /* FMS/Modules/Maintenance/NewUI/Theme/AppAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Theme/AppAnimation.swift; sourceTree = "<group>"; };
+		68758C6D42624C22A9EDF6A2 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockVehicleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Services/Mocks/MockVehicleService.swift; sourceTree = "<group>"; };
+		6996E401FBD14627A2032178 /* FMS/Modules/Maintenance/NewUI/Components/SummaryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/SummaryCard.swift; sourceTree = "<group>"; };
+		6D024286BEEB41A494A1E55F /* FMS/Modules/Maintenance/NewUI/Core/Managers/SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Core/Managers/SessionManager.swift; sourceTree = "<group>"; };
+		6EBCD7F7379C45ECAF284D37 /* FMS/Modules/Maintenance/NewUI/Theme/AppSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Theme/AppSpacing.swift; sourceTree = "<group>"; };
+		76D7C04D399749CEBAE9501B /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockActivityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Services/Mocks/MockActivityService.swift; sourceTree = "<group>"; };
+		76FC33C4F77A4AF6B6A8CBBB /* FMS/Modules/Maintenance/NewUI/Navigation/WorkOrderFlowRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Navigation/WorkOrderFlowRoute.swift; sourceTree = "<group>"; };
+		79C6CAC28D414761882ED966 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/CompleteWorkOrderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/CompleteWorkOrderViewModel.swift; sourceTree = "<group>"; };
+		7B6CC50231B7444CBB7FF06F /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/WorkOrderSuccessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/WorkOrders/WorkOrderSuccessView.swift; sourceTree = "<group>"; };
+		7D683B0B89CF4DE69D6D7586 /* FMS/Modules/Maintenance/NewUI/AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/AppEnvironment.swift; sourceTree = "<group>"; };
+		81F09F9B5E724E159FF38B43 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ActivityHistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ActivityHistoryViewModel.swift; sourceTree = "<group>"; };
+		849C17524D284AF0B1A00FC8 /* FMS/Modules/Maintenance/NewUI/Components/SecondaryButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/SecondaryButton.swift; sourceTree = "<group>"; };
+		892B047CB922436F93D22809 /* FMS/Modules/Maintenance/NewUI/Models/MPInspectionItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Models/MPInspectionItem.swift; sourceTree = "<group>"; };
+		8C14CDF3BF4145C18A33972F /* FMS/Modules/Maintenance/NewUI/Components/ReusableNavigationBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/ReusableNavigationBar.swift; sourceTree = "<group>"; };
+		9513E486C5534123AD72B72A /* FMS/Modules/Maintenance/NewUI/Components/DetailRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/DetailRow.swift; sourceTree = "<group>"; };
+		99534CC08C6A45118574CBBB /* FMS/Modules/Maintenance/NewUI/Components/PrimaryButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/PrimaryButton.swift; sourceTree = "<group>"; };
+		9C0EE15F8C4A4EA98DBE595D /* FMS/Modules/Maintenance/NewUI/Models/MaintenanceSchedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Models/MaintenanceSchedule.swift; sourceTree = "<group>"; };
+		9D3F3007551B4D28882CE618 /* FMS/Modules/Maintenance/NewUI/Theme/AppTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Theme/AppTypography.swift; sourceTree = "<group>"; };
+		A75169F5B18E400EB2B98FDD /* FMS/Modules/Maintenance/NewUI/Components/CardButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/CardButtonStyle.swift; sourceTree = "<group>"; };
+		A8C4628E0029450DA7AD676B /* FMS/Modules/Maintenance/NewUI/Core/Constants/AppConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Core/Constants/AppConstants.swift; sourceTree = "<group>"; };
+		ABFAA862002241A1876956CA /* FMS/Modules/Maintenance/NewUI/Components/OnHoldWorkOrderCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/OnHoldWorkOrderCard.swift; sourceTree = "<group>"; };
+		AD90B05BC9154A558E597A4C /* FMS/Modules/Maintenance/NewUI/Components/MPStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/MPStatusBadge.swift; sourceTree = "<group>"; };
+		AF17D56E0A934F778FFF114B /* FMS/Modules/Maintenance/NewUI/Navigation/RouteViewFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Navigation/RouteViewFactory.swift; sourceTree = "<group>"; };
+		B0C2764BBA6F4B4797267343 /* FMS/Modules/Maintenance/NewUI/Theme/AppColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Theme/AppColor.swift; sourceTree = "<group>"; };
+		B5134FC1890A4297A520472E /* FMS/Modules/Maintenance/NewUI/Core/ErrorHandling/AppError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Core/ErrorHandling/AppError.swift; sourceTree = "<group>"; };
+		B7E2721BC1DC47CFBA471CAE /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/VehicleDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/Dashboard/VehicleDetailsView.swift; sourceTree = "<group>"; };
+		BBA0BDD7B37648E5B7B678EF /* FMS/Modules/Maintenance/NewUI/Views/Root/AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/Root/AppRootView.swift; sourceTree = "<group>"; };
+		C03B30D43FFC44E181A23257 /* FMS/Modules/Maintenance/NewUI/Components/LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/LoadingView.swift; sourceTree = "<group>"; };
+		C3BAFB9929344A208373D353 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ProfileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ProfileViewModel.swift; sourceTree = "<group>"; };
+		C5F41CFF1B424080B77E9BF6 /* FMS/Modules/Maintenance/NewUI/Models/Priority.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Models/Priority.swift; sourceTree = "<group>"; };
+		C79CCAF94E4048EBA6C80E07 /* FMS/Modules/Maintenance/NewUI/Core/LoadingState/LoadableState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Core/LoadingState/LoadableState.swift; sourceTree = "<group>"; };
+		C92FE302199C496EA374EBA6 /* FMS/Modules/Maintenance/NewUI/Extensions/String+Accessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FMS/Modules/Maintenance/NewUI/Extensions/String+Accessibility.swift"; sourceTree = "<group>"; };
+		C9794AEB766248AEB2AF6C21 /* FMS/Modules/Maintenance/NewUI/Core/Configuration/AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Core/Configuration/AppConfiguration.swift; sourceTree = "<group>"; };
+		CB013C9D855C4874A0AC191B /* FMS/Modules/Maintenance/NewUI/Theme/AppCornerRadius.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Theme/AppCornerRadius.swift; sourceTree = "<group>"; };
+		CCA81831E19648F2BFF5B61E /* FMS/Modules/Maintenance/NewUI/Components/MPSearchBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/MPSearchBar.swift; sourceTree = "<group>"; };
+		CD61688FF96649B98974D38D /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/UpcomingMaintenanceListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/Dashboard/UpcomingMaintenanceListView.swift; sourceTree = "<group>"; };
+		CD851BBBCF394A02ABF4600C /* FMS/Modules/Maintenance/NewUI/Services/Protocols/VehicleServicing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Services/Protocols/VehicleServicing.swift; sourceTree = "<group>"; };
+		D411186E16F64B23A8B755AE /* FMS/Modules/Maintenance/NewUI/Components/PriorityBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/PriorityBadge.swift; sourceTree = "<group>"; };
+		D92B5FD4BD8B45CFA1FF2763 /* FMS/Modules/Maintenance/NewUI/Views/Jobs/MyJobsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/Jobs/MyJobsView.swift; sourceTree = "<group>"; };
+		DA0DEA57BB3648CC8DE5705A /* FMS/Modules/Maintenance/NewUI/Components/PhotoAttachmentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/PhotoAttachmentView.swift; sourceTree = "<group>"; };
+		DA70FE88C37D44A3B887F597 /* FMS/Modules/Maintenance/NewUI/Components/InspectionChecklistItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/InspectionChecklistItem.swift; sourceTree = "<group>"; };
+		DEF89A6273E1412D96861014 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Services/Mocks/MockNotificationService.swift; sourceTree = "<group>"; };
+		E094473459C24D979605E10C /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Services/Mocks/MockAuthService.swift; sourceTree = "<group>"; };
+		E1B7F3B57F5B45F6AF33EAB8 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/VehicleDetailsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/VehicleDetailsViewModel.swift; sourceTree = "<group>"; };
+		E23CDBC61E6549CF83AFAB01 /* FMS/Modules/Maintenance/NewUI/Theme/AppIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Theme/AppIcon.swift; sourceTree = "<group>"; };
+		E4A1413A869C44EBB352B2EA /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/PastWorkOrderDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/WorkOrders/PastWorkOrderDetailsView.swift; sourceTree = "<group>"; };
+		E5E4428851C84EE1B6724E67 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockWorkOrderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Services/Mocks/MockWorkOrderService.swift; sourceTree = "<group>"; };
+		E73450B8E14548CCA53531F0 /* FMS/Modules/Maintenance/NewUI/Views/Root/RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/Root/RootTabView.swift; sourceTree = "<group>"; };
+		E798FE6A34274003B3743274 /* FMS/Modules/Maintenance/NewUI/Components/SectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/SectionHeader.swift; sourceTree = "<group>"; };
+		E7CE7FF192AA471CBAE6A9B5 /* FMS/Modules/Maintenance/NewUI/Core/Networking/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Core/Networking/APIClient.swift; sourceTree = "<group>"; };
+		F0A1BF0BEDE04C0392985A69 /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/AddPartsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/WorkOrders/AddPartsSheet.swift; sourceTree = "<group>"; };
+		F357C12F772642018CC52D04 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/AuthServicing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Services/Protocols/AuthServicing.swift; sourceTree = "<group>"; };
+		F4025F449A8145C294FC2925 /* FMS/Modules/Maintenance/NewUI/Core/Utilities/AccessibilityText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Core/Utilities/AccessibilityText.swift; sourceTree = "<group>"; };
+		F7F973E53A3C42788CFF2F48 /* FMS/Modules/Maintenance/NewUI/Components/VehicleCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/VehicleCard.swift; sourceTree = "<group>"; };
+		FB72B62440784472BFDFFD33 /* FMS/Modules/Maintenance/NewUI/Models/InventoryItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Models/InventoryItem.swift; sourceTree = "<group>"; };
+		FC12323CAE174573B3020680 /* FMS/Modules/Maintenance/NewUI/ViewModels/Jobs/JobSummaryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/ViewModels/Jobs/JobSummaryViewModel.swift; sourceTree = "<group>"; };
+		FD1EF582B0C24C97A0E09642 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/NotificationServicing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Services/Protocols/NotificationServicing.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -104,6 +286,7 @@
 				0DBDFD462FEE753A00950D07 /* FMSUITests */,
 				0DBDFEC62FEEA20000950D07 /* Frameworks */,
 				0DBDFD2D2FEE753800950D07 /* Products */,
+				F12FE6B92FF14D2600FC295F /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -122,6 +305,104 @@
 			children = (
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		F12FE6B92FF14D2600FC295F /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				7D683B0B89CF4DE69D6D7586 /* FMS/Modules/Maintenance/NewUI/AppEnvironment.swift */,
+				31F0B001B985458084EBDEE0 /* FMS/Modules/Maintenance/NewUI/Mocks/PreviewData.swift */,
+				5A3891635BFD415B9936BD76 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/UpcomingMaintenanceListViewModel.swift */,
+				81F09F9B5E724E159FF38B43 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ActivityHistoryViewModel.swift */,
+				E1B7F3B57F5B45F6AF33EAB8 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/VehicleDetailsViewModel.swift */,
+				487BE6E737EB47239DEC40A3 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/MPDashboardViewModel.swift */,
+				C3BAFB9929344A208373D353 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ProfileViewModel.swift */,
+				FC12323CAE174573B3020680 /* FMS/Modules/Maintenance/NewUI/ViewModels/Jobs/JobSummaryViewModel.swift */,
+				2FDB2C5843134FF984E6F5A3 /* FMS/Modules/Maintenance/NewUI/ViewModels/Jobs/MyJobsViewModel.swift */,
+				79C6CAC28D414761882ED966 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/CompleteWorkOrderViewModel.swift */,
+				43D553B23B09469E8A075699 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/WorkOrderSuccessViewModel.swift */,
+				404F82946D7C408D95964E55 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/PastWorkOrderDetailsViewModel.swift */,
+				C9794AEB766248AEB2AF6C21 /* FMS/Modules/Maintenance/NewUI/Core/Configuration/AppConfiguration.swift */,
+				B5134FC1890A4297A520472E /* FMS/Modules/Maintenance/NewUI/Core/ErrorHandling/AppError.swift */,
+				E7CE7FF192AA471CBAE6A9B5 /* FMS/Modules/Maintenance/NewUI/Core/Networking/APIClient.swift */,
+				57BBCDF0A7374A73B5B15CFE /* FMS/Modules/Maintenance/NewUI/Core/Networking/APIEndpoint.swift */,
+				A8C4628E0029450DA7AD676B /* FMS/Modules/Maintenance/NewUI/Core/Constants/AppConstants.swift */,
+				6D024286BEEB41A494A1E55F /* FMS/Modules/Maintenance/NewUI/Core/Managers/SessionManager.swift */,
+				5CBACEF442A24363BB1F04A1 /* FMS/Modules/Maintenance/NewUI/Core/Managers/FeatureFlagManager.swift */,
+				645874872D654C638B2B24AF /* FMS/Modules/Maintenance/NewUI/Core/Storage/LocalStore.swift */,
+				F4025F449A8145C294FC2925 /* FMS/Modules/Maintenance/NewUI/Core/Utilities/AccessibilityText.swift */,
+				C79CCAF94E4048EBA6C80E07 /* FMS/Modules/Maintenance/NewUI/Core/LoadingState/LoadableState.swift */,
+				548D1DF78CDB41D4A0553B52 /* FMS/Modules/Maintenance/NewUI/Core/DependencyInjection/AppDependencyContainer.swift */,
+				472DB3CE8E84449AAE5BAD01 /* FMS/Modules/Maintenance/NewUI/Navigation/TabNavigationState.swift */,
+				1DC26952E43C48EF9CDA27CD /* FMS/Modules/Maintenance/NewUI/Navigation/AppRoute.swift */,
+				76FC33C4F77A4AF6B6A8CBBB /* FMS/Modules/Maintenance/NewUI/Navigation/WorkOrderFlowRoute.swift */,
+				AF17D56E0A934F778FFF114B /* FMS/Modules/Maintenance/NewUI/Navigation/RouteViewFactory.swift */,
+				22CAE633341F41B7BBA559E1 /* FMS/Modules/Maintenance/NewUI/Navigation/NavigationCoordinator.swift */,
+				4BAFAB6F23934CCA84D4CC6E /* FMS/Modules/Maintenance/NewUI/Navigation/AppTab.swift */,
+				9C0EE15F8C4A4EA98DBE595D /* FMS/Modules/Maintenance/NewUI/Models/MaintenanceSchedule.swift */,
+				5B6C2935363D483F9951D6A7 /* FMS/Modules/Maintenance/NewUI/Models/WorkOrder.swift */,
+				0EFC6C5C1A8D4F6C9B3E9489 /* FMS/Modules/Maintenance/NewUI/Models/JobStatus.swift */,
+				FB72B62440784472BFDFFD33 /* FMS/Modules/Maintenance/NewUI/Models/InventoryItem.swift */,
+				4EA27EBB95F44F349AAC59C6 /* FMS/Modules/Maintenance/NewUI/Models/UserProfile.swift */,
+				C5F41CFF1B424080B77E9BF6 /* FMS/Modules/Maintenance/NewUI/Models/Priority.swift */,
+				892B047CB922436F93D22809 /* FMS/Modules/Maintenance/NewUI/Models/MPInspectionItem.swift */,
+				4C7F6E7C45C94FDD9C3BDF52 /* FMS/Modules/Maintenance/NewUI/Models/Activity.swift */,
+				023BCB53D1454FDCA8324095 /* FMS/Modules/Maintenance/NewUI/Extensions/Date+Formatting.swift */,
+				C92FE302199C496EA374EBA6 /* FMS/Modules/Maintenance/NewUI/Extensions/String+Accessibility.swift */,
+				57676BFF74DD46798F3010A0 /* FMS/Modules/Maintenance/NewUI/Components/WorkOrderCard.swift */,
+				175BD35D19964CF888B99AF3 /* FMS/Modules/Maintenance/NewUI/Components/ActivityRow.swift */,
+				0A66E8FF6C534603AFB001E7 /* FMS/Modules/Maintenance/NewUI/Components/ToastView.swift */,
+				8C14CDF3BF4145C18A33972F /* FMS/Modules/Maintenance/NewUI/Components/ReusableNavigationBar.swift */,
+				1F571766A02646579860097E /* FMS/Modules/Maintenance/NewUI/Components/ProgressIndicatorView.swift */,
+				CCA81831E19648F2BFF5B61E /* FMS/Modules/Maintenance/NewUI/Components/MPSearchBar.swift */,
+				6996E401FBD14627A2032178 /* FMS/Modules/Maintenance/NewUI/Components/SummaryCard.swift */,
+				52AE5FFC83C24320B34F1FAB /* FMS/Modules/Maintenance/NewUI/Components/BottomSheet.swift */,
+				F7F973E53A3C42788CFF2F48 /* FMS/Modules/Maintenance/NewUI/Components/VehicleCard.swift */,
+				A75169F5B18E400EB2B98FDD /* FMS/Modules/Maintenance/NewUI/Components/CardButtonStyle.swift */,
+				DA70FE88C37D44A3B887F597 /* FMS/Modules/Maintenance/NewUI/Components/InspectionChecklistItem.swift */,
+				DA0DEA57BB3648CC8DE5705A /* FMS/Modules/Maintenance/NewUI/Components/PhotoAttachmentView.swift */,
+				2DBB1821159D4AB292330789 /* FMS/Modules/Maintenance/NewUI/Components/MPEmptyStateView.swift */,
+				99534CC08C6A45118574CBBB /* FMS/Modules/Maintenance/NewUI/Components/PrimaryButton.swift */,
+				9513E486C5534123AD72B72A /* FMS/Modules/Maintenance/NewUI/Components/DetailRow.swift */,
+				D411186E16F64B23A8B755AE /* FMS/Modules/Maintenance/NewUI/Components/PriorityBadge.swift */,
+				849C17524D284AF0B1A00FC8 /* FMS/Modules/Maintenance/NewUI/Components/SecondaryButton.swift */,
+				ABFAA862002241A1876956CA /* FMS/Modules/Maintenance/NewUI/Components/OnHoldWorkOrderCard.swift */,
+				C03B30D43FFC44E181A23257 /* FMS/Modules/Maintenance/NewUI/Components/LoadingView.swift */,
+				E798FE6A34274003B3743274 /* FMS/Modules/Maintenance/NewUI/Components/SectionHeader.swift */,
+				AD90B05BC9154A558E597A4C /* FMS/Modules/Maintenance/NewUI/Components/MPStatusBadge.swift */,
+				E23CDBC61E6549CF83AFAB01 /* FMS/Modules/Maintenance/NewUI/Theme/AppIcon.swift */,
+				308C19845EF648BD99DBE2E0 /* FMS/Modules/Maintenance/NewUI/Theme/AppShadow.swift */,
+				6EBCD7F7379C45ECAF284D37 /* FMS/Modules/Maintenance/NewUI/Theme/AppSpacing.swift */,
+				CB013C9D855C4874A0AC191B /* FMS/Modules/Maintenance/NewUI/Theme/AppCornerRadius.swift */,
+				B0C2764BBA6F4B4797267343 /* FMS/Modules/Maintenance/NewUI/Theme/AppColor.swift */,
+				9D3F3007551B4D28882CE618 /* FMS/Modules/Maintenance/NewUI/Theme/AppTypography.swift */,
+				3B5C420336544DF4A986D124 /* FMS/Modules/Maintenance/NewUI/Theme/AppTheme.swift */,
+				684DEFEEB4E1429F86EA8059 /* FMS/Modules/Maintenance/NewUI/Theme/AppAnimation.swift */,
+				0756826F95CD4D4680140F07 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPDashboardView.swift */,
+				CD61688FF96649B98974D38D /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/UpcomingMaintenanceListView.swift */,
+				28E233E78E4B4440B78FBFFF /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPProfileView.swift */,
+				B7E2721BC1DC47CFBA471CAE /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/VehicleDetailsView.swift */,
+				454DCFCA3C9C40159C462DED /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/ActivityHistoryView.swift */,
+				E73450B8E14548CCA53531F0 /* FMS/Modules/Maintenance/NewUI/Views/Root/RootTabView.swift */,
+				BBA0BDD7B37648E5B7B678EF /* FMS/Modules/Maintenance/NewUI/Views/Root/AppRootView.swift */,
+				D92B5FD4BD8B45CFA1FF2763 /* FMS/Modules/Maintenance/NewUI/Views/Jobs/MyJobsView.swift */,
+				116102DF1D5E42749030EEC5 /* FMS/Modules/Maintenance/NewUI/Views/Jobs/JobSummaryView.swift */,
+				E4A1413A869C44EBB352B2EA /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/PastWorkOrderDetailsView.swift */,
+				2200BFC6EC1C441BAC1EB745 /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/CompleteWorkOrderView.swift */,
+				F0A1BF0BEDE04C0392985A69 /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/AddPartsSheet.swift */,
+				7B6CC50231B7444CBB7FF06F /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/WorkOrderSuccessView.swift */,
+				E094473459C24D979605E10C /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockAuthService.swift */,
+				DEF89A6273E1412D96861014 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockNotificationService.swift */,
+				76D7C04D399749CEBAE9501B /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockActivityService.swift */,
+				68758C6D42624C22A9EDF6A2 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockVehicleService.swift */,
+				E5E4428851C84EE1B6724E67 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockWorkOrderService.swift */,
+				FD1EF582B0C24C97A0E09642 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/NotificationServicing.swift */,
+				17550373B8C54CFC8273228C /* FMS/Modules/Maintenance/NewUI/Services/Protocols/ActivityServicing.swift */,
+				CD851BBBCF394A02ABF4600C /* FMS/Modules/Maintenance/NewUI/Services/Protocols/VehicleServicing.swift */,
+				F357C12F772642018CC52D04 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/AuthServicing.swift */,
+				29835357C30D475C89567AF3 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/WorkOrderServicing.swift */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -274,6 +555,97 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BE49FE79E2714A8AA5D9EB6F /* FMS/Modules/Maintenance/NewUI/AppEnvironment.swift in Sources */,
+				71566BEA04D64108A3275905 /* FMS/Modules/Maintenance/NewUI/Mocks/PreviewData.swift in Sources */,
+				30D3799853E645D797C5FE64 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/UpcomingMaintenanceListViewModel.swift in Sources */,
+				7FDB1A49B0984969B9B27C9D /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ActivityHistoryViewModel.swift in Sources */,
+				B6F496729C6B4E81BD424F06 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/VehicleDetailsViewModel.swift in Sources */,
+				D5190D5B0A1C4839ABE50DAD /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/MPDashboardViewModel.swift in Sources */,
+				D2727FF1DA8D4AE5BA0A5CB3 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ProfileViewModel.swift in Sources */,
+				1A939D398A484B599112C464 /* FMS/Modules/Maintenance/NewUI/ViewModels/Jobs/JobSummaryViewModel.swift in Sources */,
+				DB056DE9322D4D74A4FC78F8 /* FMS/Modules/Maintenance/NewUI/ViewModels/Jobs/MyJobsViewModel.swift in Sources */,
+				AA686CD17A1C4D4DA5562BB0 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/CompleteWorkOrderViewModel.swift in Sources */,
+				6A9462B042904A0AAA79B455 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/WorkOrderSuccessViewModel.swift in Sources */,
+				7F011BAD72C047FDB75CA5A0 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/PastWorkOrderDetailsViewModel.swift in Sources */,
+				635E7379F3004B4890F6C5BA /* FMS/Modules/Maintenance/NewUI/Core/Configuration/AppConfiguration.swift in Sources */,
+				EB3008F2B5F74D11B852B5FE /* FMS/Modules/Maintenance/NewUI/Core/ErrorHandling/AppError.swift in Sources */,
+				B3E3AE4644154A5B84B5B422 /* FMS/Modules/Maintenance/NewUI/Core/Networking/APIClient.swift in Sources */,
+				228DD0FCBC31496FAFD34C11 /* FMS/Modules/Maintenance/NewUI/Core/Networking/APIEndpoint.swift in Sources */,
+				7D49E1DDAA03410B8D285B51 /* FMS/Modules/Maintenance/NewUI/Core/Constants/AppConstants.swift in Sources */,
+				6B6F01AFDEB24C1A9E814E36 /* FMS/Modules/Maintenance/NewUI/Core/Managers/SessionManager.swift in Sources */,
+				C689D7081CC945F881A11B8E /* FMS/Modules/Maintenance/NewUI/Core/Managers/FeatureFlagManager.swift in Sources */,
+				5D5B8B58117643C8896C3E6F /* FMS/Modules/Maintenance/NewUI/Core/Storage/LocalStore.swift in Sources */,
+				2F0840B73AD24295ABF4B353 /* FMS/Modules/Maintenance/NewUI/Core/Utilities/AccessibilityText.swift in Sources */,
+				D01E7E620BBD4AEF8DDC41CC /* FMS/Modules/Maintenance/NewUI/Core/LoadingState/LoadableState.swift in Sources */,
+				D0C9C4C809B54CADB7BB2641 /* FMS/Modules/Maintenance/NewUI/Core/DependencyInjection/AppDependencyContainer.swift in Sources */,
+				DBDC9E22465C482C8F2FB602 /* FMS/Modules/Maintenance/NewUI/Navigation/TabNavigationState.swift in Sources */,
+				6BD7441C3DF84080B24C279D /* FMS/Modules/Maintenance/NewUI/Navigation/AppRoute.swift in Sources */,
+				BE3F7C06B9AF415E8699E7AC /* FMS/Modules/Maintenance/NewUI/Navigation/WorkOrderFlowRoute.swift in Sources */,
+				0C7EFEBE4B704B2C833701CE /* FMS/Modules/Maintenance/NewUI/Navigation/RouteViewFactory.swift in Sources */,
+				337767A080264ACDA0D5C95F /* FMS/Modules/Maintenance/NewUI/Navigation/NavigationCoordinator.swift in Sources */,
+				E65DBECC689C4F19B6EB07D9 /* FMS/Modules/Maintenance/NewUI/Navigation/AppTab.swift in Sources */,
+				1E1C4C512E0E45429ABB1944 /* FMS/Modules/Maintenance/NewUI/Models/MaintenanceSchedule.swift in Sources */,
+				4AA52D00629F44EAA6DC644D /* FMS/Modules/Maintenance/NewUI/Models/WorkOrder.swift in Sources */,
+				771F41922A5B4668A1338847 /* FMS/Modules/Maintenance/NewUI/Models/JobStatus.swift in Sources */,
+				2C5AF4BE450247DCA9CDDEFD /* FMS/Modules/Maintenance/NewUI/Models/InventoryItem.swift in Sources */,
+				95549CAEF558422CBB8C3DE4 /* FMS/Modules/Maintenance/NewUI/Models/UserProfile.swift in Sources */,
+				FC1B7F6C63764470B71311F7 /* FMS/Modules/Maintenance/NewUI/Models/Priority.swift in Sources */,
+				4C845B778D0148CEA70E2F39 /* FMS/Modules/Maintenance/NewUI/Models/MPInspectionItem.swift in Sources */,
+				4FE1A7E683C544879C2993FD /* FMS/Modules/Maintenance/NewUI/Models/Activity.swift in Sources */,
+				AFFAA0A6F2A349B9A02FE02A /* FMS/Modules/Maintenance/NewUI/Extensions/Date+Formatting.swift in Sources */,
+				885E3237BF044BAF84BE035C /* FMS/Modules/Maintenance/NewUI/Extensions/String+Accessibility.swift in Sources */,
+				CFAAF38524B44729B47364E2 /* FMS/Modules/Maintenance/NewUI/Components/WorkOrderCard.swift in Sources */,
+				6865EB09ADA449129A05D8F9 /* FMS/Modules/Maintenance/NewUI/Components/ActivityRow.swift in Sources */,
+				72150686DD424F22BBE73AC0 /* FMS/Modules/Maintenance/NewUI/Components/ToastView.swift in Sources */,
+				20704593D3AD4F6EB4D324AF /* FMS/Modules/Maintenance/NewUI/Components/ReusableNavigationBar.swift in Sources */,
+				262F52CBE4FD44B8B2A3FA1B /* FMS/Modules/Maintenance/NewUI/Components/ProgressIndicatorView.swift in Sources */,
+				4AEE3B29CDE24525AC6443DA /* FMS/Modules/Maintenance/NewUI/Components/MPSearchBar.swift in Sources */,
+				1181B1CAA3D749EDA18D8BDF /* FMS/Modules/Maintenance/NewUI/Components/SummaryCard.swift in Sources */,
+				D72EC761E33A4FFE95921FB6 /* FMS/Modules/Maintenance/NewUI/Components/BottomSheet.swift in Sources */,
+				751DB0B2489E41F7B948B304 /* FMS/Modules/Maintenance/NewUI/Components/VehicleCard.swift in Sources */,
+				50FB440072554AEA82ABDCEE /* FMS/Modules/Maintenance/NewUI/Components/CardButtonStyle.swift in Sources */,
+				E9375C19AB5946E7A11AC61F /* FMS/Modules/Maintenance/NewUI/Components/InspectionChecklistItem.swift in Sources */,
+				3042A36F2A5B4309856D8E7D /* FMS/Modules/Maintenance/NewUI/Components/PhotoAttachmentView.swift in Sources */,
+				F08092C544324836BFC250C8 /* FMS/Modules/Maintenance/NewUI/Components/MPEmptyStateView.swift in Sources */,
+				6C3A628DB2A34260B4797BD8 /* FMS/Modules/Maintenance/NewUI/Components/PrimaryButton.swift in Sources */,
+				F26BA84B3C764939994B2135 /* FMS/Modules/Maintenance/NewUI/Components/DetailRow.swift in Sources */,
+				F86D00A9646549AAB0696459 /* FMS/Modules/Maintenance/NewUI/Components/PriorityBadge.swift in Sources */,
+				F1CAB35346654C66944DC2A7 /* FMS/Modules/Maintenance/NewUI/Components/SecondaryButton.swift in Sources */,
+				C2A9FBF3F9BB4D349C476419 /* FMS/Modules/Maintenance/NewUI/Components/OnHoldWorkOrderCard.swift in Sources */,
+				049343B037CC493187563B3B /* FMS/Modules/Maintenance/NewUI/Components/LoadingView.swift in Sources */,
+				80F2C6EDF67246499C2EF276 /* FMS/Modules/Maintenance/NewUI/Components/SectionHeader.swift in Sources */,
+				4D3D628B49E64B7E839E54DF /* FMS/Modules/Maintenance/NewUI/Components/MPStatusBadge.swift in Sources */,
+				0518D3D3D3974739913A910A /* FMS/Modules/Maintenance/NewUI/Theme/AppIcon.swift in Sources */,
+				607CDE9CCEE64F7CB647FF62 /* FMS/Modules/Maintenance/NewUI/Theme/AppShadow.swift in Sources */,
+				97EF8E359FFA462EB54FE9C7 /* FMS/Modules/Maintenance/NewUI/Theme/AppSpacing.swift in Sources */,
+				09661A12066844109D842F36 /* FMS/Modules/Maintenance/NewUI/Theme/AppCornerRadius.swift in Sources */,
+				AEC21537E44E42B7B1FB8C06 /* FMS/Modules/Maintenance/NewUI/Theme/AppColor.swift in Sources */,
+				7A2F3C647B964931AFE0BCE1 /* FMS/Modules/Maintenance/NewUI/Theme/AppTypography.swift in Sources */,
+				93B252A15DFE4380864173FC /* FMS/Modules/Maintenance/NewUI/Theme/AppTheme.swift in Sources */,
+				6062CFBADBD04E12ACF5660F /* FMS/Modules/Maintenance/NewUI/Theme/AppAnimation.swift in Sources */,
+				80A60FC041B44A77817A0142 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPDashboardView.swift in Sources */,
+				D4DCD493606243DAB3ECF86F /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/UpcomingMaintenanceListView.swift in Sources */,
+				1BA645D184BC467886F4DEB2 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPProfileView.swift in Sources */,
+				CF21331C4F0645A79B3B0BD0 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/VehicleDetailsView.swift in Sources */,
+				7D831B759B294A6A80E2E7E5 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/ActivityHistoryView.swift in Sources */,
+				6CC678288E494196A930E89C /* FMS/Modules/Maintenance/NewUI/Views/Root/RootTabView.swift in Sources */,
+				620C40F7FDA64CC4A880C4B4 /* FMS/Modules/Maintenance/NewUI/Views/Root/AppRootView.swift in Sources */,
+				B207E0CEC4EF4F4D8EA06F75 /* FMS/Modules/Maintenance/NewUI/Views/Jobs/MyJobsView.swift in Sources */,
+				395D2D5A52B940F090CFFD00 /* FMS/Modules/Maintenance/NewUI/Views/Jobs/JobSummaryView.swift in Sources */,
+				73C79FF4AFB14FDA897B2235 /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/PastWorkOrderDetailsView.swift in Sources */,
+				9AB15740211D43279569B8C5 /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/CompleteWorkOrderView.swift in Sources */,
+				A4B8444F53E94CE0BFD8263D /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/AddPartsSheet.swift in Sources */,
+				C387C04FDD16437482EC47AC /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/WorkOrderSuccessView.swift in Sources */,
+				FB37675B0D9C4005A64ADC07 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockAuthService.swift in Sources */,
+				6CA18B01088746B8BCB53620 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockNotificationService.swift in Sources */,
+				90E9CC5D3227424389EC4D41 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockActivityService.swift in Sources */,
+				AFBF8E9ABC204DF79E417D4D /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockVehicleService.swift in Sources */,
+				DD619AC0B0A349B98D6D0AC9 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockWorkOrderService.swift in Sources */,
+				AC7E08C3A3A4453CA5FBBC65 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/NotificationServicing.swift in Sources */,
+				C65B8BBB9F2C450AB528E574 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/ActivityServicing.swift in Sources */,
+				E902BA28A35A47388D3CF42B /* FMS/Modules/Maintenance/NewUI/Services/Protocols/VehicleServicing.swift in Sources */,
+				95530FD91401429BA5869D07 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/AuthServicing.swift in Sources */,
+				F5C28FE02DC340F6AD20050B /* FMS/Modules/Maintenance/NewUI/Services/Protocols/WorkOrderServicing.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -457,7 +829,7 @@
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -491,7 +863,7 @@
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

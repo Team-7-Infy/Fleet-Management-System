@@ -9,8 +9,9 @@ protocol SupabaseServiceProtocol: AnyObject, Sendable {
 
 final actor SupabaseService: SupabaseServiceProtocol {
     nonisolated let client: SupabaseClient
-    nonisolated let decoder: JSONDecoder = SharedDecoder.json
-    nonisolated let encoder: JSONEncoder = SharedDecoder.encoder
+
+    nonisolated var decoder: JSONDecoder { SharedDecoder.json }
+    nonisolated var encoder: JSONEncoder { SharedDecoder.encoder }
 
     init() {
         client = SupabaseClient(
