@@ -5,7 +5,8 @@ struct DeviationAlert: Identifiable, Codable, Hashable, Sendable {
     var timestamp: Date
     var distance: Double
     var vehicleId: UUID
-    var geofenceId: UUID
+    var geofenceId: UUID?
+    var tripId: UUID?
 
     enum CodingKeys: String, CodingKey {
         case id = "deviationid"
@@ -13,5 +14,6 @@ struct DeviationAlert: Identifiable, Codable, Hashable, Sendable {
         case distance
         case vehicleId = "vehicleid"
         case geofenceId = "geofenceid"
+        case tripId = "tripid"
     }
 }

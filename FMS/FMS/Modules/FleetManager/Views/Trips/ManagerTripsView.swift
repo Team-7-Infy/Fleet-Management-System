@@ -11,6 +11,8 @@ struct ManagerTripsView: View {
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
 
+    var openAddTrip: () -> Void
+
     private var groupedTrips: [ManagerTripGroup] {
         [
             ManagerTripGroup(title: "Active", trips: activeTrips),
@@ -22,7 +24,7 @@ struct ManagerTripsView: View {
 
     private var activeTrips: [Trip] {
         viewModel.trips
-            .filter { $0.status == .accepted }
+            .filter { $0.status == .accepted || $0.status == .inProgress }
             .sorted { $0.startTime < $1.startTime }
     }
 
@@ -39,15 +41,27 @@ struct ManagerTripsView: View {
     }
 
     var body: some View {
-        ManagerTripListScreen(
-            title: "Trips",
-            groups: groupedTrips,
-            emptyTitle: "No active or scheduled trips",
-            emptyMessage: "Use the plus button to create a trip with a vehicle and driver.",
-            viewModel: viewModel,
-            vehiclesViewModel: vehiclesViewModel,
-            usersViewModel: usersViewModel
-        )
+        ZStack(alignment: .bottomTrailing) {
+            ManagerTripListScreen(
+                groups: groupedTrips,
+                emptyTitle: "No active or scheduled trips",
+                emptyMessage: "Use the plus button to create a trip with a vehicle and driver.",
+                viewModel: viewModel,
+                vehiclesViewModel: vehiclesViewModel,
+                usersViewModel: usersViewModel
+            )
+
+            Button(action: openAddTrip) {
+                Image(systemName: "plus")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(FleetPalette.primary, in: Circle())
+                    .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+            }
+            .padding(.trailing, 20)
+            .padding(.bottom, 16)
+        }
         .refreshable {
             await viewModel.load()
         }
@@ -55,7 +69,6 @@ struct ManagerTripsView: View {
 }
 
 struct ManagerTripListScreen: View {
-    var title: String
     var groups: [ManagerTripGroup]
     var emptyTitle: String
     var emptyMessage: String
@@ -66,8 +79,16 @@ struct ManagerTripListScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                ScreenHeader(title: title)
                 FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
+
+                if !viewModel.rejectionRequests.isEmpty {
+                    RejectionRequestsSection(
+                        trips: viewModel.rejectionRequests,
+                        viewModel: viewModel,
+                        vehiclesViewModel: vehiclesViewModel,
+                        usersViewModel: usersViewModel
+                    )
+                }
 
                 if groups.isEmpty {
                     GlassPanel {
@@ -94,6 +115,8 @@ struct ManagerTripListScreen: View {
             .padding()
         }
         .fleetScreenBackground()
+        .navigationTitle("Trips")
+        .navigationBarTitleDisplayMode(.large)
     }
 }
 
@@ -164,26 +187,28 @@ private struct ManagerTripCard: View {
             LazyVGrid(columns: FleetPalette.twoColumnGrid, spacing: 10) {
                 TripInfoTile(
                     systemImage: "clock",
-                    title: FleetManagerFormat.day.string(from: trip.startTime),
+                    title: Self.compactDay.string(from: trip.startTime),
                     value: FleetManagerFormat.time.string(from: trip.startTime)
                 )
 
                 TripInfoTile(
                     systemImage: "clock",
-                    title: trip.endTime.map { FleetManagerFormat.day.string(from: $0) } ?? FleetManagerFormat.day.string(from: trip.startTime),
+                    title: trip.endTime.map { Self.compactDay.string(from: $0) } ?? Self.compactDay.string(from: trip.startTime),
                     value: trip.endTime.map { FleetManagerFormat.time.string(from: $0) } ?? "TBD"
                 )
+            }
 
-                TripInfoTile(
+            VStack(spacing: 10) {
+                TripInfoRow(
                     systemImage: "person.fill",
                     title: driver?.displayName ?? "Driver unavailable",
-                    value: driver?.contact.description ?? "No contact"
+                    value: driver.map { "Contact: \($0.contact)" } ?? nil
                 )
 
-                TripInfoTile(
+                TripInfoRow(
                     systemImage: "car.fill",
                     title: vehicle?.licencePlate ?? "Vehicle unavailable",
-                    value: vehicle.map { "\($0.make) \($0.model)" } ?? "No vehicle"
+                    value: vehicle.map { "\($0.year) \($0.make) \($0.model)" }
                 )
             }
         }
@@ -197,6 +222,12 @@ private struct ManagerTripCard: View {
         .shadow(color: FleetPalette.primary.opacity(0.10), radius: 16, x: 0, y: 9)
         .accessibilityElement(children: .combine)
     }
+
+    private static let compactDay: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d MMM yy"
+        return formatter
+    }()
 }
 
 private struct TripRouteGlyph: View {
@@ -239,6 +270,7 @@ private struct TripInfoTile: View {
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(FleetPalette.textPrimary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.78)
 
                 Text(value)
                     .font(.subheadline)
@@ -250,6 +282,47 @@ private struct TripInfoTile: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 74)
+        .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(FleetPalette.tertiary.opacity(0.70), lineWidth: 1)
+        }
+    }
+}
+
+private struct TripInfoRow: View {
+    var systemImage: String
+    var title: String
+    var value: String?
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(FleetPalette.primary)
+                .frame(width: 38)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(FleetPalette.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                if let value, value.isEmpty == false {
+                    Text(value)
+                        .font(.subheadline)
+                        .foregroundStyle(FleetPalette.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 72)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -270,7 +343,7 @@ private struct ManagerTripDetailView: View {
     }
 
     private var isLive: Bool {
-        currentTrip.status == .accepted
+        currentTrip.status == .accepted || currentTrip.status == .inProgress
     }
 
     private var vehicle: Vehicle? {
@@ -290,7 +363,6 @@ private struct ManagerTripDetailView: View {
                     routeDetails
                     driverCard
                     vehicleCard
-                    statusActionsCard
                 }
                 .padding()
             }
@@ -431,26 +503,6 @@ private struct ManagerTripDetailView: View {
         }
     }
 
-    private var statusActionsCard: some View {
-        GlassPanel {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Trip Actions")
-                    .font(.title3.weight(.bold))
-                LazyVGrid(columns: FleetPalette.twoColumnGrid, spacing: 10) {
-                    ForEach(TripStatus.allCases) { status in
-                        Button {
-                            Task { await viewModel.updateStatus(currentTrip, status: status) }
-                        } label: {
-                            Text(status.title)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(FleetPalette.tripStatus(status))
-                    }
-                }
-            }
-        }
-    }
 }
 
 private struct RouteTimeline: View {
@@ -489,5 +541,112 @@ private struct TimelinePoint: View {
                     .lineLimit(2)
             }
         }
+    }
+}
+
+private struct RejectionRequestsSection: View {
+    var trips: [Trip]
+    @ObservedObject var viewModel: TripManagementViewModel
+    @ObservedObject var vehiclesViewModel: VehicleViewModel
+    @ObservedObject var usersViewModel: UserManagementViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("REJECTION REQUESTS")
+                    .font(.title3.weight(.heavy))
+                    .foregroundStyle(Color.red)
+                Spacer()
+                Text("\(trips.count) pending")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.red)
+                    .cornerRadius(8)
+            }
+            .padding(.horizontal, 2)
+
+            LazyVStack(spacing: 14) {
+                ForEach(trips) { trip in
+                    RejectionRequestCard(
+                        trip: trip,
+                        viewModel: viewModel,
+                        vehicle: vehiclesViewModel.vehicle(for: trip.vehicleId),
+                        driver: usersViewModel.driverUser(for: trip.driverId)
+                    )
+                }
+            }
+        }
+    }
+}
+
+private struct RejectionRequestCard: View {
+    var trip: Trip
+    @ObservedObject var viewModel: TripManagementViewModel
+    var vehicle: Vehicle?
+    var driver: User?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(trip.startLocation)
+                        .font(.headline)
+                    Text(trip.endLocation)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                StatusPill(text: "Rejection Pending", color: .red)
+            }
+
+            if let driver {
+                Label(driver.displayName, systemImage: "person.fill")
+                    .font(.subheadline)
+            }
+
+            if let reason = trip.rejectionReason, !reason.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Reason:")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.red)
+                    Text(reason)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.red.opacity(0.05))
+                .cornerRadius(8)
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    Task { await viewModel.approveRejection(for: trip) }
+                } label: {
+                    Label("Approve", systemImage: "checkmark.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+
+                Button {
+                    Task { await viewModel.denyRejection(for: trip) }
+                } label: {
+                    Label("Deny", systemImage: "xmark.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+            }
+        }
+        .padding(16)
+        .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.red.opacity(0.3), lineWidth: 1)
+        }
+        .shadow(color: FleetPalette.primary.opacity(0.10), radius: 16, x: 0, y: 9)
     }
 }

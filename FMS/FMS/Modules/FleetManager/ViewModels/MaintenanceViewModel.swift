@@ -28,6 +28,8 @@ final class MaintenanceViewModel: ObservableObject {
             tasks = try await maintenanceService.fetchTasks()
                 .sorted { $0.scheduledDate.date < $1.scheduledDate.date }
             errorMessage = nil
+        } catch is CancellationError {
+            errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -45,11 +47,10 @@ final class MaintenanceViewModel: ObservableObject {
 
             if let vehicleId = form.vehicleId {
                 try await maintenanceService.addTaskVehicle(TaskVehicle(taskId: task.id, vin: vehicleId))
-                if let vehicle = try? await vehicleService.fetchVehicle(id: vehicleId) {
-                    var updatedVehicle = vehicle
-                    updatedVehicle.status = .maintenance
-                    _ = try? await vehicleService.updateVehicle(updatedVehicle)
-                }
+                let vehicle = try await vehicleService.fetchVehicle(id: vehicleId)
+                var updatedVehicle = vehicle
+                updatedVehicle.status = .maintenance
+                _ = try await vehicleService.updateVehicle(updatedVehicle)
             }
 
             tasks.insert(task, at: 0)

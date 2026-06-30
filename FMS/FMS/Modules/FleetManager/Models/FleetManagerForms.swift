@@ -40,11 +40,11 @@ struct FleetManagerUserForm {
         return true
     }
 
-    func makeUser() throws -> User {
+    func makeUser(id: UUID = UUID()) throws -> User {
         guard let contactValue else { throw FleetManagerFormError.invalidContact }
 
         return User(
-            id: UUID(),
+            id: id,
             email: email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
             aadhar: aadhar.trimmingCharacters(in: .whitespacesAndNewlines),
             contact: contactValue,
@@ -227,8 +227,12 @@ extension TripStatus: Identifiable {
             return "Pending"
         case .accepted:
             return "Accepted"
+        case .rejectionPending:
+            return "Rejection Pending"
         case .rejected:
             return "Rejected"
+        case .inProgress:
+            return "In Progress"
         case .completed:
             return "Completed"
         }

@@ -1,7 +1,13 @@
 import Foundation
 import Supabase
 
-
+private let dateOnlyParser: DateFormatter = {
+    let f = DateFormatter()
+    f.dateFormat = "yyyy-MM-dd"
+    f.timeZone = TimeZone(secondsFromGMT: 0)
+    f.locale = Locale(identifier: "en_US_POSIX")
+    return f
+}()
 
 final actor MaintenanceService: MaintenanceServiceProtocol {
     private let supabase: SupabaseServiceProtocol
@@ -16,6 +22,34 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
             .select()
             .execute()
             .value
+    }
+
+    func fetchTasksForPersonnel(id: UUID) async throws -> [MaintenanceTask] {
+        struct TaskRow: Decodable, Hashable {
+            let taskid: UUID
+            let description: String
+            let scheduleddate: String
+            let scheduledby: UUID?
+            let executedby: UUID?
+            let isurgent: Bool
+            let status: String
+        }
+        let params: [String: AnyJSON] = ["p_personnel_id": .string(id.uuidString)]
+        let rows: [TaskRow] = try await supabase.client
+            .rpc("get_tasks_for_personnel", params: params)
+            .execute()
+            .value
+        return rows.map { row in
+            MaintenanceTask(
+                id: row.taskid,
+                description: row.description,
+                scheduledDate: DateOnly(wrappedValue: dateOnlyParser.date(from: row.scheduleddate) ?? Date()),
+                isUrgent: row.isurgent,
+                scheduledBy: row.scheduledby,
+                executedBy: row.executedby,
+                status: MaintenanceTaskStatus(rawValue: row.status) ?? .scheduled
+            )
+        }
     }
 
     func fetchTask(id: UUID) async throws -> MaintenanceTask {
@@ -68,7 +102,7 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
     func assignPersonnel(taskId: UUID, personnelId: UUID) async throws {
         try await supabase.client
             .from("maintenance_task")
-            .update(["executedby": personnelId.uuidString])
+            .update(["executedby": personnelId.uuidString, "status": MaintenanceTaskStatus.assigned.rawValue])
             .eq("taskid", value: taskId.uuidString)
             .execute()
     }

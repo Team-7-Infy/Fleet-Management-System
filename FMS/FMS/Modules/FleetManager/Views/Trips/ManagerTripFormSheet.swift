@@ -14,6 +14,7 @@ struct ManagerTripFormSheet: View {
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
     @State private var form = FleetManagerTripForm()
+    @State private var minimumStartTime = Date()
 
     private var hasRegisteredDriver: Bool {
         usersViewModel.drivers.contains { $0.status == .active }
@@ -66,7 +67,7 @@ struct ManagerTripFormSheet: View {
                     }
                     .fleetField()
 
-                    DatePicker("Start", selection: $form.startTime)
+                    DatePicker("Start", selection: $form.startTime, in: minimumStartTime...)
                         .fleetField()
 
                     DatePicker(
@@ -74,15 +75,10 @@ struct ManagerTripFormSheet: View {
                         selection: Binding(
                             get: { form.endTime ?? form.startTime.addingTimeInterval(3600) },
                             set: { form.endTime = $0 }
-                        )
+                        ),
+                        in: form.startTime...
                     )
                     .fleetField()
-
-                    Picker("Status", selection: $form.status) {
-                        ForEach(TripStatus.allCases) { status in
-                            Text(status.title).tag(status)
-                        }
-                    }
 
                     FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
 
@@ -108,8 +104,23 @@ struct ManagerTripFormSheet: View {
         .navigationTitle("Create Trip")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
+            minimumStartTime = Date()
+            if form.startTime < minimumStartTime {
+                form.startTime = minimumStartTime
+            }
+            if let endTime = form.endTime, endTime < form.startTime {
+                form.endTime = form.startTime.addingTimeInterval(3600)
+            }
             form.vehicleId = form.vehicleId ?? availableVehicles.first?.id
             form.driverId = form.driverId ?? availableDrivers.first?.id
+        }
+        .onChange(of: form.startTime) { _, newValue in
+            if newValue < minimumStartTime {
+                form.startTime = minimumStartTime
+            }
+            if (form.endTime ?? newValue) < newValue {
+                form.endTime = newValue.addingTimeInterval(3600)
+            }
         }
     }
 }

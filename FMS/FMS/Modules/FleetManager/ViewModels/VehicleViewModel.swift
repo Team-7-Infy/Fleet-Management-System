@@ -30,6 +30,8 @@ final class VehicleViewModel: ObservableObject {
             vehicles = try await service.fetchVehicles()
                 .sorted { $0.licencePlate.localizedCaseInsensitiveCompare($1.licencePlate) == .orderedAscending }
             errorMessage = nil
+        } catch is CancellationError {
+            errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
         }

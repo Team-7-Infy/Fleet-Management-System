@@ -14,6 +14,7 @@ struct MaintenanceActionMenu: View {
     var personnel: [MaintenancePersonnel]
     @ObservedObject var usersViewModel: UserManagementViewModel
     @ObservedObject var viewModel: MaintenanceViewModel
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         Menu {
@@ -25,16 +26,10 @@ struct MaintenanceActionMenu: View {
                 }
             }
 
-            ForEach(MaintenanceTaskStatus.allCases) { status in
-                Button(status.title) {
-                    Task { await viewModel.updateStatus(task, status: status) }
-                }
-            }
-
             Divider()
 
             Button(role: .destructive) {
-                Task { await viewModel.delete(task) }
+                showDeleteConfirm = true
             } label: {
                 Label("Delete", systemImage: "trash")
             }
@@ -42,5 +37,13 @@ struct MaintenanceActionMenu: View {
             Image(systemName: "ellipsis.circle")
         }
         .accessibilityLabel("Maintenance actions")
+        .alert("Delete Work Order?", isPresented: $showDeleteConfirm) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                Task { await viewModel.delete(task) }
+            }
+        } message: {
+            Text("Work order \"\(task.description)\" will be permanently removed.")
+        }
     }
 }

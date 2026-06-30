@@ -15,6 +15,7 @@ struct ManagerMaintenanceRequestSheet: View {
     @ObservedObject var usersViewModel: UserManagementViewModel
     @State private var form = FleetManagerMaintenanceTaskForm()
     var initialVehicleId: UUID?
+    var currentUserId: UUID?
 
     private var hasRegisteredPersonnel: Bool {
         usersViewModel.maintenancePersonnel.contains { $0.status == .active }
@@ -91,7 +92,7 @@ struct ManagerMaintenanceRequestSheet: View {
             form.vehicleId = form.vehicleId ?? initialVehicleId ?? vehiclesViewModel.vehicles.first?.id
             form.executedBy = form.executedBy ?? usersViewModel.maintenancePersonnel.first(where: { $0.status == .active })?.id
             form.description = form.description.isEmpty ? "Preventive maintenance" : form.description
-            form.scheduledBy = form.scheduledBy ?? usersViewModel.managerUsers.first?.id
+            form.scheduledBy = form.scheduledBy ?? currentUserId.flatMap(usersViewModel.managerId(for:))
         }
     }
 }

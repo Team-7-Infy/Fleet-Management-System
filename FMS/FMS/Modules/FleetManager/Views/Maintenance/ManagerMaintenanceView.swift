@@ -7,83 +7,91 @@ struct ManagerMaintenanceView: View {
     var openMaintenanceRequest: () -> Void
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                ScreenHeader(title: "Service")
+        ZStack(alignment: .bottomTrailing) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    ScreenHeader(title: "Service")
 
-                GlassPanel {
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack {
+                    GlassPanel {
+                        VStack(alignment: .leading, spacing: 14) {
                             Text("Vehicles In Maintenance")
                                 .font(.title3.bold())
-                            Spacer()
-                            Button(action: openMaintenanceRequest) {
-                                Image(systemName: "plus")
-                            }
-                            .accessibilityLabel("Request maintenance")
-                        }
 
-                        if vehiclesViewModel.maintenanceVehicles.isEmpty {
-                            EmptyStateView(
-                                title: "No immediate service due",
-                                message: "Vehicles marked for maintenance will be shown here.",
-                                systemImage: "checkmark.seal"
-                            )
-                        } else {
-                            ForEach(vehiclesViewModel.maintenanceVehicles) { vehicle in
-                                HStack(alignment: .top) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(vehicle.licencePlate)
-                                            .font(.headline)
-                                        Text("\(vehicle.year) \(vehicle.make) \(vehicle.model)")
-                                            .foregroundStyle(FleetPalette.textSecondary)
-                                    }
-                                    Spacer()
-                                    StatusPill(text: vehicle.status.title, color: FleetPalette.warning)
-                                }
-
-                                if vehicle.id != vehiclesViewModel.maintenanceVehicles.last?.id {
-                                    Divider()
-                                }
-                            }
-                        }
-                    }
-                }
-
-                GlassPanel {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text("Work Orders")
-                            .font(.title3.bold())
-                        if viewModel.tasks.isEmpty {
-                            EmptyStateView(
-                                title: "No work orders",
-                                message: "Request maintenance and assign registered personnel.",
-                                systemImage: "doc.text.magnifyingglass"
-                            )
-                        } else {
-                            ForEach(viewModel.tasks) { task in
-                                ManagerWorkOrderRow(
-                                    task: task,
-                                    assignee: usersViewModel.personnelUser(for: task.executedBy),
-                                    viewModel: viewModel,
-                                    usersViewModel: usersViewModel
+                            if vehiclesViewModel.maintenanceVehicles.isEmpty {
+                                EmptyStateView(
+                                    title: "No immediate service due",
+                                    message: "Vehicles marked for maintenance will be shown here.",
+                                    systemImage: "checkmark.seal"
                                 )
+                            } else {
+                                ForEach(vehiclesViewModel.maintenanceVehicles) { vehicle in
+                                    HStack(alignment: .top) {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(vehicle.licencePlate)
+                                                .font(.headline)
+                                            Text("\(vehicle.year) \(vehicle.make) \(vehicle.model)")
+                                                .foregroundStyle(FleetPalette.textSecondary)
+                                        }
+                                        Spacer()
+                                        StatusPill(text: vehicle.status.title, color: FleetPalette.warning)
+                                    }
 
-                                if task.id != viewModel.tasks.last?.id {
-                                    Divider()
+                                    if vehicle.id != vehiclesViewModel.maintenanceVehicles.last?.id {
+                                        Divider()
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    GlassPanel {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("Work Orders")
+                                .font(.title3.bold())
+                            if viewModel.tasks.isEmpty {
+                                EmptyStateView(
+                                    title: "No work orders",
+                                    message: "Request maintenance and assign registered personnel.",
+                                    systemImage: "doc.text.magnifyingglass"
+                                )
+                            } else {
+                                ForEach(viewModel.tasks) { task in
+                                    ManagerWorkOrderRow(
+                                        task: task,
+                                        assignee: usersViewModel.personnelUser(for: task.executedBy),
+                                        viewModel: viewModel,
+                                        usersViewModel: usersViewModel
+                                    )
+
+                                    if task.id != viewModel.tasks.last?.id {
+                                        Divider()
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                .padding()
+                .padding(.bottom, 72)
             }
-            .padding()
-        }
-        .fleetScreenBackground()
-        .refreshable {
-            await viewModel.load()
-            await vehiclesViewModel.load()
-            await usersViewModel.load()
+            .fleetScreenBackground()
+            .refreshable {
+                await viewModel.load()
+                await vehiclesViewModel.load()
+                await usersViewModel.load()
+            }
+
+            Button(action: openMaintenanceRequest) {
+                Image(systemName: "plus")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(FleetPalette.primary, in: Circle())
+                    .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+            }
+            .accessibilityLabel("Request maintenance")
+            .padding(.trailing, 20)
+            .padding(.bottom, 16)
         }
     }
 }

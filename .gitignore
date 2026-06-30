@@ -51,12 +51,16 @@ GoogleService-Info.plist
 
 # Supabase local CLI
 .supabase/
+**/.temp/
 
 # Logs
 *.log
 
 # Supabase secrets (never commit these)
 supabase/.env
+
+# Backup / Old directories
+**/Maintenance_Backup_OLD/
 
 # Xcode Configurations
 *.xcconfig

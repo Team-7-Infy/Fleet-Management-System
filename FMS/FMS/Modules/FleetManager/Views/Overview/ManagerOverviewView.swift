@@ -6,13 +6,13 @@ struct ManagerOverviewView: View {
     @ObservedObject var tripsViewModel: TripManagementViewModel
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
 
-    var quickAddTrip: () -> Void
-    var quickMaintenance: () -> Void
     var refresh: () async -> Void
+    var currentUserId: UUID?
+    var onProfile: (() -> Void)?
 
     private var activeTrips: [Trip] {
         tripsViewModel.trips
-            .filter { $0.status == .accepted }
+            .filter { $0.status == .accepted || $0.status == .inProgress }
             .sorted { $0.startTime < $1.startTime }
     }
 
@@ -29,7 +29,7 @@ struct ManagerOverviewView: View {
     }
 
     private var busyDriverIDs: Set<UUID> {
-        Set(activeTrips.map(\.driverId))
+        Set(activeTrips.compactMap(\.driverId))
     }
 
     private var availableDrivers: [Driver] {
@@ -60,11 +60,16 @@ struct ManagerOverviewView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                ScreenHeader(title: "Live")
+                HStack(alignment: .top) {
+                    ScreenHeader(title: "Live")
+                    Spacer()
+                    if let onProfile {
+                        profileButton(action: onProfile)
+                    }
+                }
                 tripStatusCard
                 fleetStatusSection
                 maintenanceSection
-                actionsSection
             }
             .padding()
             .padding(.bottom, 10)
@@ -81,30 +86,6 @@ struct ManagerOverviewView: View {
             pendingTrips: pendingTrips,
             completedTrips: completedTrips
         )
-    }
-
-    private var actionsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            DashboardSectionTitle("Actions")
-
-            LazyVGrid(columns: FleetPalette.twoColumnGrid, spacing: 12) {
-                DashboardActionButton(
-                    title: "Quick Add Trip",
-                    detail: "Assign driver",
-                    systemImage: "plus.circle.fill",
-                    tint: FleetPalette.primary,
-                    action: quickAddTrip
-                )
-
-                DashboardActionButton(
-                    title: "Quick Maintenance",
-                    detail: "\(maintenanceVehicles.count) vehicles",
-                    systemImage: "wrench.and.screwdriver.fill",
-                    tint: FleetPalette.warning,
-                    action: quickMaintenance
-                )
-            }
-        }
     }
 
     private var fleetStatusSection: some View {
@@ -184,6 +165,40 @@ struct ManagerOverviewView: View {
                 }
             }
         }
+    }
+
+    private func profileButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            if let user = currentUserId.flatMap({ usersViewModel.user(for: $0) }),
+               let avatarUrl = user.avatarUrl,
+               let imageURL = URL(string: avatarUrl) {
+                AsyncImage(url: imageURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 48, height: 48)
+                            .clipShape(Circle())
+                    default:
+                        profileFallbackIcon
+                    }
+                }
+            } else {
+                profileFallbackIcon
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Account")
+    }
+
+    private var profileFallbackIcon: some View {
+        Image(systemName: FleetIcon.account)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 48, height: 48)
+            .foregroundStyle(FleetPalette.primary)
+            .background(Circle().fill(Color.white))
     }
 }
 

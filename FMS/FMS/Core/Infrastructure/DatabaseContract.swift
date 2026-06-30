@@ -122,10 +122,4 @@ enum DatabaseContract {
 // let supabase = SupabaseService()
 // let authService = AuthService(supabase: supabase)
 // let vehicleService = VehicleService(supabase: supabase)
-// let tripService = TripService(supabase: supabase)
-// let maintenanceService = MaintenanceService(supabase: supabase)
-// let inventoryService = InventoryService(supabase: supabase)
-//
-// For previews and testing, inject SupabaseServiceProtocol mock:
-//
-// class MockSupabaseService: SupabaseServiceProtocol { ... }
+

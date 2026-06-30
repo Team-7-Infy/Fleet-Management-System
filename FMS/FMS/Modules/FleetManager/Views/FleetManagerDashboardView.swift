@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 private enum ManagerTab: Hashable {
@@ -5,6 +6,7 @@ private enum ManagerTab: Hashable {
     case users
     case vehicles
     case trips
+    case maintenance
 }
 
 enum ManagerAddSheet: Identifiable {
@@ -32,15 +34,26 @@ struct FleetManagerDashboardView: View {
     @StateObject private var vehiclesViewModel: VehicleViewModel
     @StateObject private var tripsViewModel: TripManagementViewModel
     @StateObject private var maintenanceViewModel: MaintenanceViewModel
+    let onLogout: () -> Void
+    private let authService: AuthServiceProtocol
 
     @State private var selectedTab: ManagerTab = .live
     @State private var selectedUserSegment: ManagerUserSegment = .drivers
     @State private var addSheet: ManagerAddSheet?
     @State private var maintenanceVehicleId: UUID?
+    @State private var currentUserId: UUID?
+    @State private var isRefreshingAll = false
+    @State private var isShowingProfile = false
+    @Environment(\.scenePhase) private var scenePhase
 
-    init(services: AppServices) {
+    init(services: AppServices, onLogout: @escaping () -> Void) {
+        self.onLogout = onLogout
+        self.authService = services.authService
         _usersViewModel = StateObject(
-            wrappedValue: UserManagementViewModel(service: services.userManagementService)
+            wrappedValue: UserManagementViewModel(
+                service: services.userManagementService,
+                authService: services.authService
+            )
         )
         _vehiclesViewModel = StateObject(
             wrappedValue: VehicleViewModel(service: services.vehicleService)
@@ -76,10 +89,23 @@ struct FleetManagerDashboardView: View {
             tripsTab
                 .tabItem { Label("Trips", systemImage: "point.topleft.down.curvedto.point.bottomright.up") }
                 .tag(ManagerTab.trips)
+                .badge(tripsViewModel.rejectionRequests.count)
+
+            maintenanceTab
+                .tabItem { Label("Service", systemImage: "wrench") }
+                .tag(ManagerTab.maintenance)
         }
         .tint(FleetPalette.primary)
         .task {
+            currentUserId = try? await authService.currentSession()?.id
             await refreshAll()
+        }
+        .onReceive(Timer.publish(every: 20, on: .main, in: .common).autoconnect()) { _ in
+            Task { await refreshAll() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await refreshAll() }
         }
         .sheet(item: $addSheet) { sheet in
             ManagerAddSheetView(
@@ -88,7 +114,8 @@ struct FleetManagerDashboardView: View {
                 vehiclesViewModel: vehiclesViewModel,
                 tripsViewModel: tripsViewModel,
                 maintenanceViewModel: maintenanceViewModel,
-                initialMaintenanceVehicleId: maintenanceVehicleId
+                initialMaintenanceVehicleId: maintenanceVehicleId,
+                currentUserId: currentUserId
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
@@ -102,21 +129,25 @@ struct FleetManagerDashboardView: View {
                 vehiclesViewModel: vehiclesViewModel,
                 tripsViewModel: tripsViewModel,
                 maintenanceViewModel: maintenanceViewModel,
-                quickAddTrip: { addSheet = .trip },
-                quickMaintenance: {
-                    maintenanceVehicleId = nil
-                    addSheet = .maintenanceRequest
-                },
-                refresh: refreshAll
+                refresh: refreshAll,
+                currentUserId: currentUserId,
+                onProfile: { isShowingProfile = true }
             )
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        Task { await refreshAll() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
+            .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $isShowingProfile) {
+                NavigationStack {
+                    ManagerAccountView(
+                        user: usersViewModel.user(for: currentUserId),
+                        onLogout: onLogout
+                    )
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") {
+                                isShowingProfile = false
+                            }
+                            .fontWeight(.semibold)
+                        }
                     }
-                    .accessibilityLabel("Refresh live dashboard")
                 }
             }
         }
@@ -128,19 +159,9 @@ struct FleetManagerDashboardView: View {
                 viewModel: usersViewModel,
                 tripsViewModel: tripsViewModel,
                 maintenanceViewModel: maintenanceViewModel,
-                selectedSegment: $selectedUserSegment
+                selectedSegment: $selectedUserSegment,
+                openAddUser: { addSheet = .user }
             )
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    ManagerUserSegmentToolbar(selection: $selectedUserSegment)
-                }
-
-                ToolbarItem(placement: .topBarTrailing) {
-                    AddToolbarButton(title: "Create Credentials") {
-                        addSheet = .user
-                    }
-                }
-            }
         }
     }
 
@@ -155,13 +176,20 @@ struct FleetManagerDashboardView: View {
                     addSheet = .maintenanceRequest
                 }
             )
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    AddToolbarButton(title: "Add Vehicle") {
-                        addSheet = .vehicle
-                    }
+        }
+    }
+
+    private var maintenanceTab: some View {
+        NavigationStack {
+            ManagerMaintenanceView(
+                viewModel: maintenanceViewModel,
+                vehiclesViewModel: vehiclesViewModel,
+                usersViewModel: usersViewModel,
+                openMaintenanceRequest: {
+                    maintenanceVehicleId = nil
+                    addSheet = .maintenanceRequest
                 }
-            }
+            )
         }
     }
 
@@ -170,41 +198,24 @@ struct FleetManagerDashboardView: View {
             ManagerTripsView(
                 viewModel: tripsViewModel,
                 vehiclesViewModel: vehiclesViewModel,
-                usersViewModel: usersViewModel
+                usersViewModel: usersViewModel,
+                openAddTrip: { addSheet = .trip }
             )
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    AddToolbarButton(title: "Create Trip") {
-                        addSheet = .trip
-                    }
-                }
-            }
         }
     }
 
     @MainActor
     private func refreshAll() async {
+        guard isRefreshingAll == false else { return }
+        isRefreshingAll = true
+        defer { isRefreshingAll = false }
+
         await usersViewModel.load()
         await vehiclesViewModel.load()
         await tripsViewModel.load()
         await maintenanceViewModel.load()
     }
-}
 
-private struct ManagerUserSegmentToolbar: View {
-    @Binding var selection: ManagerUserSegment
-
-    var body: some View {
-        Picker("User type", selection: $selection) {
-            ForEach(ManagerUserSegment.allCases) { segment in
-                Text(segment.title).tag(segment)
-            }
-        }
-        .pickerStyle(.segmented)
-        .controlSize(.large)
-        .frame(width: 260, height: 44)
-        .accessibilityLabel("User type")
-    }
 }
 
 struct ManagerAddSheetView: View {
@@ -214,6 +225,7 @@ struct ManagerAddSheetView: View {
     @ObservedObject var tripsViewModel: TripManagementViewModel
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
     var initialMaintenanceVehicleId: UUID?
+    var currentUserId: UUID?
 
     var body: some View {
         NavigationStack {
@@ -233,9 +245,97 @@ struct ManagerAddSheetView: View {
                     viewModel: maintenanceViewModel,
                     vehiclesViewModel: vehiclesViewModel,
                     usersViewModel: usersViewModel,
-                    initialVehicleId: initialMaintenanceVehicleId
+                    initialVehicleId: initialMaintenanceVehicleId,
+                    currentUserId: currentUserId
                 )
             }
         }
+    }
+}
+
+private struct ManagerAccountView: View {
+    var user: User?
+    var onLogout: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 18) {
+                heroSection
+                accountInfoSection
+                signOutButton
+            }
+            .padding()
+            .padding(.bottom, 24)
+        }
+        .fleetScreenBackground()
+        .navigationTitle("Account")
+        .navigationBarTitleDisplayMode(.large)
+    }
+
+    private var heroSection: some View {
+        VStack(spacing: 10) {
+            AvatarView(name: displayName, role: .fleetManager, size: 86, imageURL: user?.avatarImageURL)
+
+            VStack(spacing: 4) {
+                Text(displayName)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(FleetPalette.textPrimary)
+
+                Text(user?.email ?? "Loading account")
+                    .font(.subheadline)
+                    .foregroundStyle(FleetPalette.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+    }
+
+    private var accountInfoSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionTitle("Personal Information")
+
+            GlassPanel {
+                if let user {
+                    VStack(spacing: 12) {
+                        InfoRow(title: "Email", value: user.email)
+                        Divider()
+                        InfoRow(title: "Phone", value: "\(user.contact)")
+                        Divider()
+                        InfoRow(title: "Role", value: user.role.title)
+                        Divider()
+                        InfoRow(title: "Status", value: user.isActive ? "Active" : "Inactive")
+                    }
+                } else {
+                    EmptyStateView(
+                        title: "Account loading",
+                        message: "Your manager profile will appear here once the app finishes refreshing.",
+                        systemImage: "person.circle"
+                    )
+                }
+            }
+        }
+    }
+
+    private var signOutButton: some View {
+        Button(action: onLogout) {
+            Text("Sign Out")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(FleetPalette.danger)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(FleetPalette.surface)
+                        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+                )
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 8)
+    }
+
+    private var displayName: String {
+        guard let user else { return "Fleet Manager" }
+        let name = user.displayName
+        return name.isEmpty ? "Fleet Manager" : name
     }
 }

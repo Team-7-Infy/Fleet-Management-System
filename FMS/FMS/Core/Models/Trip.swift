@@ -7,8 +7,9 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
     var startTime: Date
     var endTime: Date?
     var vehicleId: UUID
-    var driverId: UUID
+    var driverId: UUID?
     var status: TripStatus
+    var rejectionReason: String?
 
     enum CodingKeys: String, CodingKey {
         case id = "tripid"
@@ -19,5 +20,6 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
         case vehicleId = "vehicleid"
         case driverId = "driverid"
         case status
+        case rejectionReason = "rejection_reason"
     }
 }

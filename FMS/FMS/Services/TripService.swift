@@ -65,6 +65,20 @@ final actor TripService: TripServiceProtocol {
             .execute()
     }
 
+    func updateTripStatus(id: UUID, status: TripStatus, rejectionReason: String?) async throws {
+        var update: [String: AnyJSON] = ["status": .string(status.rawValue)]
+        if let reason = rejectionReason {
+            update["rejection_reason"] = .string(reason)
+        } else {
+            update["rejection_reason"] = .null
+        }
+        try await supabase.client
+            .from("trips")
+            .update(update)
+            .eq("tripid", value: id.uuidString)
+            .execute()
+    }
+
     func fetchGeofence(tripId: UUID) async throws -> Geofence {
         try await supabase.client
             .from("geofence")
@@ -90,6 +104,26 @@ final actor TripService: TripServiceProtocol {
             .from("deviation_alert")
             .select()
             .eq("vehicleid", value: vehicleId.uuidString)
+            .execute()
+            .value
+    }
+
+    func createDeviationAlert(_ alert: DeviationAlert) async throws -> DeviationAlert {
+        try await supabase.client
+            .from("deviation_alert")
+            .insert(alert, returning: .representation)
+            .select()
+            .single()
+            .execute()
+            .value
+    }
+
+    func fetchRouteWaypoints(tripId: UUID) async throws -> [RouteWaypoint] {
+        try await supabase.client
+            .from("route_waypoints")
+            .select()
+            .eq("tripid", value: tripId.uuidString)
+            .order("sequenceorder", ascending: true)
             .execute()
             .value
     }

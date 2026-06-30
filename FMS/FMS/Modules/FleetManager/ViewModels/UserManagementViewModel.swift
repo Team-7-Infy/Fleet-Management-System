@@ -6,14 +6,17 @@ final class UserManagementViewModel: ObservableObject {
     @Published private(set) var users: [User] = []
     @Published private(set) var drivers: [Driver] = []
     @Published private(set) var maintenancePersonnel: [MaintenancePersonnel] = []
+    @Published private(set) var fleetManagers: [FleetManager] = []
     @Published var isLoading = false
     @Published var successMessage: String?
     @Published var errorMessage: String?
 
     private let service: UserManagementServiceProtocol
+    private let authService: AuthServiceProtocol
 
-    init(service: UserManagementServiceProtocol) {
+    init(service: UserManagementServiceProtocol, authService: AuthServiceProtocol) {
         self.service = service
+        self.authService = authService
     }
 
     var activeUsers: [User] {
@@ -40,10 +43,14 @@ final class UserManagementViewModel: ObservableObject {
             async let fetchedUsers = service.fetchUsers()
             async let fetchedDrivers = service.fetchDrivers()
             async let fetchedMaintenance = service.fetchMaintenancePersonnel()
+            async let fetchedFleetManagers = service.fetchFleetManagers()
 
             users = try await fetchedUsers
             drivers = try await fetchedDrivers
             maintenancePersonnel = try await fetchedMaintenance
+            fleetManagers = try await fetchedFleetManagers
+            errorMessage = nil
+        } catch is CancellationError {
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -58,7 +65,15 @@ final class UserManagementViewModel: ObservableObject {
         }
 
         do {
-            let createdUser = try await service.createUser(form.makeUser())
+            let password = Self.generateRandomPassword()
+            let displayName = "\(form.firstName) \(form.lastName)".trimmingCharacters(in: .whitespaces)
+            let authUserId = try await authService.inviteUser(
+                email: form.email,
+                password: password,
+                displayName: displayName
+            )
+
+            let createdUser = try await service.createUser(form.makeUser(id: authUserId))
 
             switch createdUser.role {
             case .driver:
@@ -80,10 +95,11 @@ final class UserManagementViewModel: ObservableObject {
                 _ = try await service.createMaintenancePersonnel(personnel)
 
             case .fleetManager:
-                break
+                let manager = FleetManager(id: UUID(), userId: createdUser.id)
+                _ = try await service.createFleetManager(manager)
             }
 
-            successMessage = "\(createdUser.displayName) added."
+            successMessage = "\(createdUser.displayName) added. An invitation email has been sent to \(form.email)."
             errorMessage = nil
             await load()
             return true
@@ -94,23 +110,67 @@ final class UserManagementViewModel: ObservableObject {
         }
     }
 
-    func setActive(_ user: User, isActive: Bool) async {
+    private static func generateRandomPassword() -> String {
+        let upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        let lower = "abcdefghijklmnopqrstuvwxyz"
+        let digits = "0123456789"
+        let special = "!@#$%^&*"
+        let all = upper + lower + digits + special
+        var password = ""
+        password.append(upper.randomElement()!)
+        password.append(lower.randomElement()!)
+        password.append(digits.randomElement()!)
+        password.append(special.randomElement()!)
+        password += String((0..<8).map { _ in all.randomElement()! })
+        return String(password.shuffled())
+    }
+
+    func updateUser(_ user: User) async -> Bool {
         do {
-            try await service.setUserActive(id: user.id, isActive: isActive)
+            _ = try await service.updateUser(user)
             if let index = users.firstIndex(where: { $0.id == user.id }) {
-                users[index].isActive = isActive
+                users[index] = user
             }
-            successMessage = "\(user.displayName) \(isActive ? "activated" : "deactivated")."
+            successMessage = "\(user.displayName) updated."
             errorMessage = nil
+            return true
         } catch {
             errorMessage = error.localizedDescription
             successMessage = nil
+            return false
+        }
+    }
+
+    func deleteUser(_ user: User) async -> Bool {
+        do {
+            switch user.role {
+            case .driver:
+                try await service.deleteDriverByUserId(id: user.id)
+            case .maintenancePersonnel:
+                try await service.deleteMaintenancePersonnelByUserId(id: user.id)
+            case .fleetManager:
+                try await service.deleteFleetManagerByUserId(id: user.id)
+            }
+            try await service.deleteUser(id: user.id)
+            try await authService.deleteUserAuth(userId: user.id)
+            users.removeAll { $0.id == user.id }
+            successMessage = "\(user.displayName) deleted."
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            successMessage = nil
+            return false
         }
     }
 
     func user(for id: UUID?) -> User? {
         guard let id else { return nil }
         return users.first { $0.id == id }
+    }
+
+    func managerId(for userId: UUID) -> UUID? {
+        fleetManagers.first { $0.userId == userId }?.id
     }
 
     func driver(for id: UUID?) -> Driver? {
