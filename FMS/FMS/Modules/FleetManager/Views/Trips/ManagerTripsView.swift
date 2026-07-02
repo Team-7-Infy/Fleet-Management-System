@@ -229,73 +229,235 @@ private struct ManagerTripCard: View {
     var driver: User?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 12) {
-                TripRouteGlyph()
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 10) {
+                Text(tripDisplayId)
+                    .font(.title3.weight(.heavy))
+                    .foregroundStyle(FleetPalette.accent)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
-                VStack(alignment: .leading, spacing: 7) {
-                    Text(trip.startLocation)
-                        .font(.title3.bold())
-                        .foregroundStyle(FleetPalette.textPrimary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Text(trip.endLocation)
-                        .font(.title3.bold())
-                        .foregroundStyle(FleetPalette.textPrimary)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .layoutPriority(1)
+                TripCardStatusBadge(text: trip.status.title, color: FleetPalette.tripStatus(trip.status))
 
                 Spacer(minLength: 8)
 
-                TripCardStatusBadge(text: trip.status.title, color: FleetPalette.tripStatus(trip.status))
+                TripVehiclePlateBadge(licencePlate: vehicle?.licencePlate)
             }
 
-            VStack(spacing: 0) {
-                TripOverviewRow(
+            TripRouteSummary(
+                startLocation: trip.startLocation,
+                endLocation: trip.endLocation
+            )
+
+            HStack(spacing: 0) {
+                TripDateSummaryTile(
                     systemImage: "calendar",
-                    title: "Start",
+                    title: "Start Date & Time",
                     value: FleetManagerFormat.shortDateTime.string(from: trip.startTime)
                 )
 
                 Divider()
+                    .padding(.vertical, 8)
 
-                TripOverviewRow(
+                TripDateSummaryTile(
                     systemImage: "clock",
-                    title: trip.endTime == nil ? "ETA" : "Stop",
+                    title: "End Date & Time",
                     value: trip.endTime.map { FleetManagerFormat.shortDateTime.string(from: $0) } ?? "TBD"
-                )
-
-                Divider()
-
-                TripPersonOverviewRow(
-                    systemImage: "person.fill",
-                    title: driver?.displayName ?? "Driver unavailable",
-                    value: driver.map { "Contact: \($0.contact)" } ?? nil
-                )
-
-                Divider()
-
-                TripVehicleInfoRow(
-                    vehicle: vehicle,
-                    title: vehicle?.licencePlate ?? "Vehicle unavailable",
-                    value: vehicle.map { "\($0.year) \($0.make) \($0.model)" }
                 )
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(FleetPalette.background, in: RoundedRectangle(cornerRadius: 16))
+            .padding(.vertical, 12)
+            .background(FleetPalette.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+            if let rejectionReason = trip.rejectionReason,
+               rejectionReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                TripRejectionReasonRow(reason: rejectionReason)
+            }
+
+            HStack(spacing: 14) {
+                TripFooterInfo(
+                    systemImage: "person.fill",
+                    title: driver?.displayName ?? "Driver unavailable",
+                    subtitle: driver.map { "Contact: \($0.contact)" }
+                )
+
+                if vehicle != nil || driver != nil {
+                    Divider()
+                        .frame(height: 34)
+                }
+
+                TripFooterInfo(
+                    systemImage: "car.fill",
+                    title: vehicleModelText,
+                    subtitle: vehicle?.licencePlate
+                )
+            }
+            .padding(.top, 2)
         }
-        .padding(16)
+        .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 20))
+        .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(FleetPalette.tertiary.opacity(0.42), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(FleetPalette.tertiary.opacity(0.28), lineWidth: 1)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    private var tripDisplayId: String {
+        "TRP-\(trip.id.uuidString.prefix(5).uppercased())"
+    }
+
+    private var vehicleModelText: String {
+        guard let vehicle else { return "Vehicle unavailable" }
+        return "\(vehicle.year) \(vehicle.make) \(vehicle.model)"
+    }
+}
+
+private struct TripVehiclePlateBadge: View {
+    var licencePlate: String?
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "truck.box.fill")
+                .font(.subheadline.weight(.semibold))
+
+            Text(licencePlate ?? "No vehicle")
+                .font(.subheadline.weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .foregroundStyle(FleetPalette.accent)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(FleetPalette.primary.opacity(0.55), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(licencePlate.map { "Vehicle \($0)" } ?? "No vehicle assigned")
+    }
+}
+
+private struct TripRouteSummary: View {
+    var startLocation: String
+    var endLocation: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(spacing: 5) {
+                Circle()
+                    .fill(FleetPalette.success)
+                    .frame(width: 12, height: 12)
+
+                Rectangle()
+                    .fill(FleetPalette.textSecondary.opacity(0.25))
+                    .frame(width: 1, height: 34)
+
+                Image(systemName: "flag.fill")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(FleetPalette.danger)
+            }
+            .frame(width: 20)
+            .padding(.top, 5)
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text(startLocation)
+                    .font(.title3.bold())
+                    .foregroundStyle(FleetPalette.textPrimary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(endLocation)
+                    .font(.title3.bold())
+                    .foregroundStyle(FleetPalette.textPrimary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .layoutPriority(1)
+        }
+    }
+}
+
+private struct TripDateSummaryTile: View {
+    var systemImage: String
+    var title: String
+    var value: String
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(FleetPalette.accent)
+                .frame(width: 38, height: 38)
+                .background(FleetPalette.primary.opacity(0.75), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title.uppercased())
+                    .font(.caption2.weight(.heavy))
+                    .foregroundStyle(Color(hex: 0x607086))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                Text(value)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(FleetPalette.textPrimary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.78)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .layoutPriority(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct TripFooterInfo: View {
+    var systemImage: String
+    var title: String
+    var subtitle: String?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(FleetPalette.textSecondary)
+                .frame(width: 34, height: 34)
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(FleetPalette.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+
+                if let subtitle, subtitle.isEmpty == false {
+                    Text(subtitle)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(FleetPalette.textTertiary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                }
+            }
+            .layoutPriority(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct TripRejectionReasonRow: View {
+    var reason: String
+
+    var body: some View {
+        Label {
+            Text(reason)
+                .font(.caption.weight(.semibold))
+                .lineLimit(2)
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill")
+        }
+        .foregroundStyle(FleetPalette.danger)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(FleetPalette.danger.opacity(0.09), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -305,19 +467,33 @@ private struct TripCardStatusBadge: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Circle()
-                .fill(color)
-                .frame(width: 10, height: 10)
+            Image(systemName: statusIcon)
+                .font(.caption.weight(.bold))
 
             Text(text)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(FleetPalette.textPrimary)
+                .font(.caption.weight(.heavy))
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
         }
-        .padding(.top, 4)
+        .foregroundStyle(color)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(color.opacity(0.13), in: Capsule())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(text)
+    }
+
+    private var statusIcon: String {
+        switch text.lowercased() {
+        case "accepted", "completed":
+            return "checkmark.circle"
+        case "rejected", "rejection pending":
+            return "exclamationmark.triangle"
+        case "in progress":
+            return "location.circle"
+        default:
+            return "clock"
+        }
     }
 }
 
@@ -341,107 +517,6 @@ private struct TripRouteGlyph: View {
                 .foregroundStyle(FleetPalette.accent)
         }
         .frame(width: 34)
-    }
-}
-
-private struct TripOverviewRow: View {
-    var systemImage: String
-    var title: String
-    var value: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(FleetPalette.accent)
-                .frame(width: 30, height: 30)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(FleetPalette.textSecondary)
-
-                Text(value)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(FleetPalette.textPrimary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .layoutPriority(1)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, 10)
-    }
-}
-
-private struct TripPersonOverviewRow: View {
-    var systemImage: String
-    var title: String
-    var value: String?
-
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: systemImage)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(FleetPalette.accent)
-                .frame(width: 30, height: 30)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.headline.bold())
-                    .foregroundStyle(FleetPalette.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-
-                if let value, value.isEmpty == false {
-                    Text(value)
-                        .font(.subheadline)
-                        .foregroundStyle(FleetPalette.textSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.82)
-                }
-            }
-            .layoutPriority(1)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private struct TripVehicleInfoRow: View {
-    var vehicle: Vehicle?
-    var title: String
-    var value: String?
-
-    var body: some View {
-        HStack(spacing: 14) {
-            VehicleAssetImage(vehicle: vehicle, width: 62, height: 48, cornerRadius: 12)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.headline.bold())
-                    .foregroundStyle(FleetPalette.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-
-                if let value, value.isEmpty == false {
-                    Text(value)
-                        .font(.subheadline)
-                        .foregroundStyle(FleetPalette.textSecondary)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.82)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .layoutPriority(1)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

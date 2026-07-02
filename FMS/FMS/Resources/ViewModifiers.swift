@@ -31,3 +31,18 @@ struct FleetFieldModifier: ViewModifier {
             }
     }
 }
+
+struct FleetFormFieldLabel: View {
+    var text: String
+
+    init(_ text: String) {
+        self.text = text
+    }
+
+    var body: some View {
+        Text(text)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(FleetPalette.textPrimary)
+            .padding(.leading, 4)
+    }
+}

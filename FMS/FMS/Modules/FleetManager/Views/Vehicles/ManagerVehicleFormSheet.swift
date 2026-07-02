@@ -33,24 +33,60 @@ struct ManagerVehicleFormSheet: View {
                         .fleetField()
                 }
 
-                HStack {
+                HStack(alignment: .bottom) {
                     TextField("Year", text: $form.year)
                         .keyboardType(.numberPad)
                         .fleetField()
-                    Picker("Type", selection: $form.vehicleType) {
-                        ForEach(["car", "van", "bus", "truck"], id: \.self) { type in
-                            Text(type.capitalized).tag(type)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        FleetFormFieldLabel("Vehicle Type")
+
+                        Picker(selection: $form.vehicleType) {
+                            ForEach(["car", "van", "bus", "truck"], id: \.self) { type in
+                                Text(type.capitalized).tag(type)
+                            }
+                        } label: {
+                            HStack(spacing: 10) {
+                                Text(form.vehicleType.capitalized)
+                                    .font(.body)
+                                    .foregroundStyle(FleetPalette.accent)
+                                    .lineLimit(1)
+
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(FleetPalette.accent)
+                            }
+                            .contentShape(Rectangle())
                         }
+                        .pickerStyle(.menu)
+                        .tint(FleetPalette.accent)
+                        .fleetField()
                     }
-                    .pickerStyle(.menu)
-                    .fleetField()
                 }
                 FleetFieldValidationMessage(message: visibleYearValidationMessage)
 
-                Picker("Status", selection: $form.status) {
-                    ForEach(VehicleStatus.allCases) { status in
-                        Text(status.title).tag(status)
+                VStack(alignment: .leading, spacing: 8) {
+                    FleetFormFieldLabel("Status")
+
+                    Picker(selection: $form.status) {
+                        ForEach(VehicleStatus.allCases) { status in
+                            Text(status.title).tag(status)
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Text(form.status.title)
+                                .font(.body)
+                                .foregroundStyle(FleetPalette.accent)
+                                .lineLimit(1)
+
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(FleetPalette.accent)
+                        }
+                        .contentShape(Rectangle())
                     }
+                    .pickerStyle(.menu)
+                    .tint(FleetPalette.accent)
                 }
 
                 FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)

@@ -110,6 +110,8 @@ struct ManagerOverviewView: View {
             case .drivers:
                 DashboardDriverStatusListView(
                     usersViewModel: usersViewModel,
+                    tripsViewModel: tripsViewModel,
+                    maintenanceViewModel: maintenanceViewModel,
                     activeDrivers: enrouteDrivers,
                     availableDrivers: availableDrivers,
                     offDutyDrivers: offDutyDrivers
@@ -117,6 +119,7 @@ struct ManagerOverviewView: View {
             case .vehicles:
                 DashboardVehicleStatusListView(
                     usersViewModel: usersViewModel,
+                    vehiclesViewModel: vehiclesViewModel,
                     onTripVehicles: enrouteVehicles,
                     availableVehicles: availableVehicles,
                     maintenanceVehicles: maintenanceVehicles
@@ -662,10 +665,62 @@ private enum ManagerNotificationDateFormatter {
     }()
 }
 
+<<<<<<< Updated upstream
 private struct DashboardTripStatusCard: View {
     var activeTrips: [Trip]
     var pendingTrips: [Trip]
     var completedTrips: [Trip]
+=======
+struct FleetStatusOverviewGradientCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color.white.opacity(0.8))
+                        .frame(width: 8, height: 8)
+                    Text("FLEET OVERVIEW")
+                        .font(.caption2.weight(.bold))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.black.opacity(0.15))
+                .clipShape(Capsule())
+                
+                Spacer()
+                
+                Image(systemName: "shippingbox.fill")
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.8))
+            }
+            
+            VStack(alignment: .leading, spacing: 6) {
+                Text("No Active Trips")
+                    .font(.title3.weight(.bold))
+                    .foregroundColor(.white)
+                Text("All fleet vehicles are currently available, off duty, or scheduled for service.")
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.85))
+                    .lineLimit(2)
+            }
+            
+            Spacer()
+        }
+        .padding(20)
+        .frame(height: 180)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: 0x007AFF), Color(hex: 0x004CE5)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(24)
+    }
+}
+>>>>>>> Stashed changes
 
     var body: some View {
         GlassPanel {
@@ -681,6 +736,55 @@ private struct DashboardTripStatusCard: View {
                     }
 
                     Spacer()
+<<<<<<< Updated upstream
+=======
+                    Text("\(dist.left) km Left")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundColor(.white.opacity(0.85))
+                }
+            }
+            
+            NavigationLink {
+                ManagerTripDetailView(
+                    trip: trip,
+                    viewModel: tripsViewModel,
+                    vehiclesViewModel: vehiclesViewModel,
+                    usersViewModel: usersViewModel
+                )
+            } label: {
+                HStack {
+                    Image(systemName: "location.north.line.fill")
+                        .font(.subheadline)
+                    Text("Track Live")
+                        .font(.subheadline.weight(.bold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(.ultraThinMaterial)
+                .environment(\.colorScheme, .dark)
+                .foregroundColor(.white)
+                .cornerRadius(14)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(20)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: 0x007AFF), Color(hex: 0x004CE5)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(24)
+    }
+    
+    private func getTripProgress(for trip: Trip) -> Double {
+        let elapsed = Date().timeIntervalSince(trip.startTime)
+        let totalDuration: TimeInterval = 8 * 3600
+        let ratio = elapsed / totalDuration
+        return min(max(ratio, 0.18), 0.92)
+    }
+>>>>>>> Stashed changes
 
                     IconBubble(
                         systemImage: activeTrips.isEmpty ? "location.slash" : "location.north.line.fill",
@@ -856,20 +960,52 @@ private struct DriverStatusRow: View {
     var user: User?
 
     var body: some View {
+<<<<<<< Updated upstream
         HStack(spacing: 12) {
             AvatarView(name: user?.displayName ?? driver.licenceNum, role: .driver, size: 48, imageURL: user?.avatarImageURL)
+=======
+        HStack(spacing: 14) {
+            AvatarView(name: user?.displayName ?? driver.licenceNum, role: .driver, imageURL: user?.avatarImageURL)
+>>>>>>> Stashed changes
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(user?.displayName ?? "Driver")
+<<<<<<< Updated upstream
                     .font(.headline)
                 Text("\(driver.vehicleType.capitalized) - \(driver.licenceNum)")
                     .font(.subheadline)
                     .foregroundStyle(FleetPalette.textSecondary)
+=======
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(FleetPalette.textPrimary)
+                    .lineLimit(1)
+                
+                HStack(spacing: 6) {
+                    Image(systemName: "truck.box.fill")
+                        .font(.subheadline)
+                    Text("\(driver.vehicleType.capitalized) • \(driver.licenceNum)")
+                        .font(.subheadline)
+                        .lineLimit(1)
+                }
+                .foregroundStyle(FleetPalette.textSecondary)
+
+                if let user {
+                    Text("UID \(user.shortUID)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(FleetPalette.textSecondary)
+                        .lineLimit(1)
+                }
+>>>>>>> Stashed changes
             }
+            .layoutPriority(1)
 
-            Spacer()
+            Spacer(minLength: 8)
 
+<<<<<<< Updated upstream
             StatusDot(text: driver.status.title, color: FleetPalette.personnelStatus(driver.status))
+=======
+            StatusDot(text: driver.status.title, color: color)
+>>>>>>> Stashed changes
         }
     }
 }

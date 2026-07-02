@@ -40,31 +40,29 @@ struct ManagerUserFormSheet: View {
                     .fleetField()
                 FleetFieldValidationMessage(message: visibleValidationMessage(for: .contact))
 
-                Picker(selection: $form.role) {
-                    Text(UserRole.driver.title).tag(UserRole.driver)
-                    Text(UserRole.maintenancePersonnel.title).tag(UserRole.maintenancePersonnel)
-                } label: {
-                    HStack(spacing: 12) {
-                        Label("Role", systemImage: "person.crop.circle.badge.checkmark")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(FleetPalette.textPrimary)
+                VStack(alignment: .leading, spacing: 8) {
+                    FleetFormFieldLabel("User Type")
 
-                        Spacer(minLength: 8)
+                    Picker(selection: $form.role) {
+                        Text(UserRole.driver.title).tag(UserRole.driver)
+                        Text(UserRole.maintenancePersonnel.title).tag(UserRole.maintenancePersonnel)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Text(form.role.title)
+                                .font(.body)
+                                .foregroundStyle(FleetPalette.accent)
+                                .lineLimit(1)
 
-                        Text(form.role.title)
-                            .font(.body)
-                            .foregroundStyle(FleetPalette.textSecondary)
-                            .lineLimit(1)
-
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(FleetPalette.accent)
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(FleetPalette.accent)
+                        }
+                        .contentShape(Rectangle())
                     }
-                    .contentShape(Rectangle())
+                    .pickerStyle(.menu)
+                    .tint(FleetPalette.accent)
+                    .fleetField()
                 }
-                .pickerStyle(.menu)
-                .tint(FleetPalette.accent)
-                .fleetField()
 
                 FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
 
