@@ -72,66 +72,47 @@ struct ManagerUsersView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    ScreenHeader(title: "Users")
-                    FleetSearchBar(text: $searchText)
-
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
+                userList
+            }
+            .padding()
+        }
+        .fleetScreenBackground()
+        .navigationTitle("Users")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search users")
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Menu("Filter", systemImage: "line.3.horizontal.decrease.circle") {
                     Picker("User type", selection: $selectedSegment) {
                         ForEach(ManagerUserSegment.allCases) { segment in
                             Text(segment.title).tag(segment)
                         }
                     }
-                    .pickerStyle(.segmented)
-
-                    FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
-                    userList
                 }
-                .padding(.horizontal)
-                .padding(.top, 4)
-                .padding(.bottom, 16)
-            }
-            .fleetScreenBackground()
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .refreshable {
-                await viewModel.load()
-                await tripsViewModel.load()
-                await maintenanceViewModel.load()
-            }
 
-            Button(action: openAddUser) {
-                Image(systemName: "plus")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 56, height: 56)
-                    .background(FleetPalette.primary, in: Circle())
-                    .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+                Button("Add User", systemImage: "plus", action: openAddUser)
             }
-            .padding(.trailing, 20)
-            .padding(.bottom, 16)
+        }
+        .refreshable {
+            await viewModel.load()
+            await tripsViewModel.load()
+            await maintenanceViewModel.load()
         }
     }
 
     private var userList: some View {
         VStack(spacing: 14) {
             if baseUsers.isEmpty {
-                GlassPanel {
-                    EmptyStateView(
-                        title: selectedSegment.emptyTitle,
-                        message: "Use the plus button to create role profiles for assignment.",
-                        systemImage: "person.2.slash"
-                    )
-                }
+                ContentUnavailableView(
+                    selectedSegment.emptyTitle,
+                    systemImage: "person.2.slash",
+                    description: Text("Use Add User to create role profiles for assignment.")
+                )
             } else if users.isEmpty {
-                GlassPanel {
-                    EmptyStateView(
-                        title: "No matching users",
-                        message: "Try a different name, email, phone, role, status, licence, or vehicle type.",
-                        systemImage: "magnifyingglass"
-                    )
-                }
+                ContentUnavailableView.search
             } else {
                 ForEach(groupedUsers) { group in
                     ManagerUserGroupSection(
@@ -185,6 +166,8 @@ struct ManagerUsersView: View {
     private func matchesSearch(_ user: User, query: String) -> Bool {
         var searchable = [
             user.displayName,
+            user.shortUID,
+            user.id.uuidString,
             user.email,
             user.role.title,
             user.isActive ? "active" : "inactive",
@@ -266,13 +249,18 @@ private struct ManagerUserCard: View {
                     .font(.subheadline)
                     .foregroundStyle(FleetPalette.textSecondary)
                     .lineLimit(1)
+
+                Text("UID \(user.shortUID)")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(FleetPalette.textSecondary)
+                    .lineLimit(1)
             }
 
             Spacer(minLength: 8)
 
-            StatusPill(
+            StatusDot(
                 text: user.isActive ? "Active" : "Inactive",
-                color: user.isActive ? FleetPalette.success : FleetPalette.neutral
+                color: FleetPalette.userActive(user.isActive)
             )
         }
         .padding(.horizontal, 16)
@@ -286,14 +274,13 @@ private struct ManagerUserCard: View {
         switch user.role {
         case .driver:
             guard let driver = viewModel.drivers.first(where: { $0.userId == user.id }) else {
-                return "Driver profile pending"
+                return "Driver"
             }
-            return "\(driver.vehicleType.capitalized) - \(driver.licenceNum)"
+            return "Driver - \(driver.vehicleType.capitalized)"
         case .maintenancePersonnel:
-            let status = viewModel.maintenancePersonnel.first(where: { $0.userId == user.id })?.status.title ?? "Profile pending"
-            return "Maintenance - \(status)"
+            return "Maintenance"
         case .fleetManager:
-            return user.email
+            return "Fleet Manager"
         }
     }
 }
@@ -342,12 +329,14 @@ private struct ManagerUserDetailView: View {
 
                 Button {
                     editForm = FleetManagerUserForm(
+                        name: user.displayName,
                         firstName: user.fName,
                         lastName: user.lName,
                         email: user.email,
                         aadhar: user.aadhar,
                         contact: "\(user.contact)",
                         address: user.address,
+                        avatarUrl: user.avatarUrl ?? "",
                         role: user.role,
                         licenceNumber: driverProfile?.licenceNum ?? "",
                         vehicleType: driverProfile?.vehicleType ?? "van"
@@ -358,7 +347,7 @@ private struct ManagerUserDetailView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(FleetPalette.primary)
+                .tint(FleetPalette.accent)
 
                 Button(role: .destructive) {
                     showDeleteConfirm = true
@@ -367,7 +356,7 @@ private struct ManagerUserDetailView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.red)
+                .tint(FleetPalette.danger)
             }
             .padding()
         }
@@ -405,11 +394,14 @@ private struct ManagerUserDetailView: View {
                     Text(user.email)
                         .font(.subheadline)
                         .foregroundStyle(FleetPalette.textSecondary)
+                    Text("UID \(user.shortUID)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(FleetPalette.textSecondary)
                     HStack {
-                        StatusPill(text: user.role.title, color: FleetPalette.primary)
-                        StatusPill(
+                        StatusPill(text: user.role.title, color: FleetPalette.accent)
+                        StatusDot(
                             text: user.isActive ? "Active" : "Inactive",
-                            color: user.isActive ? FleetPalette.success : FleetPalette.neutral
+                            color: FleetPalette.userActive(user.isActive)
                         )
                     }
                 }
@@ -429,6 +421,7 @@ private struct ManagerUserDetailView: View {
                     InfoRow(title: "Vehicle Type", value: driverProfile.vehicleType.capitalized)
                     InfoRow(title: "Trips", value: "\(driverTrips.count)")
                     InfoRow(title: "Address", value: user.address)
+                    InfoRow(title: "Photo / DP", value: user.avatarUrl?.isEmpty == false ? "Added" : "Not added")
                 }
             } else {
                 EmptyStateView(
@@ -451,6 +444,7 @@ private struct ManagerUserDetailView: View {
                     InfoRow(title: "Status", value: maintenanceProfile.status.title)
                     InfoRow(title: "Work Orders", value: "\(workOrders.count)")
                     InfoRow(title: "Address", value: user.address)
+                    InfoRow(title: "Photo / DP", value: user.avatarUrl?.isEmpty == false ? "Added" : "Not added")
                 }
             } else {
                 EmptyStateView(
@@ -470,6 +464,7 @@ private struct ManagerUserDetailView: View {
                 InfoRow(title: "Phone", value: "\(user.contact)")
                 InfoRow(title: "Aadhar", value: user.aadhar)
                 InfoRow(title: "Address", value: user.address)
+                InfoRow(title: "Photo / DP", value: user.avatarUrl?.isEmpty == false ? "Added" : "Not added")
             }
         }
     }
@@ -484,11 +479,8 @@ private struct ManagerUserEditView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                TextField("First name", text: $form.firstName)
-                    .textContentType(.givenName)
-                    .fleetField()
-                TextField("Last name", text: $form.lastName)
-                    .textContentType(.familyName)
+                TextField("Name", text: $form.name)
+                    .textContentType(.name)
                     .fleetField()
                 TextField("Email / Login ID", text: $form.email)
                     .keyboardType(.emailAddress)
@@ -503,11 +495,22 @@ private struct ManagerUserEditView: View {
                 TextField("Address", text: $form.address, axis: .vertical)
                     .lineLimit(2...4)
                     .fleetField()
+                TextField("Photo / DP URL", text: $form.avatarUrl)
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .fleetField()
 
                 if user.role == .driver {
                     TextField("Licence number", text: $form.licenceNumber)
                         .textInputAutocapitalization(.characters)
                         .fleetField()
+
+                    Picker("Vehicle Type", selection: $form.vehicleType) {
+                        ForEach(["car", "van", "bus", "truck"], id: \.self) { type in
+                            Text(type.capitalized).tag(type)
+                        }
+                    }
+                    .fleetField()
                 }
 
                 FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
@@ -515,15 +518,25 @@ private struct ManagerUserEditView: View {
                 Button {
                     Task {
                         var updated = user
-                        updated.fName = form.firstName.trimmingCharacters(in: .whitespacesAndNewlines)
-                        updated.lName = form.lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let nameParts = form.normalizedNameParts
+                        updated.fName = nameParts.first
+                        updated.lName = nameParts.last
                         updated.email = form.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                         updated.aadhar = form.aadhar.trimmingCharacters(in: .whitespacesAndNewlines)
                         updated.address = form.address.trimmingCharacters(in: .whitespacesAndNewlines)
+                        updated.avatarUrl = form.normalizedAvatarUrl
                         if let contact = form.contactValue {
                             updated.contact = contact
                         }
-                        if await viewModel.updateUser(updated) {
+                        let userSaved = await viewModel.updateUser(updated)
+                        let driverSaved = user.role == .driver
+                            ? await viewModel.updateDriverProfile(
+                                userId: user.id,
+                                licenceNumber: form.licenceNumber,
+                                vehicleType: form.vehicleType
+                            )
+                            : true
+                        if userSaved && driverSaved {
                             user = updated
                             dismiss()
                         }
@@ -533,7 +546,7 @@ private struct ManagerUserEditView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(FleetPalette.primary)
+                .tint(FleetPalette.accent)
                 .disabled(form.isValid == false)
             }
             .padding()

@@ -42,12 +42,19 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
         return rows.map { row in
             MaintenanceTask(
                 id: row.taskid,
+                title: nil,
                 description: row.description,
                 scheduledDate: DateOnly(wrappedValue: dateOnlyParser.date(from: row.scheduleddate) ?? Date()),
                 isUrgent: row.isurgent,
                 scheduledBy: row.scheduledby,
                 executedBy: row.executedby,
-                status: MaintenanceTaskStatus(rawValue: row.status) ?? .scheduled
+                status: MaintenanceTaskStatus(rawValue: row.status) ?? .scheduled,
+                reportedDate: nil,
+                completedAt: nil,
+                timeTakenHours: nil,
+                partsSummary: nil,
+                totalCost: nil,
+                photoUrls: nil
             )
         }
     }

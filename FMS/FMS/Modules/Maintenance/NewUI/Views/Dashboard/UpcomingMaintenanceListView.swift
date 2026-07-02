@@ -65,7 +65,7 @@ struct UpcomingMaintenanceListView: View {
             VStack(spacing: 16) {
                 Image(systemName: FleetIcon.warning)
                     .font(.largeTitle)
-                    .foregroundColor(.red)
+                    .foregroundColor(AppColor.destructive)
                 Text("Failed to load")
                     .font(AppTypography.headline)
                 Text(error.localizedDescription)
@@ -139,10 +139,7 @@ struct UpcomingMaintenanceListView: View {
         
         return VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 12) {
-                Image(systemName: vehicle?.sfSymbolName ?? FleetIcon.car)
-                    .font(.title3)
-                    .foregroundStyle(AppColor.brand)
-                    .frame(width: 44, height: 28)
+                VehicleAssetImage(vehicle: vehicle, width: 46, height: 36, cornerRadius: 9)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(vehicleDisplay)
@@ -157,10 +154,10 @@ struct UpcomingMaintenanceListView: View {
                     HStack(spacing: 4) {
                         Image(systemName: FleetIcon.calendar)
                             .font(AppTypography.footnote)
-                            .foregroundStyle(workOrder.isUrgent == true ? Color.red : Color.gray)
+                            .foregroundStyle(workOrder.isUrgent == true ? AppColor.destructive : Color.gray)
                         Text("Due: \(workOrder.dueDate.formatted(.dateTime.month(.abbreviated).day().year()))")
                             .font(AppTypography.footnote)
-                            .foregroundStyle(workOrder.isUrgent == true ? Color.red : Color.gray)
+                            .foregroundStyle(workOrder.isUrgent == true ? AppColor.destructive : Color.gray)
                     }
                 }
                 
@@ -171,12 +168,12 @@ struct UpcomingMaintenanceListView: View {
                 } label: {
                     ZStack {
                         Circle()
-                            .fill(isPaused ? Color.orange.opacity(0.15) : Color.green.opacity(0.15))
+                            .fill(isPaused ? AppColor.warning.opacity(0.15) : AppColor.success.opacity(0.15))
                             .frame(width: 44, height: 44)
                         
                         Image(systemName: isPaused ? "pause.fill" : "play.fill")
                             .font(.headline)
-                            .foregroundStyle(isPaused ? Color.orange.opacity(0.7) : Color.green.opacity(0.7))
+                            .foregroundStyle(isPaused ? AppColor.warning.opacity(0.7) : AppColor.success.opacity(0.7))
                     }
                 }
                 .buttonStyle(.plain)

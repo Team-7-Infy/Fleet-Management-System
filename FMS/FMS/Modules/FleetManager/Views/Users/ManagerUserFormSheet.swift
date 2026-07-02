@@ -14,11 +14,12 @@ struct ManagerUserFormSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                TextField("First name", text: $form.firstName)
-                    .textContentType(.givenName)
-                    .fleetField()
-                TextField("Last name", text: $form.lastName)
-                    .textContentType(.familyName)
+                Text("Create User")
+                    .font(.title3.bold())
+                    .foregroundStyle(FleetPalette.textPrimary)
+
+                TextField("Name", text: $form.name)
+                    .textContentType(.name)
                     .fleetField()
                 TextField("Email / Login ID", text: $form.email)
                     .keyboardType(.emailAddress)
@@ -30,27 +31,12 @@ struct ManagerUserFormSheet: View {
                 TextField("Contact", text: $form.contact)
                     .keyboardType(.phonePad)
                     .fleetField()
-                TextField("Address", text: $form.address, axis: .vertical)
-                    .lineLimit(2...4)
-                    .fleetField()
 
                 Picker("Role", selection: $form.role) {
                     Text(UserRole.driver.title).tag(UserRole.driver)
                     Text(UserRole.maintenancePersonnel.title).tag(UserRole.maintenancePersonnel)
                 }
                 .pickerStyle(.segmented)
-
-                if form.role == .driver {
-                    TextField("Licence number", text: $form.licenceNumber)
-                        .textInputAutocapitalization(.characters)
-                        .fleetField()
-
-                    Picker("Vehicle Type", selection: $form.vehicleType) {
-                        ForEach(["car", "van", "bus", "truck"], id: \.self) { type in
-                            Text(type.capitalized).tag(type)
-                        }
-                    }
-                }
 
                 FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
 
@@ -65,13 +51,13 @@ struct ManagerUserFormSheet: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(FleetPalette.primary)
+                .tint(FleetPalette.accent)
                 .disabled(form.isValid == false)
             }
             .padding()
         }
         .fleetScreenBackground()
-        .navigationTitle("Create Login")
+        .navigationTitle("Create User")
         .navigationBarTitleDisplayMode(.inline)
     }
 }

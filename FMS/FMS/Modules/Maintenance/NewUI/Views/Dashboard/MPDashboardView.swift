@@ -127,7 +127,7 @@ struct MPDashboardView: View {
                 .foregroundStyle(AppColor.textPrimary)
             
             HStack(spacing: AppSpacing.small) {
-                progressCard(title: "On Going", value: "\(viewModel.inProgressCount)", color: AppColor.warning)
+                progressCard(title: "On Going", value: "\(viewModel.inProgressCount)", color: AppColor.inProgress)
                 progressCard(title: "Completed", value: "\(viewModel.completedCount)", color: AppColor.success)
                 progressCard(title: "Remaining", value: "\(viewModel.remainingCount)", color: AppColor.brand)
             }
@@ -215,10 +215,7 @@ struct MPDashboardView: View {
         
         return VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 12) {
-                Image(systemName: vehicle?.sfSymbolName ?? FleetIcon.car)
-                    .font(.title3)
-                    .foregroundStyle(AppColor.brand)
-                    .frame(width: 44, height: 28)
+                VehicleAssetImage(vehicle: vehicle, width: 46, height: 36, cornerRadius: 9)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(vehicleDisplay)
@@ -233,10 +230,10 @@ struct MPDashboardView: View {
                     HStack(spacing: 4) {
                         Image(systemName: FleetIcon.calendar)
                             .font(AppTypography.footnote)
-                            .foregroundStyle(workOrder.isUrgent == true ? Color.red : Color.gray)
+                            .foregroundStyle(workOrder.isUrgent == true ? AppColor.destructive : Color.gray)
                         Text("Due: \(workOrder.dueDate.formatted(.dateTime.month(.abbreviated).day().year()))")
                             .font(AppTypography.footnote)
-                            .foregroundStyle(workOrder.isUrgent == true ? Color.red : Color.gray)
+                            .foregroundStyle(workOrder.isUrgent == true ? AppColor.destructive : Color.gray)
                     }
                 }
                 
@@ -247,12 +244,12 @@ struct MPDashboardView: View {
                 } label: {
                     ZStack {
                         Circle()
-                            .fill(isPaused ? Color.orange.opacity(0.15) : Color.green.opacity(0.15))
+                            .fill(isPaused ? AppColor.warning.opacity(0.15) : AppColor.success.opacity(0.15))
                             .frame(width: 44, height: 44)
                         
                         Image(systemName: isPaused ? "pause.fill" : "play.fill")
                             .font(.headline)
-                            .foregroundStyle(isPaused ? Color.orange.opacity(0.7) : Color.green.opacity(0.7))
+                            .foregroundStyle(isPaused ? AppColor.warning.opacity(0.7) : AppColor.success.opacity(0.7))
                     }
                 }
                 .buttonStyle(.plain)
@@ -391,9 +388,9 @@ enum TimelineStatus {
     
     var color: Color {
         switch self {
-        case .done: return Color.green
-        case .paused: return Color.orange
-        case .now: return Color.blue
+        case .done: return AppColor.success
+        case .paused: return AppColor.warning
+        case .now: return AppColor.inProgress
         case .next: return Color.gray
         }
     }

@@ -12,7 +12,7 @@ struct SplashView: View {
 
             Image(systemName: "car.2.fill")
                 .font(.system(size: 72))
-                .foregroundStyle(FleetPalette.primary)
+                .foregroundStyle(FleetPalette.accent)
 
             Text("Fleet Manager")
                 .font(.largeTitle.bold())
@@ -23,7 +23,7 @@ struct SplashView: View {
                 .foregroundStyle(FleetPalette.textSecondary)
 
             ProgressView()
-                .tint(FleetPalette.primary)
+                .tint(FleetPalette.accent)
                 .padding(.top, 8)
 
             Spacer()

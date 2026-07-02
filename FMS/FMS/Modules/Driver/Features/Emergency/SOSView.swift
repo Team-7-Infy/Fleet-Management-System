@@ -28,7 +28,7 @@ struct SOSView: View {
                 VStack(spacing: 10) {
                     Image(systemName: "light.beacon.max.fill")
                         .font(.system(size: 50))
-                        .foregroundColor(.red)
+                        .foregroundColor(FleetPalette.danger)
                     
                     Text("Emergency SOS")
                         .font(.largeTitle)
@@ -51,7 +51,7 @@ struct SOSView: View {
                     VStack(spacing: 20) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 80))
-                            .foregroundColor(.green)
+                            .foregroundColor(FleetPalette.success)
                         
                         Text("Authorities Dispatched")
                             .font(.title2)
@@ -67,7 +67,7 @@ struct SOSView: View {
                     VStack(spacing: 30) {
                         Text("\(viewModel.countdown)")
                             .font(.system(size: 120, weight: .bold, design: .rounded))
-                            .foregroundColor(.red)
+                            .foregroundColor(FleetPalette.danger)
                         
                         Text("Sending alert in...")
                             .font(.headline)
@@ -91,22 +91,22 @@ struct SOSView: View {
                         // Background Track
                         Circle()
                             .stroke(lineWidth: 8)
-                            .foregroundColor(Color.red.opacity(0.3))
+                            .foregroundColor(FleetPalette.danger.opacity(0.3))
                             .frame(width: 220, height: 220)
                         
                         // Progress Indicator
                         Circle()
                             .trim(from: 0.0, to: progress)
                             .stroke(style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
-                            .foregroundColor(.red)
+                            .foregroundColor(FleetPalette.danger)
                             .frame(width: 220, height: 220)
                             .rotationEffect(Angle(degrees: -90))
                         
                         // Central Button
                         Circle()
-                            .fill(isPressing ? Color.red.opacity(0.8) : Color.red)
+                            .fill(isPressing ? FleetPalette.danger.opacity(0.8) : FleetPalette.danger)
                             .frame(width: 180, height: 180)
-                            .shadow(color: .red.opacity(0.5), radius: isPressing ? 20 : 10)
+                            .shadow(color: FleetPalette.danger.opacity(0.5), radius: isPressing ? 20 : 10)
                             .overlay(
                                 Text("SOS")
                                     .font(.system(size: 50, weight: .black))

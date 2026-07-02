@@ -27,15 +27,15 @@ struct VerifyEmailView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.15, green: 0.45, blue: 0.98),
-                                Color(red: 0.08, green: 0.30, blue: 0.85)
+                                FleetPalette.accent,
+                                FleetPalette.secondary
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .frame(width: 82, height: 82)
-                    .shadow(color: Color(red: 0.08, green: 0.30, blue: 0.85).opacity(0.45),
+                    .shadow(color: FleetPalette.accent.opacity(0.45),
                             radius: 14, x: 0, y: 6)
                     .shadow(color: Color.black.opacity(0.15),
                             radius: 4, x: 0, y: 2)
@@ -70,7 +70,7 @@ struct VerifyEmailView: View {
                     Text(errorMessage)
                 }
                 .font(.caption)
-                .foregroundStyle(.red)
+                .foregroundStyle(FleetPalette.danger)
                 .padding(.horizontal, 24)
                 .padding(.top, 8)
             }
@@ -79,7 +79,7 @@ struct VerifyEmailView: View {
                 resendCode()
             }
             .font(.subheadline)
-            .foregroundStyle(.blue)
+            .foregroundStyle(FleetPalette.accent)
             .underline()
             .padding(.top, 16)
             .padding(.horizontal, 24)
@@ -146,7 +146,7 @@ struct VerifyEmailView: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(
-                            isCurrent ? Color.blue : borderColor,
+                            isCurrent ? FleetPalette.accent : borderColor,
                             lineWidth: isCurrent ? 2 : 1
                         )
                 }
@@ -157,7 +157,7 @@ struct VerifyEmailView: View {
 
             if char.isEmpty && isCurrent {
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.blue)
+                    .fill(FleetPalette.accent)
                     .frame(width: 2, height: 24)
                     .opacity(0.85)
             } else {
@@ -200,7 +200,7 @@ struct VerifyEmailView: View {
     private var pageBackground: Color {
         colorScheme == .dark
             ? Color(red: 0.035, green: 0.04, blue: 0.05)
-            : Color(red: 0.975, green: 0.978, blue: 0.99)
+            : FleetPalette.background
     }
 
     private var boxBackground: Color {

@@ -41,7 +41,10 @@ struct ManagerMaintenanceRequestSheet: View {
                     }
                     .fleetField()
 
-                    TextField("Reason", text: $form.description, axis: .vertical)
+                    TextField("Title", text: $form.title)
+                        .fleetField()
+
+                    TextField("Description", text: $form.description, axis: .vertical)
                         .lineLimit(2...4)
                         .fleetField()
 
@@ -61,6 +64,11 @@ struct ManagerMaintenanceRequestSheet: View {
                     }
                     .fleetField()
 
+                    TextField("Photo URL (optional)", text: $form.photoUrl)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .fleetField()
+
                     FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
 
                     Button {
@@ -79,7 +87,7 @@ struct ManagerMaintenanceRequestSheet: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(FleetPalette.primary)
+                    .tint(FleetPalette.accent)
                     .disabled(form.isValid == false || form.vehicleId == nil)
                 }
             }
@@ -91,7 +99,8 @@ struct ManagerMaintenanceRequestSheet: View {
         .onAppear {
             form.vehicleId = form.vehicleId ?? initialVehicleId ?? vehiclesViewModel.vehicles.first?.id
             form.executedBy = form.executedBy ?? usersViewModel.maintenancePersonnel.first(where: { $0.status == .active })?.id
-            form.description = form.description.isEmpty ? "Preventive maintenance" : form.description
+            form.title = form.title.isEmpty ? "Engine oil and filter change" : form.title
+            form.description = form.description.isEmpty ? "Replace engine oil, oil filter, and inspect for leakage before the next trip." : form.description
             form.scheduledBy = form.scheduledBy ?? currentUserId.flatMap(usersViewModel.managerId(for:))
         }
     }

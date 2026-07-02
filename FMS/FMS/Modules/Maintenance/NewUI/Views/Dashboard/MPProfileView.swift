@@ -143,7 +143,7 @@ struct MPProfileView: View {
         } label: {
             Text("Sign Out")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Color.red)
+                .foregroundStyle(AppColor.destructive)
                 .frame(maxWidth: .infinity)
                 .padding()
                 .background(

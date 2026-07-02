@@ -40,7 +40,7 @@ struct ForgotPasswordView: View {
                     Text(errorMessage)
                 }
                 .font(.caption)
-                .foregroundStyle(.red)
+                .foregroundStyle(FleetPalette.danger)
                 .padding(.horizontal, 24)
                 .padding(.top, 8)
             }
@@ -66,15 +66,15 @@ struct ForgotPasswordView: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.15, green: 0.45, blue: 0.98),
-                            Color(red: 0.08, green: 0.30, blue: 0.85)
+                            FleetPalette.accent,
+                            FleetPalette.secondary
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
                 .frame(width: 82, height: 82)
-                .shadow(color: Color(red: 0.08, green: 0.30, blue: 0.85).opacity(0.45),
+                .shadow(color: FleetPalette.accent.opacity(0.45),
                         radius: 14, x: 0, y: 6)
                 .shadow(color: Color.black.opacity(0.15),
                         radius: 4, x: 0, y: 2)
@@ -133,7 +133,7 @@ struct ForgotPasswordView: View {
                     Text("Enter a valid email address")
                         .font(.caption)
                 }
-                .foregroundStyle(.red)
+                .foregroundStyle(FleetPalette.danger)
                 .padding(.horizontal, 20)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
@@ -216,6 +216,6 @@ struct ForgotPasswordView: View {
     private var pageBackground: Color {
         colorScheme == .dark
             ? Color(red: 0.035, green: 0.04, blue: 0.05)
-            : Color(red: 0.975, green: 0.978, blue: 0.99)
+            : FleetPalette.background
     }
 }

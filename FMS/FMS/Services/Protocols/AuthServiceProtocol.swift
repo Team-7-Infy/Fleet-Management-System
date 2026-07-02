@@ -21,5 +21,16 @@ protocol AuthServiceProtocol: AnyObject, Sendable {
     func updateUserPassword(password: String) async throws
     func forceUpdatePassword(userId: UUID, password: String) async throws
     func markFirstTimeLoginComplete(userId: UUID) async throws
+    func completeFirstTimeProfile(
+        user: User,
+        name: String,
+        email: String,
+        contact: Int64,
+        address: String,
+        aadhar: String,
+        avatarUrl: String?,
+        licenceNumber: String?,
+        vehicleType: String?
+    ) async throws -> User
     func deleteUserAuth(userId: UUID) async throws
 }

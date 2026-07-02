@@ -71,21 +71,14 @@ struct StatusBadge: View {
     let status: FuelRecord.RequestStatus
     
     var body: some View {
-        Text(status.rawValue)
-            .font(.caption)
-            .fontWeight(.bold)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(backgroundColor.opacity(0.2))
-            .foregroundColor(backgroundColor)
-            .cornerRadius(12)
+        StatusDot(text: status.rawValue, color: statusColor)
     }
     
-    private var backgroundColor: Color {
+    private var statusColor: Color {
         switch status {
-        case .approved, .completed: return .green
-        case .pending: return .orange
-        case .rejected: return .red
+        case .approved, .completed: return FleetPalette.success
+        case .pending: return FleetPalette.warning
+        case .rejected: return FleetPalette.danger
         }
     }
 }

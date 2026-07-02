@@ -6,7 +6,7 @@ struct FleetGlassButtonStyle: ButtonStyle {
             .font(.headline)
             .foregroundStyle(.white)
             .background {
-                FleetPalette.primary
+                FleetPalette.accent
                     .opacity(configuration.isPressed ? 0.7 : 1)
             }
             .clipShape(Capsule())
@@ -20,8 +20,8 @@ struct GlassProminentButtonStyle: ButtonStyle {
             .background(
                 LinearGradient(
                     colors: [
-                        Color(red: 0.15, green: 0.45, blue: 0.98),
-                        Color(red: 0.08, green: 0.30, blue: 0.85)
+                        FleetPalette.accent,
+                        FleetPalette.secondary
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -35,7 +35,7 @@ struct GlassProminentButtonStyle: ButtonStyle {
 struct GlassButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(.blue)
+            .foregroundStyle(FleetPalette.accent)
             .background(
                 Capsule()
                     .fill(Color.primary.opacity(configuration.isPressed ? 0.06 : 0.04))
@@ -46,4 +46,3 @@ struct GlassButtonStyle: ButtonStyle {
             )
     }
 }
-

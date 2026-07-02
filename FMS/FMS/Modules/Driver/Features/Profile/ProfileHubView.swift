@@ -20,7 +20,7 @@ struct ProfileHubView: View {
         .sheet(isPresented: $showingSupportSheet) {
             NavigationView {
                 VStack(spacing: 20) {
-                    Image(systemName: "headphones").font(.system(size: 48)).foregroundColor(.blue)
+                    Image(systemName: "headphones").font(.system(size: 48)).foregroundColor(FleetPalette.inProgress)
                     Text("Contact Dispatch").font(.title2).fontWeight(.bold)
                     Text("Call or message your fleet manager for assistance.").foregroundColor(.secondary).multilineTextAlignment(.center)
                 }
@@ -34,7 +34,7 @@ struct ProfileHubView: View {
     private var profileHeader: some View {
         VStack(spacing: 12) {
             Image(systemName: "person.crop.circle.fill")
-                .font(.system(size: 72)).foregroundColor(.blue)
+                .font(.system(size: 72)).foregroundColor(FleetPalette.inProgress)
             Text("Driver")
                 .font(.title2).fontWeight(.bold)
         }
@@ -46,9 +46,9 @@ struct ProfileHubView: View {
 
     private var statsGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            StatCard(title: "Safety Score", value: "-", icon: "shield.fill", color: .green)
-            StatCard(title: "Trips", value: "0", icon: "map.fill", color: .blue)
-            StatCard(title: "Status", value: "Active", icon: "person.fill.checkmark", color: .orange)
+            StatCard(title: "Safety Score", value: "-", icon: "shield.fill", color: FleetPalette.success)
+            StatCard(title: "Trips", value: "0", icon: "map.fill", color: FleetPalette.inProgress)
+            StatCard(title: "Status", value: "Active", icon: "person.fill.checkmark", color: FleetPalette.success)
             StatCard(title: "Vehicle", value: "-", icon: "truck.box.fill", color: .purple)
         }
     }
@@ -56,13 +56,13 @@ struct ProfileHubView: View {
     private var quickLinks: some View {
         VStack(spacing: 0) {
             NavigationLink(destination: DocumentCenterView()) {
-                LinkRow(icon: "doc.text.fill", title: "Documents", color: .blue)
+                LinkRow(icon: "doc.text.fill", title: "Documents", color: FleetPalette.inProgress)
             }
             NavigationLink(destination: PerformanceView()) {
-                LinkRow(icon: "chart.bar.fill", title: "Performance", color: .green)
+                LinkRow(icon: "chart.bar.fill", title: "Performance", color: FleetPalette.success)
             }
             Button(action: { showingSupportSheet = true }) {
-                LinkRow(icon: "headphones", title: "Support", color: .orange)
+                LinkRow(icon: "headphones", title: "Support", color: FleetPalette.warning)
             }
         }
         .background(Color(UIColor.systemBackground))

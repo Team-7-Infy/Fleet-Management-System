@@ -66,11 +66,11 @@ struct TripNavigationView: View {
                 )
             ) {
                 Circle()
-                    .fill(Color.blue.opacity(0.2))
+                    .fill(FleetPalette.inProgress.opacity(0.2))
                     .frame(width: CGFloat(waypoint.bufferRadius / 4), height: CGFloat(waypoint.bufferRadius / 4))
                     .overlay(
                         Circle()
-                            .stroke(Color.blue, lineWidth: 1)
+                            .stroke(FleetPalette.inProgress, lineWidth: 1)
                     )
             }
         }
@@ -90,7 +90,7 @@ struct TripNavigationView: View {
             Spacer()
         }
         .padding()
-        .background(Color.red.opacity(0.9))
+        .background(FleetPalette.danger.opacity(0.9))
         .cornerRadius(8)
         .padding(.horizontal)
         .padding(.top, 8)
@@ -134,7 +134,7 @@ struct TripNavigationView: View {
                     .padding(.vertical, 8)
             }
             .buttonStyle(.borderedProminent)
-            .tint(.red)
+            .tint(FleetPalette.danger)
             .padding(.horizontal)
         }
         .padding(.bottom, 8)

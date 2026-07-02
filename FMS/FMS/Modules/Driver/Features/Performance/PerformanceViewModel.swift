@@ -39,9 +39,9 @@ class PerformanceViewModel: ObservableObject {
     // Helper to determine the color of the safety score ring
     func scoreColor(for score: Int) -> Color {
         switch score {
-        case 90...100: return .green
-        case 75...89: return .orange
-        default: return .red
+        case 90...100: return FleetPalette.success
+        case 75...89: return FleetPalette.warning
+        default: return FleetPalette.danger
         }
     }
     

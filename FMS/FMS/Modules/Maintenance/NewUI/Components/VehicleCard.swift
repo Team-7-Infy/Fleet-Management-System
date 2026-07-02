@@ -9,11 +9,7 @@ struct VehicleCard: View {
             action?()
         } label: {
             HStack(spacing: AppSpacing.medium) {
-                Image(systemName: vehicle.sfSymbolName)
-                    .font(.title2)
-                    .foregroundStyle(AppColor.brand)
-                    .frame(width: 64, height: 64)
-                    .background(AppColor.secondaryBackground, in: RoundedRectangle(cornerRadius: AppCornerRadius.small))
+                VehicleAssetImage(vehicle: vehicle, width: 64, height: 64, cornerRadius: AppCornerRadius.small)
 
                 VStack(alignment: .leading, spacing: AppSpacing.xSmall) {
                     Text(vehicle.name)

@@ -17,6 +17,8 @@ enum DatabaseContract {
 // deviation_alert    → DeviationAlert
 // telemetry_log      → Telemetry
 // maintenance_task   → MaintenanceTask
+//   Optional service fields: title, reporteddate, completedat,
+//   timetakenhours, partssummary, totalcost, photourls
 // inventory          → InventoryPart
 // maintenance_task_parts → MaintenanceTaskPart
 // task_vehicles      → TaskVehicle
@@ -122,4 +124,3 @@ enum DatabaseContract {
 // let supabase = SupabaseService()
 // let authService = AuthService(supabase: supabase)
 // let vehicleService = VehicleService(supabase: supabase)
-

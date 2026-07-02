@@ -18,7 +18,7 @@ struct RejectTripSheet: View {
 
                         HStack(spacing: 12) {
                             Image(systemName: "mappin.circle.fill")
-                                .foregroundStyle(FleetPalette.primary)
+                                .foregroundStyle(FleetPalette.accent)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("From")
                                     .font(.caption)

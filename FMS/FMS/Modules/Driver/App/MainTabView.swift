@@ -27,7 +27,7 @@ struct MainTabView: View {
                         Label("Profile", systemImage: "person.crop.circle.fill")
                     }
             }
-            .accentColor(.blue)
+            .accentColor(FleetPalette.accent)
 
             if !networkMonitor.isConnected {
                 OfflineBanner()
@@ -52,7 +52,7 @@ struct VehicleHubView: View {
                 }
                 NavigationLink(destination: IncidentReportView()) {
                     Label("Report Incident", systemImage: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
+                        .foregroundColor(FleetPalette.danger)
                 }
             }
             .navigationTitle("Vehicle Hub")
@@ -89,7 +89,7 @@ struct OfflineBanner: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-        .background(Color.red)
+        .background(FleetPalette.danger)
         .foregroundColor(.white)
         .ignoresSafeArea(.all, edges: .top)
     }

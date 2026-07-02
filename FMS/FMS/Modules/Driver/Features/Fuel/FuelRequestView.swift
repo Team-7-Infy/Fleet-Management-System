@@ -80,7 +80,7 @@ struct FuelRequestView: View {
                             Spacer()
                         }
                     }
-                    .foregroundColor(requestedAmount.isEmpty ? .gray : .blue)
+                    .foregroundColor(requestedAmount.isEmpty ? .gray : FleetPalette.inProgress)
                     .disabled(requestedAmount.isEmpty || viewModel.isSubmitting)
                 }
             }
@@ -103,8 +103,8 @@ struct FuelRequestView: View {
     
     // Dynamic color based on fuel level
     private var fuelColor: Color {
-        if currentFuelLevel < 0.2 { return .red }
-        if currentFuelLevel < 0.5 { return .orange }
-        return .green
+        if currentFuelLevel < 0.2 { return FleetPalette.danger }
+        if currentFuelLevel < 0.5 { return FleetPalette.warning }
+        return FleetPalette.success
     }
 }

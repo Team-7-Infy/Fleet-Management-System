@@ -56,7 +56,7 @@ struct AvatarView: View {
     private var tint: Color {
         switch role {
         case .driver:
-            return FleetPalette.primary
+            return FleetPalette.accent
         case .maintenancePersonnel:
             return FleetPalette.warning
         case .fleetManager:

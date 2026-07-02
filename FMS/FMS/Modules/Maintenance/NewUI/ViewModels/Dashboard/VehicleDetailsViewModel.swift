@@ -41,7 +41,7 @@ final class VehicleDetailsViewModel: ObservableObject {
     }
     
     var dynamicStatusColor: SwiftUI.Color {
-        assignedWorkOrders.isEmpty ? .green : .orange
+        assignedWorkOrders.isEmpty ? AppColor.success : AppColor.warning
     }
     
     var dynamicStatusIcon: String {

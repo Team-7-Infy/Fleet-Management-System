@@ -17,8 +17,8 @@ struct AddToolbarButton: View {
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(.white)
                 .frame(width: 48, height: 48)
-                .background(FleetPalette.primary, in: Circle())
-                .shadow(color: FleetPalette.primary.opacity(0.22), radius: 10, x: 0, y: 5)
+                .background(FleetPalette.accent, in: Circle())
+                .shadow(color: FleetPalette.accent.opacity(0.22), radius: 10, x: 0, y: 5)
         }
         .accessibilityLabel(title)
     }

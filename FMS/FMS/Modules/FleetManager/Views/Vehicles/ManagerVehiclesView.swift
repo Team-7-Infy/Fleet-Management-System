@@ -1,18 +1,51 @@
 import SwiftUI
 
+private enum ManagerVehicleFilter: String, CaseIterable, Identifiable {
+    case all
+    case active
+    case maintenance
+    case inactive
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .all: return "All"
+        case .active: return "Active"
+        case .maintenance: return "Service"
+        case .inactive: return "Inactive"
+        }
+    }
+
+    func includes(_ vehicle: Vehicle) -> Bool {
+        switch self {
+        case .all:
+            return true
+        case .active:
+            return vehicle.status == .active
+        case .maintenance:
+            return vehicle.status == .maintenance
+        case .inactive:
+            return vehicle.status == .inactive
+        }
+    }
+}
+
 struct ManagerVehiclesView: View {
     @ObservedObject var viewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
     @State private var searchText = ""
+    @State private var filter: ManagerVehicleFilter = .all
 
     var openAddVehicle: () -> Void
     var openMaintenanceRequest: (UUID?) -> Void
 
     private var filteredVehicles: [Vehicle] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard query.isEmpty == false else { return viewModel.vehicles }
+        let filteredByStatus = viewModel.vehicles.filter { filter.includes($0) }
+        guard query.isEmpty == false else { return filteredByStatus }
 
-        return viewModel.vehicles.filter { vehicle in
+        return filteredByStatus.filter { vehicle in
             [
                 vehicle.licencePlate,
                 vehicle.make,
@@ -26,82 +59,77 @@ struct ManagerVehiclesView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    ScreenHeader(title: "Vehicles")
-                    FleetSearchBar(text: $searchText)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
 
-                    FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
-
-                    if viewModel.vehicles.isEmpty {
-                        GlassPanel {
-                            VStack(alignment: .leading, spacing: 14) {
-                                Text("Fleet Register")
-                                    .font(.title3.bold())
-                                EmptyStateView(
-                                    title: "No vehicles",
-                                    message: "Add vehicle details with plate, model, VIN UUID, status, and vehicle type.",
-                                    systemImage: "car"
+                if viewModel.vehicles.isEmpty {
+                    ContentUnavailableView(
+                        "No vehicles",
+                        systemImage: "car",
+                        description: Text("Add vehicle details with plate, model, VIN UUID, status, and vehicle type.")
+                    )
+                } else if filteredVehicles.isEmpty {
+                    ContentUnavailableView.search
+                } else {
+                    LazyVStack(spacing: 0) {
+                        ForEach(filteredVehicles) { vehicle in
+                            NavigationLink {
+                                ManagerVehicleDetailView(
+                                    vehicle: vehicle,
+                                    viewModel: viewModel,
+                                    usersViewModel: usersViewModel,
+                                    openMaintenanceRequest: openMaintenanceRequest
+                                )
+                            } label: {
+                                ManagerVehicleRow(
+                                    vehicle: vehicle,
+                                    driver: usersViewModel.driverUser(for: vehicle.driverId)
                                 )
                             }
-                        }
-                    } else if filteredVehicles.isEmpty {
-                        GlassPanel {
-                            EmptyStateView(
-                                title: "No matching vehicles",
-                                message: "Try a different plate number, model, type, VIN, or status.",
-                                systemImage: "magnifyingglass"
-                            )
-                        }
-                    } else {
-                        LazyVStack(spacing: 0) {
-                            ForEach(filteredVehicles) { vehicle in
-                                NavigationLink {
-                                    ManagerVehicleDetailView(
-                                        vehicle: vehicle,
-                                        viewModel: viewModel,
-                                        usersViewModel: usersViewModel,
-                                        openMaintenanceRequest: openMaintenanceRequest
-                                    )
-                                } label: {
-                                    ManagerVehicleRow(
-                                        vehicle: vehicle,
-                                        driver: usersViewModel.driverUser(for: vehicle.driverId)
-                                    )
-                                }
-                                .buttonStyle(.plain)
+                            .buttonStyle(.plain)
 
-                                if vehicle.id != filteredVehicles.last?.id {
-                                    Divider()
-                                        .padding(.leading, 86)
-                                }
+                            if vehicle.id != filteredVehicles.last?.id {
+                                Divider()
+                                    .padding(.leading, 86)
                             }
                         }
-                        .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .stroke(FleetPalette.tertiary.opacity(0.45), lineWidth: 1)
-                        }
+                    }
+                    .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 22))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 22)
+                            .stroke(FleetPalette.tertiary.opacity(0.45), lineWidth: 1)
                     }
                 }
-                .padding()
             }
-            .fleetScreenBackground()
-            .refreshable {
-                await viewModel.load()
+            .padding()
+        }
+        .fleetScreenBackground()
+        .navigationTitle("Vehicles")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search vehicles")
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                VehicleFilterMenu(filter: $filter)
+                Button("Add Vehicle", systemImage: "plus", action: openAddVehicle)
             }
+        }
+        .refreshable {
+            await viewModel.load()
+        }
+    }
+}
 
-            Button(action: openAddVehicle) {
-                Image(systemName: "plus")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 56, height: 56)
-                    .background(FleetPalette.primary, in: Circle())
-                    .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+private struct VehicleFilterMenu: View {
+    @Binding var filter: ManagerVehicleFilter
+
+    var body: some View {
+        Menu("Filter", systemImage: "line.3.horizontal.decrease.circle") {
+            Picker("Vehicle status", selection: $filter) {
+                ForEach(ManagerVehicleFilter.allCases) { option in
+                    Text(option.title).tag(option)
+                }
             }
-            .padding(.trailing, 20)
-            .padding(.bottom, 16)
         }
     }
 }
@@ -112,7 +140,7 @@ private struct ManagerVehicleRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            IconBubble(systemImage: vehicleSymbol, tint: FleetPalette.primary)
+            VehicleAssetImage(vehicle: vehicle, width: 72, height: 56, cornerRadius: 15)
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(verbatim: vehicle.licencePlate)
@@ -127,13 +155,13 @@ private struct ManagerVehicleRow: View {
 
                 Text(driver.map { "Driver - \($0.displayName)" } ?? "Unassigned")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(driver == nil ? FleetPalette.textSecondary : FleetPalette.primary)
+                    .foregroundStyle(driver == nil ? FleetPalette.textSecondary : FleetPalette.accent)
                     .lineLimit(1)
             }
 
             Spacer(minLength: 8)
 
-            StatusPill(text: vehicle.status.title, color: FleetPalette.vehicleStatus(vehicle.status))
+            StatusDot(text: vehicle.status.title, color: FleetPalette.vehicleStatus(vehicle.status))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -144,20 +172,6 @@ private struct ManagerVehicleRow: View {
 
     private var modelName: String {
         "\(vehicle.year) \(vehicle.make) \(vehicle.model)"
-    }
-
-    private var vehicleSymbol: String {
-        let type = vehicle.vehicleType.lowercased()
-        if type.contains("bus") {
-            return "bus.fill"
-        }
-        if type.contains("truck") {
-            return "box.truck.fill"
-        }
-        if type.contains("van") {
-            return "car.side.fill"
-        }
-        return "car.fill"
     }
 }
 
@@ -195,6 +209,8 @@ private struct ManagerVehicleDetailView: View {
     private var vehicleHeader: some View {
         GlassPanel {
             HStack(alignment: .center, spacing: 16) {
+                VehicleAssetImage(vehicle: currentVehicle, width: 94, height: 70, cornerRadius: 18)
+
                 VStack(alignment: .leading, spacing: 8) {
                     Text(currentVehicle.licencePlate)
                         .font(.title2.weight(.bold))
@@ -203,8 +219,8 @@ private struct ManagerVehicleDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(FleetPalette.textSecondary)
                     HStack {
-                        StatusPill(text: currentVehicle.status.title, color: FleetPalette.vehicleStatus(currentVehicle.status))
-                        StatusPill(text: currentVehicle.vehicleType.capitalized, color: FleetPalette.primary)
+                        StatusDot(text: currentVehicle.status.title, color: FleetPalette.vehicleStatus(currentVehicle.status))
+                        StatusPill(text: currentVehicle.vehicleType.capitalized, color: FleetPalette.accent)
                     }
                 }
 
@@ -266,7 +282,7 @@ private struct ManagerVehicleDetailView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(FleetPalette.primary)
+                    .tint(FleetPalette.accent)
                 } else {
                     Text("This vehicle is currently marked for maintenance.")
                         .font(.subheadline)

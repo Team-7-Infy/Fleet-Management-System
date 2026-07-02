@@ -32,11 +32,11 @@ struct CreatePasswordView: View {
         var color: Color {
             switch self {
             case .empty:      return .clear
-            case .veryWeak:   return Color(red: 0.85, green: 0.20, blue: 0.20)
-            case .weak:       return Color(red: 0.90, green: 0.50, blue: 0.10)
-            case .fair:       return Color(red: 0.95, green: 0.80, blue: 0.10)
-            case .strong:     return Color(red: 0.20, green: 0.75, blue: 0.35)
-            case .veryStrong: return Color(red: 0.10, green: 0.60, blue: 0.90)
+            case .veryWeak:   return FleetPalette.danger
+            case .weak:       return FleetPalette.danger
+            case .fair:       return FleetPalette.warning
+            case .strong:     return FleetPalette.success
+            case .veryStrong: return FleetPalette.success
             }
         }
 
@@ -118,7 +118,7 @@ struct CreatePasswordView: View {
                     Text(errorMessage)
                 }
                 .font(.caption)
-                .foregroundStyle(.red)
+                .foregroundStyle(FleetPalette.danger)
                 .padding(.horizontal, 24)
                 .padding(.top, 8)
             }
@@ -285,7 +285,7 @@ struct CreatePasswordView: View {
                 ForEach(requirements, id: \.label) { req in
                     HStack(spacing: 10) {
                         Image(systemName: req.isMet(newPassword) ? "checkmark.circle.fill" : "checkmark.circle")
-                            .foregroundStyle(req.isMet(newPassword) ? Color.green : placeholderColor)
+                            .foregroundStyle(req.isMet(newPassword) ? FleetPalette.success : placeholderColor)
                             .animation(.spring(duration: 0.3), value: req.isMet(newPassword))
 
                         Text(req.label)
@@ -350,7 +350,7 @@ struct CreatePasswordView: View {
     private var pageBackground: Color {
         colorScheme == .dark
             ? Color(red: 0.035, green: 0.04, blue: 0.05)
-            : Color(red: 0.975, green: 0.978, blue: 0.99)
+            : FleetPalette.background
     }
 
     private var cardBackground: Color {

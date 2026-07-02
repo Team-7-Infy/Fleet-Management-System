@@ -20,10 +20,10 @@ enum JobStatus: String, CaseIterable, Codable, Hashable, Identifiable {
 
     var color: Color {
         switch self {
-        case .pending: .secondary
-        case .assigned: .blue
-        case .inProgress: .orange
-        case .completed: .green
+        case .pending: AppColor.warning
+        case .assigned: AppColor.inProgress
+        case .inProgress: AppColor.inProgress
+        case .completed: AppColor.success
         }
     }
 }

@@ -59,7 +59,7 @@ struct IncidentReportView: View {
                                             .font(.caption)
                                     }
                                 )
-                                .foregroundColor(.blue)
+                                .foregroundColor(FleetPalette.inProgress)
                         }
                     }
                     .padding(.vertical, 8)
@@ -70,14 +70,14 @@ struct IncidentReportView: View {
             Section(header: Text("Location Data")) {
                 if let location = locationManager.location {
                     HStack {
-                        Image(systemName: "location.fill").foregroundColor(.green)
+                        Image(systemName: "location.fill").foregroundColor(FleetPalette.success)
                         Text("GPS Coordinates Captured")
                             .font(.subheadline)
                         Spacer()
                     }
                 } else {
                     HStack {
-                        Image(systemName: "location.slash.fill").foregroundColor(.red)
+                        Image(systemName: "location.slash.fill").foregroundColor(FleetPalette.danger)
                         Text("Location Unavailable")
                             .font(.subheadline)
                     }
@@ -101,7 +101,7 @@ struct IncidentReportView: View {
                         Spacer()
                     }
                 }
-                .foregroundColor(viewModel.isValid ? .red : .gray)
+                .foregroundColor(viewModel.isValid ? FleetPalette.danger : .gray)
                 .disabled(!viewModel.isValid || viewModel.isSubmitting)
             }
         }

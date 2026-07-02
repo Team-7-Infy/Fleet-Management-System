@@ -58,7 +58,7 @@ struct WorkOrderSuccessView: View {
         VStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(Color.green)
+                    .fill(AppColor.success)
                     .frame(width: 72, height: 72)
                 Image(systemName: "checkmark")
                     .font(.system(size: 32, weight: .bold))
@@ -92,8 +92,8 @@ struct WorkOrderSuccessView: View {
                     .font(.system(size: 10, weight: .bold))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Color.blue.opacity(0.1))
-                    .foregroundStyle(Color.blue)
+                    .background(AppColor.inProgress.opacity(0.1))
+                    .foregroundStyle(AppColor.inProgress)
                     .clipShape(Capsule())
             }
             .padding(16)
@@ -104,7 +104,7 @@ struct WorkOrderSuccessView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Image(systemName: "clock")
-                        .foregroundStyle(Color.blue)
+                        .foregroundStyle(AppColor.inProgress)
                     Text("Labor Time")
                         .font(.system(size: 14, weight: .semibold))
                     Spacer()
@@ -118,7 +118,7 @@ struct WorkOrderSuccessView: View {
                     Divider()
                     HStack {
                         Image(systemName: "wrench.adjustable")
-                            .foregroundStyle(Color.blue)
+                            .foregroundStyle(AppColor.inProgress)
                         Text("Parts Used")
                             .font(.system(size: 14, weight: .semibold))
                     }
@@ -129,7 +129,7 @@ struct WorkOrderSuccessView: View {
                                 HStack(spacing: 4) {
                                     Image(systemName: "gearshape")
                                         .font(.system(size: 10))
-                                        .foregroundStyle(Color.blue)
+                                        .foregroundStyle(AppColor.inProgress)
                                     Text("\(part.name) x\(part.quantity)")
                                         .font(.system(size: 12))
                                         .foregroundStyle(Color.black.opacity(0.7))
@@ -152,10 +152,10 @@ struct WorkOrderSuccessView: View {
                 HStack(spacing: 12) {
                     ZStack {
                         Circle()
-                            .fill(Color.blue.opacity(0.1))
+                            .fill(AppColor.inProgress.opacity(0.1))
                             .frame(width: 32, height: 32)
                         Image(systemName: "banknote")
-                            .foregroundStyle(Color.blue)
+                            .foregroundStyle(AppColor.inProgress)
                             .font(.system(size: 14))
                     }
                     Text("Total Cost")
@@ -164,7 +164,7 @@ struct WorkOrderSuccessView: View {
                 Spacer()
                 Text(viewModel.formattedTotalCost)
                     .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color.blue)
+                    .foregroundStyle(AppColor.inProgress)
             }
             .padding(16)
             .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))

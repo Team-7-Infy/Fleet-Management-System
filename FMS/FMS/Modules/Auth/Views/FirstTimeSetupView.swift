@@ -8,6 +8,14 @@ struct FirstTimeSetupView: View {
     private let onComplete: (User) -> Void
     private let onLogout: () -> Void
 
+    @State private var profileName: String
+    @State private var profileEmail: String
+    @State private var profileContact: String
+    @State private var profileAddress: String
+    @State private var profileAadhar: String
+    @State private var profileAvatarUrl: String
+    @State private var licenceNumber = ""
+    @State private var vehicleType = "van"
     @State private var newPassword = ""
     @State private var confirmPassword = ""
     @State private var isNewPasswordVisible = false
@@ -21,6 +29,12 @@ struct FirstTimeSetupView: View {
         self.user = user
         self.onComplete = onComplete
         self.onLogout = onLogout
+        _profileName = State(initialValue: user.displayName)
+        _profileEmail = State(initialValue: user.email)
+        _profileContact = State(initialValue: user.contact == 0 ? "" : "\(user.contact)")
+        _profileAddress = State(initialValue: user.address)
+        _profileAadhar = State(initialValue: user.aadhar)
+        _profileAvatarUrl = State(initialValue: user.avatarUrl ?? "")
     }
 
     private enum Field { case newPassword, confirmPassword }
@@ -31,11 +45,11 @@ struct FirstTimeSetupView: View {
         var color: Color {
             switch self {
             case .empty:      return .clear
-            case .veryWeak:   return Color(red: 0.85, green: 0.20, blue: 0.20)
-            case .weak:       return Color(red: 0.90, green: 0.50, blue: 0.10)
-            case .fair:       return Color(red: 0.95, green: 0.80, blue: 0.10)
-            case .strong:     return Color(red: 0.20, green: 0.75, blue: 0.35)
-            case .veryStrong: return Color(red: 0.10, green: 0.60, blue: 0.90)
+            case .veryWeak:   return FleetPalette.danger
+            case .weak:       return FleetPalette.danger
+            case .fair:       return FleetPalette.warning
+            case .strong:     return FleetPalette.success
+            case .veryStrong: return FleetPalette.success
             }
         }
 
@@ -73,8 +87,33 @@ struct FirstTimeSetupView: View {
         !newPassword.isEmpty && newPassword == confirmPassword
     }
 
+    private var profileContactValue: Int64? {
+        Int64(profileContact.filter(\.isNumber))
+    }
+
+    private var isProfileValid: Bool {
+        guard profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+              profileEmail.contains("@"),
+              profileContactValue != nil
+        else {
+            return false
+        }
+
+        switch user.role {
+        case .driver:
+            return profileAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
+                profileAadhar.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
+                licenceNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        case .maintenancePersonnel:
+            return profileAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
+                profileAadhar.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        case .fleetManager:
+            return true
+        }
+    }
+
     private var isValid: Bool {
-        (strength == .strong || strength == .veryStrong) && passwordsMatch
+        isProfileValid && (strength == .strong || strength == .veryStrong) && passwordsMatch
     }
 
     var body: some View {
@@ -87,7 +126,7 @@ struct FirstTimeSetupView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Sign Out") { onLogout() }
-                    .foregroundStyle(.red)
+                    .foregroundStyle(FleetPalette.danger)
             }
         }
         .onTapGesture { focusedField = nil }
@@ -97,42 +136,49 @@ struct FirstTimeSetupView: View {
 
     private var passwordSetup: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Welcome, \(user.fName)!")
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Welcome, \(user.fName)!")
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
 
-                Text("Set a secure password to activate your account.")
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(.top, 20)
-            .padding(.horizontal, 24)
+                        Text("Confirm your profile details and set a secure password to activate your account.")
+                            .font(.system(size: 15, weight: .regular))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.top, 20)
+                    .padding(.horizontal, 24)
 
-            passwordCard
-                .padding(.top, 18)
-                .padding(.horizontal, 24)
+                    profileCard
+                        .padding(.top, 18)
+                        .padding(.horizontal, 24)
 
-            if let errorMessage {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.circle.fill")
-                    Text(errorMessage)
+                    passwordCard
+                        .padding(.top, 18)
+                        .padding(.horizontal, 24)
+
+                    if let errorMessage {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                            Text(errorMessage)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(FleetPalette.danger)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 8)
+                    }
                 }
-                .font(.caption)
-                .foregroundStyle(.red)
-                .padding(.horizontal, 24)
-                .padding(.top, 8)
+                .padding(.bottom, 18)
             }
-
-            Spacer()
 
             Button(action: setPassword) {
                 HStack(spacing: 8) {
                     if isLoading {
                         ProgressView().tint(.white)
                     }
-                    Text("Set Password & Continue")
+                    Text("Save Profile & Continue")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
@@ -160,6 +206,10 @@ struct FirstTimeSetupView: View {
 
     private var passwordCard: some View {
         VStack(spacing: 20) {
+            Text("Security")
+                .font(.headline.weight(.semibold))
+                .frame(maxWidth: .infinity, alignment: .leading)
+
             VStack(alignment: .leading, spacing: 10) {
                 Text("New password")
                     .font(.subheadline.weight(.medium))
@@ -262,6 +312,45 @@ struct FirstTimeSetupView: View {
         }
     }
 
+    private var profileCard: some View {
+        VStack(spacing: 16) {
+            Text("Personal Information")
+                .font(.headline.weight(.semibold))
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            profileField("Name", systemImage: "person", text: $profileName, keyboardType: .default)
+            profileField("Email", systemImage: "envelope", text: $profileEmail, keyboardType: .emailAddress)
+            profileField("Contact no.", systemImage: "phone", text: $profileContact, keyboardType: .phonePad)
+
+            if user.role == .driver || user.role == .maintenancePersonnel {
+                profileField("Address", systemImage: "mappin.and.ellipse", text: $profileAddress, keyboardType: .default)
+                profileField("Aadhaar no.", systemImage: "number", text: $profileAadhar, keyboardType: .numberPad)
+                profileField("Photo / DP URL", systemImage: "photo", text: $profileAvatarUrl, keyboardType: .URL)
+            }
+
+            if user.role == .driver {
+                profileField("Driving licence", systemImage: "doc.text", text: $licenceNumber, keyboardType: .default)
+
+                Picker("Vehicle Type", selection: $vehicleType) {
+                    ForEach(["car", "van", "bus", "truck"], id: \.self) { type in
+                        Text(type.capitalized).tag(type)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+        }
+        .padding(24)
+        .background {
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(cardBackground)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 30, style: .continuous)
+                        .stroke(.white.opacity(colorScheme == .dark ? 0.08 : 0.7), lineWidth: 0.8)
+                }
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0.34 : 0.1), radius: 24, x: 0, y: 14)
+        }
+    }
+
     private func setPassword() {
         guard isValid else { return }
         isLoading = true
@@ -269,9 +358,20 @@ struct FirstTimeSetupView: View {
         Task { @MainActor in
             do {
                 try await authService.forceUpdatePassword(userId: user.id, password: newPassword)
-                try await authService.markFirstTimeLoginComplete(userId: user.id)
-                var activatedUser = user
-                activatedUser.firstTimeLogin = false
+                guard let contact = profileContactValue else {
+                    throw AuthError.functionError("Enter a valid contact number.")
+                }
+                let activatedUser = try await authService.completeFirstTimeProfile(
+                    user: user,
+                    name: profileName,
+                    email: profileEmail,
+                    contact: contact,
+                    address: profileAddress,
+                    aadhar: profileAadhar,
+                    avatarUrl: profileAvatarUrl,
+                    licenceNumber: licenceNumber,
+                    vehicleType: vehicleType
+                )
                 isLoading = false
                 onComplete(activatedUser)
             } catch {
@@ -282,6 +382,24 @@ struct FirstTimeSetupView: View {
     }
 
     // MARK: - Shared UI
+
+    private func profileField(_ label: String, systemImage: String, text: Binding<String>, keyboardType: UIKeyboardType) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            glassField {
+                Image(systemName: systemImage)
+
+                TextField("", text: text, prompt: Text(label).foregroundStyle(placeholderColor))
+                    .keyboardType(keyboardType)
+                    .textInputAutocapitalization(keyboardType == .emailAddress || keyboardType == .URL ? .never : .words)
+                    .foregroundStyle(.primary)
+                    .frame(minWidth: 0, maxWidth: .infinity)
+            }
+        }
+    }
 
     private func glassField<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         HStack(spacing: 12) {
@@ -301,7 +419,7 @@ struct FirstTimeSetupView: View {
     private var pageBackground: Color {
         colorScheme == .dark
             ? Color(red: 0.035, green: 0.04, blue: 0.05)
-            : Color(red: 0.975, green: 0.978, blue: 0.99)
+            : FleetPalette.background
     }
 
     private var cardBackground: Color {

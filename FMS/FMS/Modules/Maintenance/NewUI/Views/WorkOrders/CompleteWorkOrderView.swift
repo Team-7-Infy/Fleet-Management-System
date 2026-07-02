@@ -25,12 +25,12 @@ struct CompleteWorkOrderView: View {
                             HStack(alignment: .center, spacing: 16) {
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.blue.opacity(0.1))
+                                        .fill(AppColor.inProgress.opacity(0.1))
                                         .frame(width: 48, height: 48)
                                     
                                     Image(systemName: "power.circle")
                                         .font(.system(size: 24))
-                                        .foregroundStyle(Color.blue)
+                                        .foregroundStyle(AppColor.inProgress)
                                 }
                                 
                                 Text(workOrder.title)
@@ -77,10 +77,10 @@ struct CompleteWorkOrderView: View {
                             }
                             .font(.system(size: 16, weight: .semibold))
                             .padding()
-                            .foregroundStyle(Color.blue)
+                            .foregroundStyle(AppColor.inProgress)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.blue.opacity(0.1))
+                                    .fill(AppColor.inProgress.opacity(0.1))
                             )
                         }
                         
@@ -96,7 +96,7 @@ struct CompleteWorkOrderView: View {
                                         Text("Add Part")
                                     }
                                     .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(Color.blue)
+                                    .foregroundStyle(AppColor.inProgress)
                                 }
                             }
                             
@@ -153,7 +153,7 @@ struct CompleteWorkOrderView: View {
                                                 
                                             Button(action: { viewModel.removePart(id: part.id) }) {
                                                 Image(systemName: "trash")
-                                                    .foregroundStyle(Color.red)
+                                                    .foregroundStyle(AppColor.destructive)
                                                     .font(.system(size: 16))
                                                     .padding(8)
                                             }
@@ -276,7 +276,7 @@ struct CompleteWorkOrderView: View {
                                 Spacer()
                                 Text("₹\(formatDecimal(viewModel.totalCost))")
                                     .font(.system(size: 24, weight: .bold))
-                                    .foregroundStyle(Color.blue)
+                                    .foregroundStyle(AppColor.inProgress)
                             }
                         }
                         .padding(16)
@@ -301,7 +301,7 @@ struct CompleteWorkOrderView: View {
                                     .foregroundStyle(Color.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
-                                    .background(Color.red)
+                                    .background(AppColor.destructive)
                                     .clipShape(Capsule())
                             }
                             
@@ -320,7 +320,7 @@ struct CompleteWorkOrderView: View {
                                     .foregroundStyle(Color.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
-                                    .background(Color.green)
+                                    .background(AppColor.success)
                                     .clipShape(Capsule())
                             }
                         }

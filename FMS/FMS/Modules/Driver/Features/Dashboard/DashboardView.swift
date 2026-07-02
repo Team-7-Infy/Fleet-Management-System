@@ -34,8 +34,8 @@ struct DashboardView: View {
                         }
                         
                         HStack(spacing: 16) {
-                            ComplianceWidget(title: "Drive Time", value: "4h 12m", subtitle: "until required break", progress: 0.7, color: .blue)
-                            ComplianceWidget(title: "Fuel Level", value: "65%", subtitle: "Est. 240 km left", progress: 0.65, color: .orange)
+                            ComplianceWidget(title: "Drive Time", value: "4h 12m", subtitle: "until required break", progress: 0.7, color: FleetPalette.inProgress)
+                            ComplianceWidget(title: "Fuel Level", value: "65%", subtitle: "Est. 240 km left", progress: 0.65, color: FleetPalette.warning)
                         }
                         
                         // QUICK ACTIONS - Now wired to our state variables
@@ -98,7 +98,7 @@ struct HomeHeaderView: View {
                         .background(Color(UIColor.secondarySystemBackground))
                         .clipShape(Circle())
                     Circle()
-                        .fill(Color.red)
+                        .fill(FleetPalette.danger)
                         .frame(width: 10, height: 10)
                         .overlay(Circle().stroke(Color(UIColor.systemGroupedBackground), lineWidth: 2))
                         .offset(x: -2, y: 2)
@@ -118,7 +118,7 @@ struct ActiveRouteCard: View {
         VStack(alignment: .leading, spacing: 20) {
             HStack {
                 HStack(spacing: 6) {
-                    Circle().fill(Color.green).frame(width: 8, height: 8).shadow(color: .green, radius: 4)
+                    Circle().fill(FleetPalette.success).frame(width: 8, height: 8).shadow(color: FleetPalette.success, radius: 4)
                     Text("ON ROUTE")
                         .font(.caption).fontWeight(.heavy).foregroundColor(.white)
                 }
@@ -149,8 +149,8 @@ struct ActiveRouteCard: View {
             }
         }
         .padding(24)
-        .background(LinearGradient(colors: [Color.blue, Color(red: 0.1, green: 0.3, blue: 0.9)], startPoint: .topLeading, endPoint: .bottomTrailing))
-        .cornerRadius(24).shadow(color: Color.blue.opacity(0.25), radius: 20, x: 0, y: 12)
+        .background(LinearGradient(colors: [FleetPalette.inProgress, FleetPalette.secondary], startPoint: .topLeading, endPoint: .bottomTrailing))
+        .cornerRadius(24).shadow(color: FleetPalette.inProgress.opacity(0.25), radius: 20, x: 0, y: 12)
     }
 }
 
@@ -161,17 +161,17 @@ struct UrgentTaskCard: View {
     var body: some View {
         HStack(spacing: 16) {
             ZStack {
-                RoundedRectangle(cornerRadius: 14).fill(Color.red.opacity(0.15)).frame(width: 50, height: 50)
-                Image(systemName: "exclamationmark.shield.fill").foregroundColor(.red).font(.title2)
+                RoundedRectangle(cornerRadius: 14).fill(FleetPalette.danger.opacity(0.15)).frame(width: 50, height: 50)
+                Image(systemName: "exclamationmark.shield.fill").foregroundColor(FleetPalette.danger).font(.title2)
             }
             VStack(alignment: .leading, spacing: 4) {
-                Text(type).font(.system(size: 11, weight: .black)).foregroundColor(.red)
+                Text(type).font(.system(size: 11, weight: .black)).foregroundColor(FleetPalette.danger)
                 Text(title).font(.headline).fontWeight(.bold).foregroundColor(.primary)
             }
             Spacer()
             Image(systemName: "chevron.right").foregroundColor(.gray.opacity(0.5))
         }
-        .padding(20).background(Color(UIColor.systemBackground)).cornerRadius(20).shadow(color: Color.red.opacity(0.1), radius: 15, x: 0, y: 5)
+        .padding(20).background(Color(UIColor.systemBackground)).cornerRadius(20).shadow(color: FleetPalette.danger.opacity(0.1), radius: 15, x: 0, y: 5)
     }
 }
 
@@ -211,8 +211,8 @@ struct QuickActionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             ActionTile(icon: "book.pages.fill", title: "Logbook", color: .purple, action: onLogbookTap)
-            ActionTile(icon: "fuelpump.fill", title: "Fuel", color: .orange, action: onFuelTap)
-            ActionTile(icon: "light.beacon.max.fill", title: "SOS", color: .red, action: onSOSTap)
+            ActionTile(icon: "fuelpump.fill", title: "Fuel", color: FleetPalette.warning, action: onFuelTap)
+            ActionTile(icon: "light.beacon.max.fill", title: "SOS", color: FleetPalette.danger, action: onSOSTap)
         }
     }
 }
@@ -287,7 +287,7 @@ struct FuelLogView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
-                Image(systemName: "fuelpump.fill").font(.system(size: 60)).foregroundColor(.orange)
+                Image(systemName: "fuelpump.fill").font(.system(size: 60)).foregroundColor(FleetPalette.warning)
                 Text("Log Fuel Stop").font(.title2).fontWeight(.bold)
                 Text("Fuel submission form will go here.").foregroundColor(.secondary)
             }

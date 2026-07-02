@@ -9,18 +9,20 @@
 import SwiftUI
 
 enum FleetPalette {
-    static let primary = Color(hex: 0x42A5F5)
-    static let secondary = Color(hex: 0x90CAF9)
-    static let tertiary = Color(hex: 0xBBDEFB)
-    static let softBlue = Color(hex: 0xE3F2FD)
+    static let primary = Color(hex: 0xE3F2FD)
+    static let secondary = Color(hex: 0xBBDEFB)
+    static let tertiary = Color(hex: 0x42A5F5)
+    static let accent = tertiary
+    static let inProgress = tertiary
+    static let softBlue = primary
     static let background = Color(hex: 0xF8FCFF)
     static let surface = Color.white
     static let textPrimary = Color.black
     static let textSecondary = Color.secondary
     static let textTertiary = Color.secondary.opacity(0.65)
-    static let success = Color.green
-    static let warning = Color.orange
-    static let danger = Color.red
+    static let success = Color(hex: 0x9BCA53)
+    static let warning = Color(hex: 0xFFD746)
+    static let danger = Color(hex: 0xDB5243)
     static let neutral = Color.gray
 
     static let twoColumnGrid = [
@@ -33,10 +35,23 @@ enum FleetPalette {
         case .active:
             return success
         case .inactive:
-            return neutral
+            return secondary
         case .maintenance:
             return warning
         }
+    }
+
+    static func personnelStatus(_ status: PersonnelStatus) -> Color {
+        switch status {
+        case .active:
+            return success
+        case .inactive:
+            return secondary
+        }
+    }
+
+    static func userActive(_ isActive: Bool) -> Color {
+        isActive ? success : secondary
     }
 
     static func tripStatus(_ status: TripStatus) -> Color {
@@ -44,13 +59,13 @@ enum FleetPalette {
         case .pending:
             return warning
         case .accepted:
-            return secondary
+            return inProgress
         case .rejectionPending:
             return danger
         case .rejected:
-            return neutral
+            return danger
         case .inProgress:
-            return primary
+            return inProgress
         case .completed:
             return success
         }
@@ -61,9 +76,9 @@ enum FleetPalette {
         case .scheduled:
             return warning
         case .assigned:
-            return secondary
+            return inProgress
         case .inProgress:
-            return primary
+            return inProgress
         case .completed:
             return success
         }

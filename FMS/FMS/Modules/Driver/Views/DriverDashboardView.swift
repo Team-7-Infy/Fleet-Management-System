@@ -152,7 +152,7 @@ struct DriverDashboardView: View {
             .resizable()
             .scaledToFit()
             .frame(width: 48, height: 48)
-            .foregroundStyle(FleetPalette.primary)
+            .foregroundStyle(FleetPalette.accent)
             .background(Circle().fill(Color.white))
     }
 
@@ -191,7 +191,7 @@ struct DriverDashboardView: View {
                 }
 
                 if !activeTrips.isEmpty {
-                    tripGroup(title: "Active", trips: activeTrips, tint: FleetPalette.primary)
+                    tripGroup(title: "Active", trips: activeTrips, tint: FleetPalette.accent)
                 }
 
                 if !completedTrips.isEmpty {
