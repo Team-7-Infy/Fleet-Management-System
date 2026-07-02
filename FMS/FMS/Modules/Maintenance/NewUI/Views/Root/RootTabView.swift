@@ -35,6 +35,14 @@ struct RootTabView: View {
                 Label(AppTab.myJobs.title, systemImage: AppTab.myJobs.systemImage)
             }
             .tag(AppTab.myJobs)
+
+            NavigationStack {
+                InventoryView()
+            }
+            .tabItem {
+                Label(AppTab.inventory.title, systemImage: AppTab.inventory.systemImage)
+            }
+            .tag(AppTab.inventory)
         }
     }
 }

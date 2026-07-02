@@ -12,8 +12,6 @@
 		09661A12066844109D842F36 /* FMS/Modules/Maintenance/NewUI/Theme/AppCornerRadius.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB013C9D855C4874A0AC191B /* FMS/Modules/Maintenance/NewUI/Theme/AppCornerRadius.swift */; };
 		0C7EFEBE4B704B2C833701CE /* FMS/Modules/Maintenance/NewUI/Navigation/RouteViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF17D56E0A934F778FFF114B /* FMS/Modules/Maintenance/NewUI/Navigation/RouteViewFactory.swift */; };
 		0DBDFEC82FEEA20000950D07 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 0DBDFEC72FEEA20000950D07 /* Supabase */; };
-		0DBDFECA2FEEAAEA00950D07 /* Secrets.debug.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 0DBDFEC92FEEAAEA00950D07 /* Secrets.debug.xcconfig */; };
-		0DBDFECC2FEEAB1500950D07 /* Secrets.release.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 0DBDFECB2FEEAB1500950D07 /* Secrets.release.xcconfig */; };
 		1181B1CAA3D749EDA18D8BDF /* FMS/Modules/Maintenance/NewUI/Components/SummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6996E401FBD14627A2032178 /* FMS/Modules/Maintenance/NewUI/Components/SummaryCard.swift */; };
 		1A939D398A484B599112C464 /* FMS/Modules/Maintenance/NewUI/ViewModels/Jobs/JobSummaryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC12323CAE174573B3020680 /* FMS/Modules/Maintenance/NewUI/ViewModels/Jobs/JobSummaryViewModel.swift */; };
 		1BA645D184BC467886F4DEB2 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28E233E78E4B4440B78FBFFF /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPProfileView.swift */; };
@@ -65,6 +63,10 @@
 		97EF8E359FFA462EB54FE9C7 /* FMS/Modules/Maintenance/NewUI/Theme/AppSpacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EBCD7F7379C45ECAF284D37 /* FMS/Modules/Maintenance/NewUI/Theme/AppSpacing.swift */; };
 		9AB15740211D43279569B8C5 /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/CompleteWorkOrderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2200BFC6EC1C441BAC1EB745 /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/CompleteWorkOrderView.swift */; };
 		A4B8444F53E94CE0BFD8263D /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/AddPartsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1BF0BEDE04C0392985A69 /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/AddPartsSheet.swift */; };
+		AA001AAAA0014001AA001AA1 /* FMS/Modules/Maintenance/NewUI/Services/InventoryCSVLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB001BBBB0014001BB001BB1 /* FMS/Modules/Maintenance/NewUI/Services/InventoryCSVLoader.swift */; };
+		AA001AAAA0014001AA001AA2 /* FMS/Modules/Maintenance/NewUI/ViewModels/InventoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB001BBBB0014001BB001BB2 /* FMS/Modules/Maintenance/NewUI/ViewModels/InventoryViewModel.swift */; };
+		AA001AAAA0014001AA001AA3 /* FMS/Modules/Maintenance/NewUI/Views/Inventory/InventoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB001BBBB0014001BB001BB3 /* FMS/Modules/Maintenance/NewUI/Views/Inventory/InventoryView.swift */; };
+		AA001AAAA0014001AA001AA4 /* FMS/Resources/spare_parts.csv in Resources */ = {isa = PBXBuildFile; fileRef = BB001BBBB0014001BB001BB4 /* FMS/Resources/spare_parts.csv */; };
 		AA686CD17A1C4D4DA5562BB0 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/CompleteWorkOrderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79C6CAC28D414761882ED966 /* FMS/Modules/Maintenance/NewUI/ViewModels/WorkOrders/CompleteWorkOrderViewModel.swift */; };
 		AC7E08C3A3A4453CA5FBBC65 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/NotificationServicing.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1EF582B0C24C97A0E09642 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/NotificationServicing.swift */; };
 		AEC21537E44E42B7B1FB8C06 /* FMS/Modules/Maintenance/NewUI/Theme/AppColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0C2764BBA6F4B4797267343 /* FMS/Modules/Maintenance/NewUI/Theme/AppColor.swift */; };
@@ -77,6 +79,8 @@
 		BE49FE79E2714A8AA5D9EB6F /* FMS/Modules/Maintenance/NewUI/AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D683B0B89CF4DE69D6D7586 /* FMS/Modules/Maintenance/NewUI/AppEnvironment.swift */; };
 		C2A9FBF3F9BB4D349C476419 /* FMS/Modules/Maintenance/NewUI/Components/OnHoldWorkOrderCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABFAA862002241A1876956CA /* FMS/Modules/Maintenance/NewUI/Components/OnHoldWorkOrderCard.swift */; };
 		C387C04FDD16437482EC47AC /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/WorkOrderSuccessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6CC50231B7444CBB7FF06F /* FMS/Modules/Maintenance/NewUI/Views/WorkOrders/WorkOrderSuccessView.swift */; };
+		C3A08C332FF618400072A8FA /* Secrets.debug.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = C3A08C312FF618400072A8FA /* Secrets.debug.xcconfig */; };
+		C3A08C342FF618400072A8FA /* Secrets.release.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = C3A08C322FF618400072A8FA /* Secrets.release.xcconfig */; };
 		C65B8BBB9F2C450AB528E574 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/ActivityServicing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17550373B8C54CFC8273228C /* FMS/Modules/Maintenance/NewUI/Services/Protocols/ActivityServicing.swift */; };
 		C689D7081CC945F881A11B8E /* FMS/Modules/Maintenance/NewUI/Core/Managers/FeatureFlagManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CBACEF442A24363BB1F04A1 /* FMS/Modules/Maintenance/NewUI/Core/Managers/FeatureFlagManager.swift */; };
 		CF21331C4F0645A79B3B0BD0 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/VehicleDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E2721BC1DC47CFBA471CAE /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/VehicleDetailsView.swift */; };
@@ -127,8 +131,6 @@
 		0DBDFD2C2FEE753800950D07 /* FMS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FMS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0DBDFD392FEE753A00950D07 /* FMSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FMSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0DBDFD432FEE753A00950D07 /* FMSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FMSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		0DBDFEC92FEEAAEA00950D07 /* Secrets.debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.debug.xcconfig; sourceTree = "<group>"; };
-		0DBDFECB2FEEAB1500950D07 /* Secrets.release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.release.xcconfig; sourceTree = "<group>"; };
 		0EFC6C5C1A8D4F6C9B3E9489 /* FMS/Modules/Maintenance/NewUI/Models/JobStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Models/JobStatus.swift; sourceTree = "<group>"; };
 		116102DF1D5E42749030EEC5 /* FMS/Modules/Maintenance/NewUI/Views/Jobs/JobSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/Jobs/JobSummaryView.swift; sourceTree = "<group>"; };
 		17550373B8C54CFC8273228C /* FMS/Modules/Maintenance/NewUI/Services/Protocols/ActivityServicing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Services/Protocols/ActivityServicing.swift; sourceTree = "<group>"; };
@@ -186,8 +188,14 @@
 		B0C2764BBA6F4B4797267343 /* FMS/Modules/Maintenance/NewUI/Theme/AppColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Theme/AppColor.swift; sourceTree = "<group>"; };
 		B5134FC1890A4297A520472E /* FMS/Modules/Maintenance/NewUI/Core/ErrorHandling/AppError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Core/ErrorHandling/AppError.swift; sourceTree = "<group>"; };
 		B7E2721BC1DC47CFBA471CAE /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/VehicleDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/Dashboard/VehicleDetailsView.swift; sourceTree = "<group>"; };
+		BB001BBBB0014001BB001BB1 /* FMS/Modules/Maintenance/NewUI/Services/InventoryCSVLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Services/InventoryCSVLoader.swift; sourceTree = "<group>"; };
+		BB001BBBB0014001BB001BB2 /* FMS/Modules/Maintenance/NewUI/ViewModels/InventoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/ViewModels/InventoryViewModel.swift; sourceTree = "<group>"; };
+		BB001BBBB0014001BB001BB3 /* FMS/Modules/Maintenance/NewUI/Views/Inventory/InventoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/Inventory/InventoryView.swift; sourceTree = "<group>"; };
+		BB001BBBB0014001BB001BB4 /* FMS/Resources/spare_parts.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = FMS/Resources/spare_parts.csv; sourceTree = "<group>"; };
 		BBA0BDD7B37648E5B7B678EF /* FMS/Modules/Maintenance/NewUI/Views/Root/AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/Root/AppRootView.swift; sourceTree = "<group>"; };
 		C03B30D43FFC44E181A23257 /* FMS/Modules/Maintenance/NewUI/Components/LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/LoadingView.swift; sourceTree = "<group>"; };
+		C3A08C312FF618400072A8FA /* Secrets.debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.debug.xcconfig; sourceTree = "<group>"; };
+		C3A08C322FF618400072A8FA /* Secrets.release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.release.xcconfig; sourceTree = "<group>"; };
 		C3BAFB9929344A208373D353 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ProfileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ProfileViewModel.swift; sourceTree = "<group>"; };
 		C5F41CFF1B424080B77E9BF6 /* FMS/Modules/Maintenance/NewUI/Models/Priority.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Models/Priority.swift; sourceTree = "<group>"; };
 		C79CCAF94E4048EBA6C80E07 /* FMS/Modules/Maintenance/NewUI/Core/LoadingState/LoadableState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Core/LoadingState/LoadableState.swift; sourceTree = "<group>"; };
@@ -279,8 +287,8 @@
 		0DBDFD232FEE753800950D07 = {
 			isa = PBXGroup;
 			children = (
-				0DBDFECB2FEEAB1500950D07 /* Secrets.release.xcconfig */,
-				0DBDFEC92FEEAAEA00950D07 /* Secrets.debug.xcconfig */,
+				C3A08C312FF618400072A8FA /* Secrets.debug.xcconfig */,
+				C3A08C322FF618400072A8FA /* Secrets.release.xcconfig */,
 				0DBDFDE72FEE75FC00950D07 /* FMS */,
 				0DBDFD3C2FEE753A00950D07 /* FMSTests */,
 				0DBDFD462FEE753A00950D07 /* FMSUITests */,
@@ -401,6 +409,10 @@
 				CD851BBBCF394A02ABF4600C /* FMS/Modules/Maintenance/NewUI/Services/Protocols/VehicleServicing.swift */,
 				F357C12F772642018CC52D04 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/AuthServicing.swift */,
 				29835357C30D475C89567AF3 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/WorkOrderServicing.swift */,
+				BB001BBBB0014001BB001BB1 /* FMS/Modules/Maintenance/NewUI/Services/InventoryCSVLoader.swift */,
+				BB001BBBB0014001BB001BB2 /* FMS/Modules/Maintenance/NewUI/ViewModels/InventoryViewModel.swift */,
+				BB001BBBB0014001BB001BB3 /* FMS/Modules/Maintenance/NewUI/Views/Inventory/InventoryView.swift */,
+				BB001BBBB0014001BB001BB4 /* FMS/Resources/spare_parts.csv */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -529,8 +541,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0DBDFECC2FEEAB1500950D07 /* Secrets.release.xcconfig in Resources */,
-				0DBDFECA2FEEAAEA00950D07 /* Secrets.debug.xcconfig in Resources */,
+				C3A08C332FF618400072A8FA /* Secrets.debug.xcconfig in Resources */,
+				C3A08C342FF618400072A8FA /* Secrets.release.xcconfig in Resources */,
+				AA001AAAA0014001AA001AA4 /* FMS/Resources/spare_parts.csv in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -646,6 +659,9 @@
 				E902BA28A35A47388D3CF42B /* FMS/Modules/Maintenance/NewUI/Services/Protocols/VehicleServicing.swift in Sources */,
 				95530FD91401429BA5869D07 /* FMS/Modules/Maintenance/NewUI/Services/Protocols/AuthServicing.swift in Sources */,
 				F5C28FE02DC340F6AD20050B /* FMS/Modules/Maintenance/NewUI/Services/Protocols/WorkOrderServicing.swift in Sources */,
+				AA001AAAA0014001AA001AA1 /* FMS/Modules/Maintenance/NewUI/Services/InventoryCSVLoader.swift in Sources */,
+				AA001AAAA0014001AA001AA2 /* FMS/Modules/Maintenance/NewUI/ViewModels/InventoryViewModel.swift in Sources */,
+				AA001AAAA0014001AA001AA3 /* FMS/Modules/Maintenance/NewUI/Views/Inventory/InventoryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -681,7 +697,6 @@
 /* Begin XCBuildConfiguration section */
 		0DBDFD4B2FEE753A00950D07 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0DBDFEC92FEEAAEA00950D07 /* Secrets.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -746,7 +761,6 @@
 		};
 		0DBDFD4C2FEE753A00950D07 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0DBDFECB2FEEAB1500950D07 /* Secrets.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -804,12 +818,12 @@
 		};
 		0DBDFD4E2FEE753A00950D07 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0DBDFEC92FEEAAEA00950D07 /* Secrets.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 75TRFG7HW8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -838,12 +852,12 @@
 		};
 		0DBDFD4F2FEE753A00950D07 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0DBDFECB2FEEAB1500950D07 /* Secrets.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 75TRFG7HW8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
