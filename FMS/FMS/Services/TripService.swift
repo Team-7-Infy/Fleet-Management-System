@@ -18,6 +18,15 @@ final actor TripService: TripServiceProtocol {
             .value
     }
 
+    func fetchTrips(forDriverId driverId: UUID) async throws -> [Trip] {
+        try await supabase.client
+            .from("trips")
+            .select()
+            .eq("driverid", value: driverId.uuidString)
+            .execute()
+            .value
+    }
+
     func fetchTrip(id: UUID) async throws -> Trip {
         try await supabase.client
             .from("trips")

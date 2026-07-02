@@ -1,32 +1,37 @@
-//
-//  Incident.swift
-//  FMSD
-//
-//  Created by Dev Jain on 24/06/26.
-//
-
-
 import Foundation
-import CoreLocation
 
-struct Incident: Identifiable {
-    let id = UUID()
+struct Incident: Identifiable, Codable {
+    let id: UUID
     let date: Date
     var type: IncidentType
     var description: String
-    var location: CLLocationCoordinate2D?
-    var photoURLs: [String] // Simulated local paths or remote URLs
+    var latitude: Double?
+    var longitude: Double?
+    var photoURLs: [String]
     var status: IncidentStatus
-    
-    enum IncidentType: String, CaseIterable {
+    var tripId: String?
+
+    init(id: UUID = UUID(), date: Date, type: IncidentType, description: String, latitude: Double? = nil, longitude: Double? = nil, photoURLs: [String], status: IncidentStatus, tripId: String? = nil) {
+        self.id = id
+        self.date = date
+        self.type = type
+        self.description = description
+        self.latitude = latitude
+        self.longitude = longitude
+        self.photoURLs = photoURLs
+        self.status = status
+        self.tripId = tripId
+    }
+
+    enum IncidentType: String, Codable, CaseIterable {
         case accident = "Accident"
         case vehicleDamage = "Vehicle Damage"
         case trafficViolation = "Traffic Violation"
         case theft = "Theft/Vandalism"
         case other = "Other"
     }
-    
-    enum IncidentStatus: String {
+
+    enum IncidentStatus: String, Codable {
         case submitted = "Submitted"
         case underReview = "Under Review"
         case resolved = "Resolved"

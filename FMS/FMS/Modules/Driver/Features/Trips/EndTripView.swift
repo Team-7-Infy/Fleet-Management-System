@@ -1,31 +1,34 @@
 import SwiftUI
 
 struct EndTripView: View {
-    @Environment(\.presentationMode) var presentationMode
-    
+    @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var localStore: LocalDataStore
+
     @State private var endOdometer: String = ""
     @State private var tripNotes: String = ""
     @State private var isSubmitting: Bool = false
-    
-    // Signature State
+
     @State private var signaturePath = Path()
-    
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color(.systemGroupedBackground).edgesIgnoringSafeArea(.all)
-                
+
                 ScrollView {
                     VStack(spacing: 24) {
-                        
+
                         // 1. Header Details
                         VStack(spacing: 8) {
                             Text("Finalize Trip")
                                 .font(.title2)
                                 .fontWeight(.black)
+                            Text("Trip ID: Active")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                         }
                         .padding(.top, 20)
-                        
+
                         // 2. Data Entry Card
                         VStack(spacing: 0) {
                             HStack {
@@ -39,9 +42,9 @@ struct EndTripView: View {
                                     .font(.system(.body, design: .monospaced))
                             }
                             .padding()
-                            
+
                             Divider()
-                            
+
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Delivery Notes (Optional)")
                                     .fontWeight(.medium)
@@ -56,7 +59,7 @@ struct EndTripView: View {
                         .background(Color(UIColor.secondarySystemGroupedBackground))
                         .cornerRadius(16)
                         .padding(.horizontal)
-                        
+
                         // 3. Digital Signature Pad
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
@@ -69,8 +72,7 @@ struct EndTripView: View {
                                         .foregroundColor(.red)
                                 }
                             }
-                            
-                            // Native SwiftUI Drawing Canvas
+
                             SignatureCanvas(path: $signaturePath)
                                 .frame(height: 150)
                                 .background(Color(.secondarySystemBackground))
@@ -84,7 +86,7 @@ struct EndTripView: View {
                         .background(Color(UIColor.secondarySystemGroupedBackground))
                         .cornerRadius(16)
                         .padding(.horizontal)
-                        
+
                         // 4. Submit Button
                         Button(action: submitTrip) {
                             HStack {
@@ -107,29 +109,32 @@ struct EndTripView: View {
                         .disabled(!canSubmit || isSubmitting)
                         .padding(.horizontal)
                         .padding(.top, 10)
-                        
+
                     }
                     .padding(.bottom, 40)
                 }
             }
             .navigationBarHidden(true)
-            .navigationBarItems(trailing: Button("Cancel") {
-                presentationMode.wrappedValue.dismiss()
-            })
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
         }
     }
-    
-    // Validation: Odometer must be entered and signature cannot be empty
+
     private var canSubmit: Bool {
         !endOdometer.isEmpty && !signaturePath.isEmpty
     }
-    
+
     private func submitTrip() {
         isSubmitting = true
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             isSubmitting = false
-            presentationMode.wrappedValue.dismiss()
+            dismiss()
         }
     }
 }
@@ -137,7 +142,7 @@ struct EndTripView: View {
 // MARK: - Reusable Signature Canvas Component
 struct SignatureCanvas: View {
     @Binding var path: Path
-    
+
     var body: some View {
         GeometryReader { geometry in
             path.stroke(Color.primary, lineWidth: 3)

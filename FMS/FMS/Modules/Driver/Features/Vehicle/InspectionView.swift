@@ -1,15 +1,22 @@
 import SwiftUI
 
 struct InspectionView: View {
+    let trip: InspectionTrip
+    let isPresentedModally: Bool
+    let vehicleNumber: String
+    var onBack: (() -> Void)? = nil
+    var onComplete: (() -> Void)? = nil
+
     @StateObject private var viewModel = InspectionViewModel()
-    @Environment(\.presentationMode) var presentationMode
-    
+    @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var localStore: LocalDataStore
+
     var body: some View {
         ZStack {
             Color(.systemGroupedBackground).edgesIgnoringSafeArea(.all)
-            
+
             VStack(spacing: 0) {
-                
+
                 // 1. Header Alert Banner
                 HStack {
                     Image(systemName: "shield.checkerboard")
@@ -17,13 +24,16 @@ struct InspectionView: View {
                     VStack(alignment: .leading) {
                         Text("Daily Safety Inspection")
                             .font(.headline)
+                        Text("Vehicle: \(vehicleNumber)")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.8))
                     }
                     Spacer()
                 }
                 .padding()
                 .background(LinearGradient(gradient: Gradient(colors: [Color.blue, Color(red: 0.1, green: 0.1, blue: 0.5)]), startPoint: .leading, endPoint: .trailing))
                 .foregroundColor(.white)
-                
+
                 // 2. Interactive Checklist
                 ScrollView {
                     VStack(spacing: 16) {
@@ -37,7 +47,7 @@ struct InspectionView: View {
                     }
                     .padding()
                 }
-                
+
                 // 3. Submit Area (Sticks to bottom)
                 VStack {
                     Divider()
@@ -67,19 +77,46 @@ struct InspectionView: View {
         }
         .navigationTitle("Inspection")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarItems(trailing: Button("Close") {
-            presentationMode.wrappedValue.dismiss()
-        })
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            if isPresentedModally {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Close") {
+                        if let onBack = onBack {
+                            onBack()
+                        } else {
+                            dismiss()
+                        }
+                    }
+                    .fontWeight(.semibold)
+                }
+            } else {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        if let onBack = onBack {
+                            onBack()
+                        } else {
+                            dismiss()
+                        }
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
+        }
     }
-    
+
     private func submitInspection() {
         viewModel.isSubmitting = true
-
-        // Simulate network delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             viewModel.isSubmitting = false
+            localStore.markTripInspected(trip.tripId)
 
-            self.presentationMode.wrappedValue.dismiss()
+            dismiss()
+            onComplete?()
         }
     }
 }
@@ -88,7 +125,7 @@ struct InspectionView: View {
 struct InspectionRow: View {
     let item: InspectionItem
     let onStatusChange: (InspectionItem.ItemStatus) -> Void
-    
+
     var body: some View {
         HStack(spacing: 16) {
             // Icon
@@ -100,13 +137,13 @@ struct InspectionRow: View {
                     .foregroundColor(.blue)
                     .font(.system(size: 20))
             }
-            
+
             Text(item.name)
                 .font(.subheadline)
                 .fontWeight(.semibold)
-            
+
             Spacer()
-            
+
             // Pass/Fail Action Buttons
             HStack(spacing: 8) {
                 // Fail Button
@@ -119,7 +156,8 @@ struct InspectionRow: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(PlainButtonStyle())
-                
+                .accessibilityLabel("Mark \(item.name) as Failed")
+
                 // Pass Button
                 Button(action: { onStatusChange(.passed) }) {
                     Image(systemName: "checkmark")
@@ -130,6 +168,7 @@ struct InspectionRow: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel("Mark \(item.name) as Passed")
             }
         }
         .padding()

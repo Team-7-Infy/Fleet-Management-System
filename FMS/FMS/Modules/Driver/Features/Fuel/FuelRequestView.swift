@@ -9,18 +9,23 @@
 import SwiftUI
 
 struct FuelRequestView: View {
-    @StateObject private var viewModel = FuelViewModel()
-    @Environment(\.presentationMode) var presentationMode
-    
+    @EnvironmentObject var localStore: LocalDataStore
+    @Environment(\.dismiss) var dismiss
+
+    let assignedVehicle: String
+
     @State private var selectedFuelType: FuelRecord.FuelType = .diesel
     @State private var requestedAmount: String = ""
-    @State private var currentFuelLevel: Double = 0.2 // Defaults to 20%
-    
-    // Hardcoded for demo, normally fetched from driver session
-    let assignedVehicle = "KA-01-HC-1234" 
-    
+    @State private var currentFuelLevel: Double = 0.2
+    @State private var isSubmitting: Bool = false
+    @State private var showSuccessAlert: Bool = false
+
+    init(assignedVehicle: String = "") {
+        self.assignedVehicle = assignedVehicle
+    }
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 Section(header: Text("Vehicle Details")) {
                     HStack {
@@ -31,28 +36,31 @@ struct FuelRequestView: View {
                             .fontWeight(.bold)
                     }
                 }
-                
+
                 Section(header: Text("Fuel Request Details")) {
                     Picker("Fuel Type", selection: $selectedFuelType) {
                         ForEach(FuelRecord.FuelType.allCases, id: \.self) { type in
                             Text(type.rawValue).tag(type)
                         }
                     }
-                    
+
                     HStack {
-                        Text("Requested Amount ($)")
+                        Text("Requested Amount (₹)")
                         Spacer()
                         TextField("e.g. 150", text: $requestedAmount)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .accessibilityLabel("Requested Amount (₹)")
                     }
                 }
-                
+
                 Section(header: Text("Current Fuel Level (\(Int(currentFuelLevel * 100))%)")) {
                     VStack {
                         Slider(value: $currentFuelLevel, in: 0...1, step: 0.05)
                             .accentColor(fuelColor)
-                        
+                            .accessibilityLabel("Current Fuel Level Slider")
+                            .accessibilityValue("\(Int(currentFuelLevel * 100)) percent")
+
                         HStack {
                             Text("Empty").font(.caption).foregroundColor(.gray)
                             Spacer()
@@ -63,45 +71,54 @@ struct FuelRequestView: View {
                     }
                     .padding(.vertical, 8)
                 }
-                
+
                 Section {
                     Button(action: {
                         if let amount = Double(requestedAmount) {
-                            viewModel.submitFuelRequest(vehicleId: assignedVehicle, fuelType: selectedFuelType, amount: amount, currentLevel: currentFuelLevel)
+                            isSubmitting = true
+                            localStore.submitFuelRequest(vehicleId: assignedVehicle, fuelType: selectedFuelType, amount: amount, currentLevel: currentFuelLevel)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                isSubmitting = false
+                                showSuccessAlert = true
+                            }
                         }
                     }) {
                         HStack {
                             Spacer()
-                            if viewModel.isSubmitting {
+                            if isSubmitting {
                                 ProgressView().padding(.trailing, 5)
                             }
-                            Text(viewModel.isSubmitting ? "Sending Request..." : "Submit Request")
+                            Text(isSubmitting ? "Sending Request..." : "Submit Request")
                                 .fontWeight(.bold)
                             Spacer()
                         }
                     }
                     .foregroundColor(requestedAmount.isEmpty ? .gray : .blue)
-                    .disabled(requestedAmount.isEmpty || viewModel.isSubmitting)
+                    .disabled(requestedAmount.isEmpty || isSubmitting)
+                    .accessibilityLabel("Submit Fuel Request")
                 }
             }
             .navigationTitle("Request Fuel")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(leading: Button("Cancel") {
-                presentationMode.wrappedValue.dismiss()
-            })
-            .alert(isPresented: $viewModel.showSuccessAlert) {
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+            .alert(isPresented: $showSuccessAlert) {
                 Alert(
                     title: Text("Request Sent"),
                     message: Text("Your fuel request has been sent to the Fleet Manager for approval."),
                     dismissButton: .default(Text("OK")) {
-                        presentationMode.wrappedValue.dismiss()
+                        dismiss()
                     }
                 )
             }
         }
     }
-    
-    // Dynamic color based on fuel level
+
     private var fuelColor: Color {
         if currentFuelLevel < 0.2 { return .red }
         if currentFuelLevel < 0.5 { return .orange }

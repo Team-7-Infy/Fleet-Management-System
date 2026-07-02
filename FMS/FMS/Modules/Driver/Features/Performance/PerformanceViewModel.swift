@@ -1,11 +1,3 @@
-//
-//  PerformanceViewModel.swift
-//  FMSD
-//
-//  Created by Dev Jain on 24/06/26.
-//
-
-
 import Foundation
 import SwiftUI
 import Combine
@@ -13,30 +5,42 @@ import Combine
 class PerformanceViewModel: ObservableObject {
     @Published var metrics: PerformanceMetrics?
     @Published var isLoading: Bool = true
-    
-    init() {
+    private var tripService: TripService
+    private var driverId: UUID?
+
+    init(tripService: TripService = TripService(supabase: SupabaseService()), driverId: UUID? = nil) {
+        self.tripService = tripService
+        self.driverId = driverId
         fetchMetrics()
     }
-    
+
     func fetchMetrics() {
-        // Simulate an API call to the fleet telemetry server
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            self.metrics = PerformanceMetrics(
-                safetyScore: 88,
-                fuelEfficiency: 14.5,
-                tripsCompleted: 42,
-                distanceCovered: 3150.5,
-                onTimeDeliveryRate: 0.94,
-                vehicleCareScore: 95,
-                harshBrakingEvents: 3,
-                speedingEvents: 1,
-                idleTimeMinutes: 45
-            )
-            self.isLoading = false
+        Task {
+            let allTrips: [Trip]
+            if let driverId = driverId {
+                allTrips = await (try? tripService.fetchTrips(forDriverId: driverId)) ?? []
+            } else {
+                allTrips = await (try? tripService.fetchTrips()) ?? []
+            }
+            let completed = allTrips.filter { $0.status == .completed }.count
+
+            await MainActor.run {
+                self.metrics = PerformanceMetrics(
+                    safetyScore: 85,
+                    fuelEfficiency: 14.5,
+                    tripsCompleted: completed,
+                    distanceCovered: 3150.5,
+                    onTimeDeliveryRate: 0.94,
+                    vehicleCareScore: 95,
+                    harshBrakingEvents: 3,
+                    speedingEvents: 1,
+                    idleTimeMinutes: 45
+                )
+                self.isLoading = false
+            }
         }
     }
     
-    // Helper to determine the color of the safety score ring
     func scoreColor(for score: Int) -> Color {
         switch score {
         case 90...100: return .green
@@ -45,7 +49,6 @@ class PerformanceViewModel: ObservableObject {
         }
     }
     
-    // Helper to format percentages
     func formatPercentage(_ value: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .percent

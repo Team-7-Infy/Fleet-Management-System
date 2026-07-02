@@ -10,6 +10,7 @@ import Foundation
 
 protocol VehicleServiceProtocol: AnyObject, Sendable {
     func fetchVehicles() async throws -> [Vehicle]
+    func fetchVehicles(forDriverId: UUID) async throws -> [Vehicle]
     func fetchVehicle(id: UUID) async throws -> Vehicle
     func createVehicle(_ vehicle: Vehicle) async throws -> Vehicle
     func updateVehicle(_ vehicle: Vehicle) async throws -> Vehicle
