@@ -23,12 +23,25 @@ struct RootTabView: View {
                 Label(AppTab.dashboard.title, systemImage: AppTab.dashboard.systemImage)
             }
             .tag(AppTab.dashboard)
-            
-            InventoryView()
-                .tabItem {
-                    Label(AppTab.inventory.title, systemImage: AppTab.inventory.systemImage)
-                }
-                .tag(AppTab.inventory)
+
+            NavigationStack(path: $myJobsNavigation.path) {
+                MyJobsView(dependencies: dependencies, navigation: myJobsNavigation)
+                    .navigationDestination(for: AppRoute.self) { route in
+                        RouteViewFactory.view(for: route, dependencies: dependencies, navigation: myJobsNavigation)
+                    }
+            }
+            .tabItem {
+                Label(AppTab.myJobs.title, systemImage: AppTab.myJobs.systemImage)
+            }
+            .tag(AppTab.myJobs)
+
+            NavigationStack {
+                InventoryView()
+            }
+            .tabItem {
+                Label(AppTab.inventory.title, systemImage: AppTab.inventory.systemImage)
+            }
+            .tag(AppTab.inventory)
         }
     }
 }
