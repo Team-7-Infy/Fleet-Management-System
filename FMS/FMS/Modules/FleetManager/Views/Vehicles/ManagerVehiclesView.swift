@@ -59,58 +59,58 @@ struct ManagerVehiclesView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
+        VStack(spacing: 0) {
+            Picker("Vehicle Status", selection: $filter) {
+                ForEach(ManagerVehicleFilter.allCases) { option in
+                    Text(option.title).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
 
-                if viewModel.vehicles.isEmpty {
-                    ContentUnavailableView(
-                        "No vehicles",
-                        systemImage: "car",
-                        description: Text("Add vehicle details with plate, model, VIN UUID, status, and vehicle type.")
-                    )
-                } else if filteredVehicles.isEmpty {
-                    ContentUnavailableView.search
-                } else {
-                    LazyVStack(spacing: 0) {
-                        ForEach(filteredVehicles) { vehicle in
-                            NavigationLink {
-                                ManagerVehicleDetailView(
-                                    vehicle: vehicle,
-                                    viewModel: viewModel,
-                                    usersViewModel: usersViewModel,
-                                    openMaintenanceRequest: openMaintenanceRequest
-                                )
-                            } label: {
-                                ManagerVehicleRow(
-                                    vehicle: vehicle,
-                                    driver: usersViewModel.driverUser(for: vehicle.driverId)
-                                )
-                            }
-                            .buttonStyle(.plain)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
 
-                            if vehicle.id != filteredVehicles.last?.id {
-                                Divider()
-                                    .padding(.leading, 86)
+                    if viewModel.vehicles.isEmpty {
+                        ContentUnavailableView(
+                            "No vehicles",
+                            systemImage: "car",
+                            description: Text("Add vehicle details with plate, model, VIN UUID, status, and vehicle type.")
+                        )
+                    } else if filteredVehicles.isEmpty {
+                        ContentUnavailableView.search
+                    } else {
+                        LazyVStack(spacing: 14) {
+                            ForEach(filteredVehicles) { vehicle in
+                                NavigationLink {
+                                    ManagerVehicleDetailView(
+                                        vehicle: vehicle,
+                                        viewModel: viewModel,
+                                        usersViewModel: usersViewModel,
+                                        openMaintenanceRequest: openMaintenanceRequest
+                                    )
+                                } label: {
+                                    ManagerVehicleRow(
+                                        vehicle: vehicle,
+                                        driver: usersViewModel.driverUser(for: vehicle.driverId)
+                                    )
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
-                    .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 22))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 22)
-                            .stroke(FleetPalette.tertiary.opacity(0.45), lineWidth: 1)
-                    }
                 }
+                .padding()
             }
-            .padding()
         }
         .fleetScreenBackground()
         .navigationTitle("Vehicles")
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search vehicles")
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                VehicleFilterMenu(filter: $filter)
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Add Vehicle", systemImage: "plus", action: openAddVehicle)
             }
         }
@@ -120,53 +120,55 @@ struct ManagerVehiclesView: View {
     }
 }
 
-private struct VehicleFilterMenu: View {
-    @Binding var filter: ManagerVehicleFilter
-
-    var body: some View {
-        Menu("Filter", systemImage: "line.3.horizontal.decrease.circle") {
-            Picker("Vehicle status", selection: $filter) {
-                ForEach(ManagerVehicleFilter.allCases) { option in
-                    Text(option.title).tag(option)
-                }
-            }
-        }
-    }
-}
-
 private struct ManagerVehicleRow: View {
     var vehicle: Vehicle
     var driver: User?
 
     var body: some View {
-        HStack(spacing: 14) {
-            VehicleAssetImage(vehicle: vehicle, width: 72, height: 56, cornerRadius: 15)
+        HStack(alignment: .center, spacing: 16) {
+            VehicleAssetImage(vehicle: vehicle, width: 74, height: 58, cornerRadius: 14)
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(verbatim: vehicle.licencePlate)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(FleetPalette.textPrimary)
-                    .lineLimit(1)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .center) {
+                    Text(vehicle.licencePlate)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(FleetPalette.textPrimary)
+                    
+                    Spacer()
+                    
+                    Text(vehicle.status.title.uppercased())
+                        .font(.system(size: 8, weight: .black))
+                        .foregroundColor(FleetPalette.vehicleStatus(vehicle.status))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(FleetPalette.vehicleStatus(vehicle.status).opacity(0.12))
+                        .clipShape(Capsule())
+                }
 
-                Text(verbatim: modelName)
+                Text(modelName)
                     .font(.subheadline)
                     .foregroundStyle(FleetPalette.textSecondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
 
-                Text(driver.map { "Driver - \($0.displayName)" } ?? "Unassigned")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(driver == nil ? FleetPalette.textSecondary : FleetPalette.accent)
-                    .lineLimit(1)
+                HStack(spacing: 5) {
+                    Image(systemName: "person.fill")
+                        .font(.caption)
+                    Text(driver.map { $0.displayName } ?? "Unassigned")
+                        .font(.caption.weight(.semibold))
+                }
+                .foregroundStyle(driver == nil ? FleetPalette.textTertiary : FleetPalette.accent)
+                .lineLimit(1)
             }
-
-            Spacer(minLength: 8)
-
-            StatusDot(text: vehicle.status.title, color: FleetPalette.vehicleStatus(vehicle.status))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FleetPalette.surface)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(FleetPalette.surface)
+                .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
+        )
         .accessibilityElement(children: .combine)
     }
 

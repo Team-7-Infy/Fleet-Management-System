@@ -72,27 +72,30 @@ struct ManagerUsersView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
-                userList
+        VStack(spacing: 0) {
+            Picker("User Type", selection: $selectedSegment) {
+                ForEach(ManagerUserSegment.allCases) { segment in
+                    Text(segment.title).tag(segment)
+                }
             }
-            .padding()
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
+                    userList
+                }
+                .padding()
+            }
         }
         .fleetScreenBackground()
         .navigationTitle("Users")
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search users")
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Menu("Filter", systemImage: "line.3.horizontal.decrease.circle") {
-                    Picker("User type", selection: $selectedSegment) {
-                        ForEach(ManagerUserSegment.allCases) { segment in
-                            Text(segment.title).tag(segment)
-                        }
-                    }
-                }
-
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Add User", systemImage: "plus", action: openAddUser)
             }
         }
@@ -202,30 +205,28 @@ private struct ManagerUserGroupSection: View {
         VStack(alignment: .leading, spacing: 8) {
             DashboardSectionTitle(title)
 
-            VStack(spacing: 0) {
-                ForEach(users) { user in
-                    NavigationLink {
-                        ManagerUserDetailView(
-                            user: user,
-                            viewModel: viewModel,
-                            tripsViewModel: tripsViewModel,
-                            maintenanceViewModel: maintenanceViewModel
-                        )
-                    } label: {
-                        ManagerUserCard(user: user, viewModel: viewModel)
-                    }
-                    .buttonStyle(.plain)
+            GlassPanel(hasBorder: false) {
+                VStack(spacing: 0) {
+                    ForEach(users) { user in
+                        NavigationLink {
+                            ManagerUserDetailView(
+                                user: user,
+                                viewModel: viewModel,
+                                tripsViewModel: tripsViewModel,
+                                maintenanceViewModel: maintenanceViewModel
+                            )
+                        } label: {
+                            ManagerUserCard(user: user, viewModel: viewModel)
+                        }
+                        .buttonStyle(.plain)
 
-                    if user.id != users.last?.id {
-                        Divider()
-                            .padding(.leading, 86)
+                        if user.id != users.last?.id {
+                            Divider()
+                                .padding(.leading, 62) // Aligns with the end of AvatarView
+                        }
                     }
                 }
-            }
-            .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(FleetPalette.tertiary.opacity(0.45), lineWidth: 1)
+                .padding(.vertical, -4)
             }
         }
     }
@@ -237,36 +238,38 @@ private struct ManagerUserCard: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            AvatarView(name: user.displayName, role: user.role, imageURL: user.avatarImageURL)
+            AvatarView(name: user.displayName, role: user.role, size: 48, imageURL: user.avatarImageURL)
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(user.displayName)
-                    .font(.title3.weight(.semibold))
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(FleetPalette.textPrimary)
                     .lineLimit(1)
 
                 Text(subtitleText)
-                    .font(.subheadline)
+                    .font(.caption)
                     .foregroundStyle(FleetPalette.textSecondary)
                     .lineLimit(1)
 
                 Text("UID \(user.shortUID)")
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(FleetPalette.textSecondary)
                     .lineLimit(1)
             }
 
             Spacer(minLength: 8)
 
-            StatusDot(
-                text: user.isActive ? "Active" : "Inactive",
-                color: FleetPalette.userActive(user.isActive)
-            )
+            Text(user.isActive ? "ACTIVE" : "INACTIVE")
+                .font(.system(size: 8, weight: .black))
+                .foregroundColor(user.isActive ? FleetPalette.success : FleetPalette.neutral)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background((user.isActive ? FleetPalette.success : FleetPalette.neutral).opacity(0.12))
+                .clipShape(Capsule())
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 13)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FleetPalette.surface)
+        .contentShape(Rectangle())
         .accessibilityLabel("\(user.displayName), \(user.role.title)")
     }
 
@@ -316,19 +319,17 @@ struct ManagerUserDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                if user.role != .driver {
-                    header
-                }
+                userHeroSection
 
                 switch user.role {
                 case .driver:
-                    driverHeroSection
                     driverInfoCard
                     driverTripHistorySection
                 case .maintenancePersonnel:
-                    maintenanceDetails
+                    maintenanceInfoCard
+                    maintenanceTasksHistorySection
                 case .fleetManager:
-                    managerDetails
+                    managerInfoCard
                 }
 
                 Button {
@@ -386,9 +387,9 @@ struct ManagerUserDetailView: View {
         }
     }
 
-    private var driverHeroSection: some View {
+    private var userHeroSection: some View {
         VStack(spacing: 10) {
-            AvatarView(name: user.displayName, role: .driver, size: 86, imageURL: user.avatarImageURL)
+            AvatarView(name: user.displayName, role: user.role, size: 86, imageURL: user.avatarImageURL)
 
             VStack(spacing: 4) {
                 Text(user.displayName)
@@ -404,6 +405,14 @@ struct ManagerUserDetailView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(FleetPalette.textSecondary)
                     
+                    Text(user.role.title.uppercased())
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(FleetPalette.accent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(FleetPalette.accent.opacity(0.12))
+                        .clipShape(Capsule())
+
                     Text(user.isActive ? "ACTIVE" : "INACTIVE")
                         .font(.system(size: 9, weight: .black))
                         .foregroundColor(user.isActive ? FleetPalette.success : FleetPalette.neutral)
@@ -486,69 +495,87 @@ struct ManagerUserDetailView: View {
         }
     }
 
-    private var header: some View {
-        GlassPanel(hasBorder: false) {
-            HStack(spacing: 14) {
-                AvatarView(name: user.displayName, role: user.role, size: 86, imageURL: user.avatarImageURL)
+    private var maintenanceInfoCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionTitle("Personnel Info")
+            
+            GlassPanel(hasBorder: false) {
+                if let maintenanceProfile {
+                    VStack(spacing: 12) {
+                        InfoRow(title: "Status", value: maintenanceProfile.status.title)
+                        Divider()
+                        InfoRow(title: "Phone", value: "\(user.contact)")
+                        Divider()
+                        InfoRow(title: "Aadhar", value: user.aadhar.isEmpty ? "Not provided" : user.aadhar)
+                        Divider()
+                        InfoRow(title: "Address", value: user.address.isEmpty ? "Not provided" : user.address)
+                    }
+                } else {
+                    EmptyStateView(
+                        title: "Profile pending",
+                        message: "This maintenance user exists but the personnel record could not be found.",
+                        systemImage: "person.text.rectangle"
+                    )
+                }
+            }
+        }
+    }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(user.displayName)
-                        .font(.title3.bold())
-                        .foregroundStyle(FleetPalette.textPrimary)
-                    Text(user.email)
-                        .font(.subheadline)
-                        .foregroundStyle(FleetPalette.textSecondary)
-                    Text("UID \(user.shortUID)")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(FleetPalette.textSecondary)
-                    HStack(spacing: 8) {
-                        StatusPill(text: user.role.title, color: FleetPalette.accent)
-                        
-                        Text(user.isActive ? "ACTIVE" : "INACTIVE")
-                            .font(.system(size: 10, weight: .black))
-                            .foregroundColor(user.isActive ? FleetPalette.success : FleetPalette.neutral)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background((user.isActive ? FleetPalette.success : FleetPalette.neutral).opacity(0.12))
-                            .clipShape(Capsule())
+    private var maintenanceTasksHistorySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionTitle("Work History")
+            
+            GlassPanel(hasBorder: false) {
+                if workOrders.isEmpty {
+                    EmptyStateView(
+                        title: "No tasks assigned",
+                        message: "Assigned maintenance tasks will appear here.",
+                        systemImage: "wrench.and.screwdriver"
+                    )
+                } else {
+                    VStack(spacing: 12) {
+                        ForEach(workOrders) { task in
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(task.title ?? "Maintenance Task")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(FleetPalette.textPrimary)
+                                
+                                HStack {
+                                    Text(task.status.title.uppercased())
+                                        .font(.system(size: 8, weight: .bold))
+                                        .foregroundColor(FleetPalette.maintenanceStatus(task.status))
+                                    
+                                    Spacer()
+                                    
+                                    Text("Scheduled \(task.scheduledDate.date, style: .date)")
+                                        .font(.caption)
+                                        .foregroundStyle(FleetPalette.textSecondary)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            
+                            if task.id != workOrders.last?.id {
+                                Divider()
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
-    private var maintenanceDetails: some View {
-        GlassPanel(hasBorder: false) {
-            if let maintenanceProfile {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Maintenance Profile")
-                        .font(.title3.bold())
+    private var managerInfoCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionTitle("Manager Info")
+            
+            GlassPanel(hasBorder: false) {
+                VStack(spacing: 12) {
                     InfoRow(title: "Phone", value: "\(user.contact)")
-                    InfoRow(title: "Aadhar", value: user.aadhar)
-                    InfoRow(title: "Status", value: maintenanceProfile.status.title)
-                    InfoRow(title: "Work Orders", value: "\(workOrders.count)")
-                    InfoRow(title: "Address", value: user.address)
-                    InfoRow(title: "Photo / DP", value: user.avatarUrl?.isEmpty == false ? "Added" : "Not added")
+                    Divider()
+                    InfoRow(title: "Aadhar", value: user.aadhar.isEmpty ? "Not provided" : user.aadhar)
+                    Divider()
+                    InfoRow(title: "Address", value: user.address.isEmpty ? "Not provided" : user.address)
                 }
-            } else {
-                EmptyStateView(
-                    title: "Profile pending",
-                    message: "This maintenance user exists but the personnel record could not be found.",
-                    systemImage: "person.text.rectangle"
-                )
-            }
-        }
-    }
-
-    private var managerDetails: some View {
-        GlassPanel(hasBorder: false) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Manager Profile")
-                    .font(.title3.bold())
-                InfoRow(title: "Phone", value: "\(user.contact)")
-                InfoRow(title: "Aadhar", value: user.aadhar)
-                InfoRow(title: "Address", value: user.address)
-                InfoRow(title: "Photo / DP", value: user.avatarUrl?.isEmpty == false ? "Added" : "Not added")
             }
         }
     }

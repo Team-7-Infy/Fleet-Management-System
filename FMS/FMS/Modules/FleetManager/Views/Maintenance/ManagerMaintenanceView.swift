@@ -52,45 +52,42 @@ struct ManagerMaintenanceView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                GlassPanel {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text("Work Orders")
-                            .font(.title3.bold())
-                        if viewModel.tasks.isEmpty {
-                            ContentUnavailableView(
-                                "No work orders",
-                                systemImage: "doc.text.magnifyingglass",
-                                description: Text("Request maintenance and assign registered personnel.")
-                            )
-                        } else if filteredTasks.isEmpty {
-                            ContentUnavailableView(
-                                "No matching work orders",
-                                systemImage: "line.3.horizontal.decrease.circle",
-                                description: Text("Change the service filter to see more work orders.")
-                            )
-                        } else {
-                            ForEach(filteredTasks) { task in
-                                NavigationLink {
-                                    ManagerServiceDetailView(
-                                        task: task,
-                                        viewModel: viewModel,
-                                        vehiclesViewModel: vehiclesViewModel,
-                                        usersViewModel: usersViewModel
-                                    )
-                                } label: {
-                                    ManagerWorkOrderCard(
-                                        task: task,
-                                        assignee: usersViewModel.personnelUser(for: task.executedBy),
-                                        viewModel: viewModel,
-                                        usersViewModel: usersViewModel
-                                    )
-                                }
-                                .buttonStyle(.plain)
-
-                                if task.id != filteredTasks.last?.id {
-                                    Divider()
-                                }
+                if viewModel.tasks.isEmpty {
+                    GlassPanel(hasBorder: false) {
+                        ContentUnavailableView(
+                            "No work orders",
+                            systemImage: "doc.text.magnifyingglass",
+                            description: Text("Request maintenance and assign registered personnel.")
+                        )
+                    }
+                } else if filteredTasks.isEmpty {
+                    GlassPanel(hasBorder: false) {
+                        ContentUnavailableView(
+                            "No matching work orders",
+                            systemImage: "line.3.horizontal.decrease.circle",
+                            description: Text("Change the service filter to see more work orders.")
+                        )
+                    }
+                } else {
+                    LazyVStack(spacing: 14) {
+                        ForEach(filteredTasks) { task in
+                            NavigationLink {
+                                ManagerServiceDetailView(
+                                    task: task,
+                                    viewModel: viewModel,
+                                    vehiclesViewModel: vehiclesViewModel,
+                                    usersViewModel: usersViewModel
+                                )
+                            } label: {
+                                ManagerWorkOrderCard(
+                                    task: task,
+                                    assignee: usersViewModel.personnelUser(for: task.executedBy),
+                                    viewModel: viewModel,
+                                    vehiclesViewModel: vehiclesViewModel,
+                                    usersViewModel: usersViewModel
+                                )
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -132,28 +129,112 @@ private struct ManagerWorkOrderCard: View {
     var task: MaintenanceTask
     var assignee: User?
     @ObservedObject var viewModel: MaintenanceViewModel
+    @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
 
+    private var vehicle: Vehicle? {
+        guard let vin = viewModel.vehicles(for: task).first?.vin else { return nil }
+        return vehiclesViewModel.vehicle(for: vin)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(task.displayTitle)
-                    .font(.headline)
-                    .lineLimit(2)
-                Spacer()
-                StatusDot(text: task.status.title, color: FleetPalette.maintenanceStatus(task.status))
-                MaintenanceActionMenu(
-                    task: task,
-                    personnel: usersViewModel.maintenancePersonnel,
-                    usersViewModel: usersViewModel,
-                    viewModel: viewModel
-                )
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 16) {
+                // Mechanical icon badge on the left
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(task.isUrgent ? FleetPalette.danger.opacity(0.12) : FleetPalette.accent.opacity(0.12))
+                        .frame(width: 54, height: 54)
+                    
+                    Image(systemName: "wrench.and.screwdriver.fill")
+                        .font(.title3.weight(.bold))
+                        .foregroundColor(task.isUrgent ? FleetPalette.danger : FleetPalette.accent)
+                }
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(task.displayTitle)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(FleetPalette.textPrimary)
+                        .lineLimit(1)
+
+                    if let vehicle {
+                        Text("\(vehicle.licencePlate) • \(vehicle.make) \(vehicle.model)")
+                            .font(.subheadline)
+                            .foregroundStyle(FleetPalette.textSecondary)
+                            .lineLimit(1)
+                    } else {
+                        Text("No Vehicle Linked")
+                            .font(.subheadline)
+                            .foregroundStyle(FleetPalette.textTertiary)
+                            .lineLimit(1)
+                    }
+
+                    HStack(spacing: 5) {
+                        Image(systemName: "person.circle.fill")
+                            .font(.caption)
+                        Text(assignee?.displayName ?? "Unassigned")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .foregroundStyle(assignee == nil ? FleetPalette.textTertiary : FleetPalette.accent)
+                    .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 8) {
+                    Text(task.status.title.uppercased())
+                        .font(.system(size: 8, weight: .black))
+                        .foregroundColor(FleetPalette.maintenanceStatus(task.status))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(FleetPalette.maintenanceStatus(task.status).opacity(0.12))
+                        .clipShape(Capsule())
+
+                    MaintenanceActionMenu(
+                        task: task,
+                        personnel: usersViewModel.maintenancePersonnel,
+                        usersViewModel: usersViewModel,
+                        viewModel: viewModel
+                    )
+                }
             }
-            InfoRow(title: "Reported", value: task.hoursAgoText)
-            InfoRow(title: "Assigned To", value: assignee?.displayName ?? "Unassigned")
-            InfoRow(title: "Urgent", value: task.isUrgent ? "Yes" : "No")
+
+            Divider()
+                .background(FleetPalette.tertiary.opacity(0.5))
+
+            HStack {
+                HStack(spacing: 5) {
+                    Image(systemName: "calendar")
+                        .font(.caption)
+                    Text("Reported \(task.hoursAgoText)")
+                        .font(.caption)
+                }
+                .foregroundStyle(FleetPalette.textSecondary)
+                
+                Spacer()
+                
+                if let cost = task.totalCost, cost > 0 {
+                    Text("Cost: ₹\(Int(cost))")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(FleetPalette.success)
+                } else if task.isUrgent {
+                    Text("URGENT")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(FleetPalette.danger)
+                        .clipShape(Capsule())
+                }
+            }
         }
-        .padding(.vertical, 6)
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(FleetPalette.surface)
+                .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 6)
+        )
     }
 }
 

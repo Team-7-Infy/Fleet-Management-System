@@ -272,64 +272,172 @@ private struct ManagerTripCard: View {
     var vehicle: Vehicle?
     var driver: User?
 
+    private var tripShortID: String {
+        "TRP-" + String(trip.id.uuidString.prefix(5)).uppercased()
+    }
+
+    private var mockDistanceText: String {
+        let hashVal = abs((trip.startLocation + trip.endLocation).hashValue)
+        let distanceKm = 100 + (hashVal % 1400)
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        let formattedDistance = formatter.string(from: NSNumber(value: distanceKm)) ?? "\(distanceKm)"
+        return "\(formattedDistance) km"
+    }
+
+    private var tripDateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd MMM, hh:mm a"
+        return formatter
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 15) {
-                TripRouteGlyph()
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(trip.startLocation)
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(FleetPalette.textPrimary)
-                        .lineLimit(2)
-
-                    Text(trip.endLocation)
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(FleetPalette.textPrimary)
-                        .lineLimit(2)
+            // Top Row: Trip ID + Status & Vehicle Badge
+            HStack(alignment: .center) {
+                HStack(spacing: 8) {
+                    Text(tripShortID)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(FleetPalette.accent)
+                    
+                    Text(trip.status.title.uppercased())
+                        .font(.system(size: 8, weight: .black))
+                        .foregroundColor(FleetPalette.tripStatus(trip.status))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(FleetPalette.tripStatus(trip.status).opacity(0.12))
+                        .clipShape(Capsule())
                 }
 
-                Spacer(minLength: 8)
+                Spacer()
 
-                StatusDot(text: trip.status.title, color: FleetPalette.tripStatus(trip.status))
+                if let vehicle {
+                    HStack(spacing: 6) {
+                        Image(systemName: "truck.box.fill")
+                            .font(.system(size: 10))
+                        Text(vehicle.licencePlate)
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .foregroundColor(FleetPalette.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(FleetPalette.accent.opacity(0.08))
+                    .clipShape(Capsule())
+                }
             }
 
-            LazyVGrid(columns: FleetPalette.twoColumnGrid, spacing: 10) {
-                TripInfoTile(
-                    systemImage: "clock",
-                    title: "Start",
-                    value: FleetManagerFormat.shortDateTime.string(from: trip.startTime)
-                )
-
-                TripInfoTile(
-                    systemImage: "clock",
-                    title: trip.endTime == nil ? "ETA" : "Stop",
-                    value: trip.endTime.map { FleetManagerFormat.shortDateTime.string(from: $0) } ?? "TBD"
-                )
+            // Route details matching the green dot, vertical line with pink distance text, red flag
+            VStack(alignment: .leading, spacing: 0) {
+                // Origin
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 8, height: 8)
+                    Text(trip.startLocation)
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(FleetPalette.textPrimary)
+                        .lineLimit(1)
+                }
+                
+                // Middle Connection
+                HStack(spacing: 12) {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: 1.5, height: 28)
+                        .padding(.leading, 3.25)
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "road.lanes")
+                            .font(.system(size: 10))
+                        Text(mockDistanceText)
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .foregroundStyle(Color(hex: 0xD81B60)) // pink/magenta
+                    .padding(.leading, 6)
+                }
+                
+                // Destination
+                HStack(spacing: 12) {
+                    Image(systemName: "flag.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.red)
+                        .frame(width: 8, height: 8)
+                    Text(trip.endLocation)
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(FleetPalette.textPrimary)
+                        .lineLimit(1)
+                }
             }
+            .padding(.vertical, 4)
 
-            VStack(spacing: 10) {
-                TripInfoRow(
-                    systemImage: "person.fill",
-                    title: driver?.displayName ?? "Driver unavailable",
-                    value: driver.map { "Contact: \($0.contact)" } ?? nil
-                )
+            // Bottom Section: Dates in two columns
+            HStack(spacing: 0) {
+                // Column 1
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("START DATE & TIME")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(FleetPalette.textSecondary)
+                    
+                    Text(tripDateFormatter.string(from: trip.startTime))
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(FleetPalette.textPrimary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                TripVehicleInfoRow(
-                    vehicle: vehicle,
-                    title: vehicle?.licencePlate ?? "Vehicle unavailable",
-                    value: vehicle.map { "\($0.year) \($0.make) \($0.model)" }
-                )
+                // Column 2
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("END DATE & TIME")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(FleetPalette.textSecondary)
+                    
+                    Text(trip.endTime.map { tripDateFormatter.string(from: $0) } ?? "TBD")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(FleetPalette.textPrimary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.vertical, 4)
+
+            // Extra information: Driver name/contact and Vehicle details so we don't miss any data
+            if driver != nil || vehicle != nil {
+                Divider()
+                    .background(FleetPalette.tertiary.opacity(0.5))
+
+                HStack(spacing: 10) {
+                    if let driver {
+                        HStack(spacing: 6) {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 11))
+                            Text(driver.displayName)
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundStyle(FleetPalette.textSecondary)
+                        .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    if let vehicle {
+                        HStack(spacing: 6) {
+                            Image(systemName: "car.fill")
+                                .font(.system(size: 11))
+                            Text("\(String(vehicle.year)) \(vehicle.make) \(vehicle.model)")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundStyle(FleetPalette.textSecondary)
+                        .lineLimit(1)
+                    }
+                }
+                .padding(.top, 2)
             }
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay {
+        .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(FleetPalette.tertiary.opacity(0.55), lineWidth: 1)
-        }
-        .shadow(color: FleetPalette.accent.opacity(0.10), radius: 16, x: 0, y: 9)
+                .fill(FleetPalette.surface)
+                .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 6)
+        )
         .accessibilityElement(children: .combine)
     }
 }
@@ -386,11 +494,7 @@ private struct TripInfoTile: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 74)
-        .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(FleetPalette.tertiary.opacity(0.70), lineWidth: 1)
-        }
+        .background(FleetPalette.tertiary.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -427,11 +531,7 @@ private struct TripInfoRow: View {
         .padding(.horizontal, 14)
         .frame(minHeight: 72)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(FleetPalette.tertiary.opacity(0.70), lineWidth: 1)
-        }
+        .background(FleetPalette.tertiary.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -465,11 +565,7 @@ private struct TripVehicleInfoRow: View {
         .padding(.horizontal, 14)
         .frame(minHeight: 72)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(FleetPalette.tertiary.opacity(0.70), lineWidth: 1)
-        }
+        .background(FleetPalette.tertiary.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
