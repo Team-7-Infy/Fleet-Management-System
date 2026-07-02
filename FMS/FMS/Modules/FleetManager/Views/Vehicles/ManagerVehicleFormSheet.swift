@@ -62,7 +62,7 @@ struct ManagerVehicleFormSheet: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(FleetPalette.primary)
+                .tint(FleetPalette.accent)
                 .disabled(form.isValid == false)
             }
             .padding()

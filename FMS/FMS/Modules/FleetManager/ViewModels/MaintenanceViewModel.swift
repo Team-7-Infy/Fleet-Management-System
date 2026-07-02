@@ -4,6 +4,8 @@ import Combine
 @MainActor
 final class MaintenanceViewModel: ObservableObject {
     @Published private(set) var tasks: [MaintenanceTask] = []
+    @Published private(set) var taskVehicles: [UUID: [TaskVehicle]] = [:]
+    @Published private(set) var taskParts: [UUID: [MaintenanceTaskPart]] = [:]
     @Published var isLoading = false
     @Published var successMessage: String?
     @Published var errorMessage: String?
@@ -25,8 +27,19 @@ final class MaintenanceViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            tasks = try await maintenanceService.fetchTasks()
+            let fetchedTasks = try await maintenanceService.fetchTasks()
                 .sorted { $0.scheduledDate.date < $1.scheduledDate.date }
+            var fetchedTaskVehicles: [UUID: [TaskVehicle]] = [:]
+            var fetchedTaskParts: [UUID: [MaintenanceTaskPart]] = [:]
+
+            for task in fetchedTasks {
+                fetchedTaskVehicles[task.id] = (try? await maintenanceService.fetchTaskVehicles(taskId: task.id)) ?? []
+                fetchedTaskParts[task.id] = (try? await maintenanceService.fetchTaskParts(taskId: task.id)) ?? []
+            }
+
+            tasks = fetchedTasks
+            taskVehicles = fetchedTaskVehicles
+            taskParts = fetchedTaskParts
             errorMessage = nil
         } catch is CancellationError {
             errorMessage = nil
@@ -46,7 +59,9 @@ final class MaintenanceViewModel: ObservableObject {
             let task = try await maintenanceService.createTask(form.makeTask())
 
             if let vehicleId = form.vehicleId {
-                try await maintenanceService.addTaskVehicle(TaskVehicle(taskId: task.id, vin: vehicleId))
+                let taskVehicle = TaskVehicle(taskId: task.id, vin: vehicleId)
+                try await maintenanceService.addTaskVehicle(taskVehicle)
+                taskVehicles[task.id] = [taskVehicle]
                 let vehicle = try await vehicleService.fetchVehicle(id: vehicleId)
                 var updatedVehicle = vehicle
                 updatedVehicle.status = .maintenance
@@ -54,6 +69,7 @@ final class MaintenanceViewModel: ObservableObject {
             }
 
             tasks.insert(task, at: 0)
+            taskParts[task.id] = []
             sortTasks()
             successMessage = "Maintenance task scheduled."
             errorMessage = nil
@@ -104,6 +120,14 @@ final class MaintenanceViewModel: ObservableObject {
             errorMessage = error.localizedDescription
             successMessage = nil
         }
+    }
+
+    func vehicles(for task: MaintenanceTask) -> [TaskVehicle] {
+        taskVehicles[task.id] ?? []
+    }
+
+    func parts(for task: MaintenanceTask) -> [MaintenanceTaskPart] {
+        taskParts[task.id] ?? []
     }
 
     private func sortTasks() {

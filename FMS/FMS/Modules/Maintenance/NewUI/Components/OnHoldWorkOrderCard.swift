@@ -11,10 +11,7 @@ struct OnHoldWorkOrderCard: View {
             HStack(alignment: .center, spacing: 12) {
                 let vehicleDisplay = onHoldOrder.vehicle?.registrationNumber ?? onHoldOrder.vehicle?.name ?? onHoldOrder.workOrder.vehicleName
                 
-                Image(systemName: onHoldOrder.vehicle?.sfSymbolName ?? FleetIcon.car)
-                    .font(.title3)
-                    .foregroundStyle(AppColor.brand)
-                    .frame(width: 44, height: 28)
+                VehicleAssetImage(vehicle: onHoldOrder.vehicle, width: 46, height: 36, cornerRadius: 9)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(vehicleDisplay)
@@ -31,12 +28,12 @@ struct OnHoldWorkOrderCard: View {
                 
                 ZStack {
                     Circle()
-                        .fill(Color.orange.opacity(0.15))
+                        .fill(AppColor.warning.opacity(0.15))
                         .frame(width: 44, height: 44)
                     
                     Image(systemName: "pause.fill")
                         .font(.headline)
-                        .foregroundStyle(Color.orange.opacity(0.7))
+                        .foregroundStyle(AppColor.warning.opacity(0.7))
                 }
             }
             .padding(.vertical, AppSpacing.medium)

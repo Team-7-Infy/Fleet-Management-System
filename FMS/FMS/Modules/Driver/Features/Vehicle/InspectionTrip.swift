@@ -82,8 +82,7 @@ struct VehiclePickerView: View {
                 .frame(maxWidth: .infinity)
                 .background(
                     LinearGradient(
-                        colors: [Color(red: 0.20, green: 0.19, blue: 0.42),
-                                 Color(red: 0.08, green: 0.36, blue: 0.55)],
+                        colors: [FleetPalette.inProgress, FleetPalette.secondary],
                         startPoint: .topLeading, endPoint: .bottomTrailing
                     )
                 )
@@ -104,13 +103,16 @@ struct VehiclePickerView: View {
                                 if !isDone { onSelect(trip) }
                             }) {
                                 HStack(spacing: 16) {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 14)
-                                            .fill(isDone ? Color.green.opacity(0.1) : Color.blue.opacity(0.1))
-                                            .frame(width: 52, height: 52)
-                                        Image(systemName: isDone ? "checkmark.seal.fill" : "truck.box.fill")
-                                            .font(.title2)
-                                            .foregroundColor(isDone ? .green : .blue)
+                                    ZStack(alignment: .topTrailing) {
+                                        VehicleAssetImage(vehicle: nil, assetName: "Truck", width: 58, height: 52, cornerRadius: 14)
+
+                                        if isDone {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.caption.weight(.bold))
+                                                .foregroundColor(FleetPalette.success)
+                                                .background(Color.white, in: Circle())
+                                                .offset(x: 4, y: -4)
+                                        }
                                     }
 
                                     VStack(alignment: .leading, spacing: 4) {
@@ -131,18 +133,18 @@ struct VehiclePickerView: View {
                                         if isDone {
                                             Text("Inspected")
                                                 .font(.system(size: 11, weight: .bold))
-                                                .foregroundColor(.green)
+                                                .foregroundColor(FleetPalette.success)
                                                 .padding(.horizontal, 10)
                                                 .padding(.vertical, 5)
-                                                .background(Color.green.opacity(0.12))
+                                                .background(FleetPalette.success.opacity(0.12))
                                                 .clipShape(Capsule())
                                         } else {
                                             Text(trip.status)
                                                 .font(.system(size: 11, weight: .bold))
-                                                .foregroundColor(.orange)
+                                                .foregroundColor(FleetPalette.warning)
                                                 .padding(.horizontal, 10)
                                                 .padding(.vertical, 5)
-                                                .background(Color.orange.opacity(0.12))
+                                                .background(FleetPalette.warning.opacity(0.12))
                                                 .clipShape(Capsule())
                                             Image(systemName: "chevron.right")
                                                 .font(.system(size: 13, weight: .semibold))
@@ -178,7 +180,7 @@ struct VehiclePickerView: View {
                         Image(systemName: "chevron.left")
                             .font(.title3)
                             .fontWeight(.bold)
-                            .foregroundColor(.blue)
+                            .foregroundColor(FleetPalette.inProgress)
                     }
                 }
             }

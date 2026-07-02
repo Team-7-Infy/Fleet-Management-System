@@ -39,10 +39,7 @@ struct VehicleDetailsView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(alignment: .center, spacing: 16) {
-                Image(systemName: vehicle.sfSymbolName)
-                    .font(.largeTitle)
-                    .foregroundStyle(AppColor.brand)
-                    .frame(width: 90, height: 60)
+                VehicleAssetImage(vehicle: vehicle, width: 96, height: 68, cornerRadius: 16)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(vehicle.name)
@@ -61,7 +58,7 @@ struct VehicleDetailsView: View {
             HStack(alignment: .center) {
 
                 
-                horizontalDetailItem(icon: "box.truck", title: "Type", value: vehicle.vehicleType ?? "Unknown")
+                horizontalDetailItem(icon: "box.truck", title: "Type", value: vehicle.vehicleType.isEmpty ? "Unknown" : vehicle.vehicleType)
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 16)
@@ -147,12 +144,12 @@ struct VehicleDetailsView: View {
             HStack(spacing: 16) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.blue.opacity(0.1))
+                        .fill(AppColor.inProgress.opacity(0.1))
                         .frame(width: 48, height: 48)
                     
                     Image(systemName: icon)
                         .font(.title3)
-                        .foregroundStyle(Color.blue)
+                        .foregroundStyle(AppColor.inProgress)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -168,10 +165,10 @@ struct VehicleDetailsView: View {
 
                 Text("Completed")
                     .font(AppTypography.caption.weight(.semibold))
-                    .foregroundStyle(Color.green)
+                    .foregroundStyle(AppColor.success)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Color.green.opacity(0.15), in: Capsule())
+                    .background(AppColor.success.opacity(0.15), in: Capsule())
                 
                 Image(systemName: FleetIcon.chevronRight)
                     .font(AppTypography.callout)

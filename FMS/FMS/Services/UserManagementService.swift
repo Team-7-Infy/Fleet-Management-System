@@ -37,6 +37,7 @@ final actor UserManagementService: UserManagementServiceProtocol {
             "f_name": .string(user.fName),
             "l_name": .string(user.lName),
             "address": .string(user.address),
+            "avatarurl": user.avatarUrl.map { .string($0) } ?? .null,
         ]
 
         try await supabase.client
@@ -164,6 +165,19 @@ final actor UserManagementService: UserManagementServiceProtocol {
             .single()
             .execute()
             .value
+    }
+
+    func updateDriverProfile(userId: UUID, licenceNumber: String, vehicleType: String) async throws {
+        let update: [String: AnyJSON] = [
+            "licencenum": .string(licenceNumber.trimmingCharacters(in: .whitespacesAndNewlines)),
+            "vehicletype": .string(vehicleType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+        ]
+
+        try await supabase.client
+            .from("drivers")
+            .update(update)
+            .eq("userid", value: userId.uuidString)
+            .execute()
     }
 
     func fetchMaintenancePersonnel() async throws -> [MaintenancePersonnel] {

@@ -18,9 +18,9 @@ enum Priority: String, CaseIterable, Codable, Hashable, Identifiable {
 
     var color: Color {
         switch self {
-        case .low: .green
-        case .medium: .orange
-        case .high: .red
+        case .low: AppColor.success
+        case .medium: AppColor.warning
+        case .high: AppColor.destructive
         }
     }
 }

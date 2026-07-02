@@ -21,7 +21,7 @@ struct InspectionView: View {
                     Spacer()
                 }
                 .padding()
-                .background(LinearGradient(gradient: Gradient(colors: [Color.blue, Color(red: 0.1, green: 0.1, blue: 0.5)]), startPoint: .leading, endPoint: .trailing))
+                .background(LinearGradient(gradient: Gradient(colors: [FleetPalette.inProgress, FleetPalette.secondary]), startPoint: .leading, endPoint: .trailing))
                 .foregroundColor(.white)
                 
                 // 2. Interactive Checklist
@@ -55,7 +55,7 @@ struct InspectionView: View {
                             Spacer()
                         }
                         .padding()
-                        .background(viewModel.isComplete ? Color.green : Color.gray.opacity(0.3))
+                        .background(viewModel.isComplete ? FleetPalette.success : Color.gray.opacity(0.3))
                         .foregroundColor(viewModel.isComplete ? .white : .gray)
                         .cornerRadius(16)
                     }
@@ -94,10 +94,10 @@ struct InspectionRow: View {
             // Icon
             ZStack {
                 Circle()
-                    .fill(Color.blue.opacity(0.1))
+                    .fill(FleetPalette.inProgress.opacity(0.1))
                     .frame(width: 44, height: 44)
                 Image(systemName: item.icon)
-                    .foregroundColor(.blue)
+                    .foregroundColor(FleetPalette.inProgress)
                     .font(.system(size: 20))
             }
             
@@ -113,9 +113,9 @@ struct InspectionRow: View {
                 Button(action: { onStatusChange(.failed) }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(item.status == .failed ? .white : .red)
+                        .foregroundColor(item.status == .failed ? .white : FleetPalette.danger)
                         .frame(width: 40, height: 40)
-                        .background(item.status == .failed ? Color.red : Color.red.opacity(0.1))
+                        .background(item.status == .failed ? FleetPalette.danger : FleetPalette.danger.opacity(0.1))
                         .clipShape(Circle())
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -124,9 +124,9 @@ struct InspectionRow: View {
                 Button(action: { onStatusChange(.passed) }) {
                     Image(systemName: "checkmark")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(item.status == .passed ? .white : .green)
+                        .foregroundColor(item.status == .passed ? .white : FleetPalette.success)
                         .frame(width: 40, height: 40)
-                        .background(item.status == .passed ? Color.green : Color.green.opacity(0.1))
+                        .background(item.status == .passed ? FleetPalette.success : FleetPalette.success.opacity(0.1))
                         .clipShape(Circle())
                 }
                 .buttonStyle(PlainButtonStyle())

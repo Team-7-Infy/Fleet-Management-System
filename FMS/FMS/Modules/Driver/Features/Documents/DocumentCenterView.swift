@@ -14,8 +14,8 @@ struct DocumentCenterView: View {
                     Spacer()
                 }
                 .padding()
-                .background(Color.red.opacity(0.1))
-                .foregroundColor(.red)
+                .background(FleetPalette.danger.opacity(0.1))
+                .foregroundColor(FleetPalette.danger)
             }
 
             List {
@@ -72,9 +72,9 @@ struct DocumentRowView: View {
     private var statusColor: Color {
         switch document.status {
         case .notUploaded: return .gray
-        case .valid: return .green
-        case .warning: return .orange
-        case .critical: return .red
+        case .valid: return FleetPalette.success
+        case .warning: return FleetPalette.warning
+        case .critical: return FleetPalette.danger
         case .expired: return .gray
         }
     }
@@ -102,4 +102,3 @@ struct DocumentRowView: View {
         }
     }
 }
-

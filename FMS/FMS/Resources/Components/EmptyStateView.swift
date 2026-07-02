@@ -18,7 +18,7 @@ struct EmptyStateView: View {
         VStack(spacing: 10) {
             Image(systemName: systemImage)
                 .font(.largeTitle)
-                .foregroundStyle(FleetPalette.primary)
+                .foregroundStyle(FleetPalette.accent)
 
             Text(title)
                 .font(.headline)

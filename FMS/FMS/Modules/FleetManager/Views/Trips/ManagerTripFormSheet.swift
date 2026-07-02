@@ -7,6 +7,116 @@
 
 
 import SwiftUI
+import MapKit
+import Combine
+
+struct TripPlace: Identifiable {
+    let id = UUID()
+    var name: String
+    var address: String
+    var coordinate: CLLocationCoordinate2D
+
+    var displayName: String {
+        let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedAddress.isEmpty ? name : "\(name), \(trimmedAddress)"
+    }
+}
+
+struct TripRouteEstimate {
+    var route: MKRoute
+    var expectedArrival: Date
+
+    var travelTime: TimeInterval {
+        route.expectedTravelTime
+    }
+
+    var distanceMeters: CLLocationDistance {
+        route.distance
+    }
+
+    var durationText: String {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = travelTime >= 3600 ? [.hour, .minute] : [.minute]
+        formatter.unitsStyle = .abbreviated
+        return formatter.string(from: travelTime) ?? "\(Int(travelTime / 60)) min"
+    }
+
+    var distanceText: String {
+        let kilometers = distanceMeters / 1000
+        return kilometers >= 10
+            ? String(format: "%.0f km", kilometers)
+            : String(format: "%.1f km", kilometers)
+    }
+}
+
+enum TripRouteEstimator {
+    static func resolvePlace(named query: String) async throws -> TripPlace? {
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = query
+        let response = try await MKLocalSearch(request: request).start()
+        return response.mapItems.first.map(place(from:))
+    }
+
+    static func estimateRoute(from pickup: TripPlace, to destination: TripPlace, startTime: Date) async throws -> TripRouteEstimate {
+        let request = MKDirections.Request()
+        request.source = MKMapItem(placemark: MKPlacemark(coordinate: pickup.coordinate))
+        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: destination.coordinate))
+        request.transportType = .automobile
+        request.departureDate = startTime
+
+        let response = try await MKDirections(request: request).calculate()
+        guard let route = response.routes.first else {
+            throw TripRouteError.routeUnavailable
+        }
+
+        return TripRouteEstimate(
+            route: route,
+            expectedArrival: startTime.addingTimeInterval(route.expectedTravelTime)
+        )
+    }
+
+    static func place(from mapItem: MKMapItem) -> TripPlace {
+        TripPlace(
+            name: mapItem.name ?? "Selected place",
+            address: mapItem.placemark.title ?? "",
+            coordinate: mapItem.placemark.coordinate
+        )
+    }
+}
+
+enum TripRouteError: LocalizedError {
+    case routeUnavailable
+
+    var errorDescription: String? {
+        "Route estimate is unavailable for these places."
+    }
+}
+
+private enum TripPlaceField: Identifiable {
+    case pickup
+    case destination
+
+    var id: String {
+        switch self {
+        case .pickup: return "pickup"
+        case .destination: return "destination"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .pickup: return "Pickup"
+        case .destination: return "Destination"
+        }
+    }
+
+    var placeholder: String {
+        switch self {
+        case .pickup: return "Starting point"
+        case .destination: return "Destination"
+        }
+    }
+}
 
 struct ManagerTripFormSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -15,6 +125,12 @@ struct ManagerTripFormSheet: View {
     @ObservedObject var usersViewModel: UserManagementViewModel
     @State private var form = FleetManagerTripForm()
     @State private var minimumStartTime = Date()
+    @State private var selectedPickup: TripPlace?
+    @State private var selectedDestination: TripPlace?
+    @State private var routeEstimate: TripRouteEstimate?
+    @State private var routeMessage: String?
+    @State private var pickingPlace: TripPlaceField?
+    @State private var isCalculatingRoute = false
 
     private var hasRegisteredDriver: Bool {
         usersViewModel.drivers.contains { $0.status == .active }
@@ -40,13 +156,41 @@ struct ManagerTripFormSheet: View {
                         )
                     }
                 } else {
-                    TextField("Starting point", text: $form.startLocation)
-                        .textInputAutocapitalization(.words)
-                        .fleetField()
+                    TripPlaceButton(
+                        title: "Pickup",
+                        value: selectedPickup?.displayName ?? form.startLocation,
+                        placeholder: "Starting point",
+                        systemImage: "mappin.circle.fill"
+                    ) {
+                        pickingPlace = .pickup
+                    }
 
-                    TextField("Destination", text: $form.endLocation)
-                        .textInputAutocapitalization(.words)
-                        .fleetField()
+                    TripPlaceButton(
+                        title: "Destination",
+                        value: selectedDestination?.displayName ?? form.endLocation,
+                        placeholder: "Destination",
+                        systemImage: "mappin.and.ellipse.circle.fill"
+                    ) {
+                        pickingPlace = .destination
+                    }
+
+                    TripRouteSelectionMap(
+                        pickup: selectedPickup,
+                        destination: selectedDestination,
+                        route: routeEstimate?.route
+                    )
+
+                    if isCalculatingRoute {
+                        Label("Calculating route", systemImage: "clock.arrow.circlepath")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(FleetPalette.accent)
+                    } else if let routeEstimate {
+                        TripRouteEstimateCard(estimate: routeEstimate)
+                    } else if let routeMessage {
+                        Label(routeMessage, systemImage: "exclamationmark.triangle")
+                            .font(.subheadline)
+                            .foregroundStyle(FleetPalette.warning)
+                    }
 
                     Picker("Vehicle", selection: $form.vehicleId) {
                         Text("Select vehicle").tag(Optional<UUID>.none)
@@ -71,7 +215,7 @@ struct ManagerTripFormSheet: View {
                         .fleetField()
 
                     DatePicker(
-                        "Expected End",
+                        routeEstimate == nil ? "Expected End" : "ETA",
                         selection: Binding(
                             get: { form.endTime ?? form.startTime.addingTimeInterval(3600) },
                             set: { form.endTime = $0 }
@@ -94,7 +238,7 @@ struct ManagerTripFormSheet: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(FleetPalette.primary)
+                    .tint(FleetPalette.accent)
                     .disabled(form.isValid == false)
                 }
             }
@@ -103,6 +247,16 @@ struct ManagerTripFormSheet: View {
         .fleetScreenBackground()
         .navigationTitle("Create Trip")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $pickingPlace) { field in
+            NavigationStack {
+                TripPlacePickerSheet(field: field) { place in
+                    apply(place: place, to: field)
+                    pickingPlace = nil
+                }
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
         .onAppear {
             minimumStartTime = Date()
             if form.startTime < minimumStartTime {
@@ -121,6 +275,299 @@ struct ManagerTripFormSheet: View {
             if (form.endTime ?? newValue) < newValue {
                 form.endTime = newValue.addingTimeInterval(3600)
             }
+            Task {
+                await calculateRouteIfPossible()
+            }
         }
+    }
+
+    private func apply(place: TripPlace, to field: TripPlaceField) {
+        switch field {
+        case .pickup:
+            selectedPickup = place
+            form.startLocation = place.displayName
+        case .destination:
+            selectedDestination = place
+            form.endLocation = place.displayName
+        }
+
+        Task {
+            await calculateRouteIfPossible()
+        }
+    }
+
+    @MainActor
+    private func calculateRouteIfPossible() async {
+        guard let selectedPickup, let selectedDestination else {
+            routeEstimate = nil
+            routeMessage = nil
+            return
+        }
+
+        isCalculatingRoute = true
+        defer { isCalculatingRoute = false }
+
+        do {
+            let estimate = try await TripRouteEstimator.estimateRoute(
+                from: selectedPickup,
+                to: selectedDestination,
+                startTime: form.startTime
+            )
+            routeEstimate = estimate
+            routeMessage = nil
+            form.endTime = estimate.expectedArrival
+        } catch {
+            routeEstimate = nil
+            routeMessage = error.localizedDescription
+        }
+    }
+}
+
+private struct TripPlaceButton: View {
+    var title: String
+    var value: String
+    var placeholder: String
+    var systemImage: String
+    var action: () -> Void
+
+    private var displayedValue: String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? placeholder : trimmed
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(FleetPalette.accent)
+                    .frame(width: 32, height: 32)
+                    .background(FleetPalette.softBlue, in: Circle())
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(FleetPalette.textSecondary)
+                    Text(displayedValue)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? FleetPalette.textSecondary : FleetPalette.textPrimary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(FleetPalette.accent)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 66)
+            .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(FleetPalette.tertiary.opacity(0.70), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct TripRouteSelectionMap: View {
+    var pickup: TripPlace?
+    var destination: TripPlace?
+    var route: MKRoute?
+    @State private var position: MapCameraPosition = .automatic
+
+    var body: some View {
+        Map(position: $position) {
+            if let route {
+                MapPolyline(route.polyline)
+                    .stroke(FleetPalette.accent, lineWidth: 5)
+            }
+
+            if let pickup {
+                Marker("Pickup", systemImage: "mappin.circle.fill", coordinate: pickup.coordinate)
+                    .tint(FleetPalette.success)
+            }
+
+            if let destination {
+                Marker("Destination", systemImage: "flag.checkered", coordinate: destination.coordinate)
+                    .tint(FleetPalette.accent)
+            }
+        }
+        .frame(height: 190)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(FleetPalette.tertiary.opacity(0.70), lineWidth: 1)
+        }
+        .overlay {
+            if pickup == nil && destination == nil {
+                VStack(spacing: 8) {
+                    Image(systemName: "map")
+                        .font(.title2.weight(.semibold))
+                    Text("Select pickup and destination")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .foregroundStyle(FleetPalette.textSecondary)
+                .padding()
+                .background(.ultraThinMaterial, in: Capsule())
+            }
+        }
+    }
+}
+
+private struct TripRouteEstimateCard: View {
+    var estimate: TripRouteEstimate
+
+    var body: some View {
+        HStack(spacing: 12) {
+            RouteEstimateItem(title: "Travel time", value: estimate.durationText, systemImage: "clock")
+            RouteEstimateItem(title: "Distance", value: estimate.distanceText, systemImage: "road.lanes")
+            RouteEstimateItem(title: "ETA", value: FleetManagerFormat.time.string(from: estimate.expectedArrival), systemImage: "flag.checkered")
+        }
+        .padding(14)
+        .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(FleetPalette.tertiary.opacity(0.70), lineWidth: 1)
+        }
+    }
+}
+
+private struct RouteEstimateItem: View {
+    var title: String
+    var value: String
+    var systemImage: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Image(systemName: systemImage)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(FleetPalette.accent)
+            Text(value)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(FleetPalette.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(FleetPalette.textSecondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct TripPlacePickerSheet: View {
+    var field: TripPlaceField
+    var onSelect: (TripPlace) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var search = TripPlaceSearchViewModel()
+    @State private var isResolving = false
+
+    var body: some View {
+        VStack(spacing: 14) {
+            TextField(field.placeholder, text: $search.query)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+                .fleetField()
+                .padding(.horizontal)
+
+            if isResolving {
+                ProgressView("Finding place")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if search.results.isEmpty {
+                EmptyStateView(
+                    title: "Search for a place",
+                    message: "Enter a city, depot, warehouse, landmark, or full address.",
+                    systemImage: "magnifyingglass"
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding()
+            } else {
+                List(search.results, id: \.self) { completion in
+                    Button {
+                        Task {
+                            await resolve(completion)
+                        }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(completion.title)
+                                .font(.headline)
+                                .foregroundStyle(FleetPalette.textPrimary)
+                            if completion.subtitle.isEmpty == false {
+                                Text(completion.subtitle)
+                                    .font(.subheadline)
+                                    .foregroundStyle(FleetPalette.textSecondary)
+                            }
+                        }
+                        .padding(.vertical, 5)
+                    }
+                }
+                .listStyle(.plain)
+            }
+        }
+        .navigationTitle("Select \(field.title)")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Cancel") {
+                    dismiss()
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func resolve(_ completion: MKLocalSearchCompletion) async {
+        isResolving = true
+        defer { isResolving = false }
+
+        do {
+            if let place = try await search.place(for: completion) {
+                onSelect(place)
+                dismiss()
+            }
+        } catch {
+            search.errorMessage = error.localizedDescription
+        }
+    }
+}
+
+private final class TripPlaceSearchViewModel: NSObject, ObservableObject, MKLocalSearchCompleterDelegate {
+    @Published var query = "" {
+        didSet {
+            completer.queryFragment = query
+        }
+    }
+    @Published var results: [MKLocalSearchCompletion] = []
+    @Published var errorMessage: String?
+
+    private let completer = MKLocalSearchCompleter()
+
+    override init() {
+        super.init()
+        completer.resultTypes = [.address, .pointOfInterest]
+        completer.delegate = self
+    }
+
+    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        DispatchQueue.main.async {
+            self.results = completer.results
+            self.errorMessage = nil
+        }
+    }
+
+    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+        DispatchQueue.main.async {
+            self.errorMessage = error.localizedDescription
+        }
+    }
+
+    func place(for completion: MKLocalSearchCompletion) async throws -> TripPlace? {
+        let request = MKLocalSearch.Request(completion: completion)
+        let response = try await MKLocalSearch(request: request).start()
+        return response.mapItems.first.map(TripRouteEstimator.place(from:))
     }
 }

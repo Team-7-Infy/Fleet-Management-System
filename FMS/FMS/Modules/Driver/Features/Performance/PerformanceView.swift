@@ -60,10 +60,10 @@ struct PerformanceView: View {
                         
                         // Grid Section: Core KPIs
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                            KPIBox(title: "Trips Completed", value: "\(metrics.tripsCompleted)", icon: "checkmark.circle.fill", color: .blue)
-                            KPIBox(title: "On-Time Rate", value: viewModel.formatPercentage(metrics.onTimeDeliveryRate), icon: "clock.fill", color: .green)
+                            KPIBox(title: "Trips Completed", value: "\(metrics.tripsCompleted)", icon: "checkmark.circle.fill", color: FleetPalette.inProgress)
+                            KPIBox(title: "On-Time Rate", value: viewModel.formatPercentage(metrics.onTimeDeliveryRate), icon: "clock.fill", color: FleetPalette.success)
                             KPIBox(title: "Distance (km)", value: String(format: "%.0f", metrics.distanceCovered), icon: "map.fill", color: .purple)
-                            KPIBox(title: "Fuel (km/L)", value: String(format: "%.1f", metrics.fuelEfficiency), icon: "fuelpump.fill", color: .orange)
+                            KPIBox(title: "Fuel (km/L)", value: String(format: "%.1f", metrics.fuelEfficiency), icon: "fuelpump.fill", color: FleetPalette.warning)
                         }
                         .padding(.horizontal)
                         
@@ -137,7 +137,7 @@ struct EventRow: View {
             Spacer()
             Text("\(count)")
                 .fontWeight(.bold)
-                .foregroundColor(count > limit ? .red : .primary)
+                .foregroundColor(count > limit ? FleetPalette.danger : .primary)
         }
         .padding()
         Divider()

@@ -66,11 +66,26 @@ final actor AuthService: AuthServiceProtocol {
     }
 
     func signIn(email: String, password: String) async throws -> User {
-        try await supabase.client.auth.signIn(email: email, password: password)
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let normalizedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        try await supabase.client.auth.signIn(email: normalizedEmail, password: normalizedPassword)
+
+        if let authUser = supabase.client.auth.currentUser {
+            let user: User = try await supabase.client
+                .from("users")
+                .select()
+                .eq("userid", value: authUser.id.uuidString)
+                .single()
+                .execute()
+                .value
+            return user
+        }
+
         let user: User = try await supabase.client
             .from("users")
             .select()
-            .eq("email", value: email)
+            .eq("email", value: normalizedEmail)
             .single()
             .execute()
             .value
@@ -189,6 +204,72 @@ final actor AuthService: AuthServiceProtocol {
             .execute()
     }
 
+    func completeFirstTimeProfile(
+        user: User,
+        name: String,
+        email: String,
+        contact: Int64,
+        address: String,
+        aadhar: String,
+        avatarUrl: String?,
+        licenceNumber: String?,
+        vehicleType: String?
+    ) async throws -> User {
+        let nameParts = Self.nameParts(from: name)
+        let trimmedAvatar = avatarUrl?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        var userUpdate: [String: AnyJSON] = [
+            "email": .string(email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()),
+            "contact": .integer(Int(contact)),
+            "f_name": .string(nameParts.first),
+            "l_name": .string(nameParts.last),
+            "address": .string(address.trimmingCharacters(in: .whitespacesAndNewlines)),
+            "aadhar": .string(aadhar.trimmingCharacters(in: .whitespacesAndNewlines)),
+            "first_time_login": .bool(false)
+        ]
+        userUpdate["avatarurl"] = trimmedAvatar.isEmpty ? .null : .string(trimmedAvatar)
+
+        try await supabase.client
+            .from("users")
+            .update(userUpdate)
+            .eq("userid", value: user.id.uuidString)
+            .execute()
+
+        if user.role == .driver {
+            let trimmedLicence = licenceNumber?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let trimmedVehicleType = vehicleType?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+            let driverUpdate: [String: AnyJSON] = [
+                "licencenum": .string(trimmedLicence.isEmpty ? "Pending" : trimmedLicence),
+                "vehicletype": .string(trimmedVehicleType.isEmpty ? "van" : trimmedVehicleType)
+            ]
+
+            try await supabase.client
+                .from("drivers")
+                .update(driverUpdate)
+                .eq("userid", value: user.id.uuidString)
+                .execute()
+        }
+
+        let updatedUser: User = try await supabase.client
+            .from("users")
+            .select()
+            .eq("userid", value: user.id.uuidString)
+            .single()
+            .execute()
+            .value
+
+        return updatedUser
+    }
+
+    private static func nameParts(from name: String) -> (first: String, last: String) {
+        let parts = name
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+            .map(String.init)
+
+        guard let first = parts.first else { return ("", "") }
+        return (first, parts.count > 1 ? parts[1] : "")
+    }
+
     func forceUpdatePassword(userId: UUID, password: String) async throws {
         let functionURL = EnvironmentConfig.supabaseURL.appendingPathComponent("functions/v1/force-update-password")
 
@@ -237,4 +318,3 @@ final actor AuthService: AuthServiceProtocol {
         try await supabase.client.rpc("delete_account").execute()
     }
 }
-

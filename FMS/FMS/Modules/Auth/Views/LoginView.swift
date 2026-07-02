@@ -253,7 +253,7 @@ struct LoginView: View {
     private var pageBackground: Color {
         colorScheme == .dark
             ? Color(red: 0.035, green: 0.04, blue: 0.05)
-            : Color(red: 0.975, green: 0.978, blue: 0.99)
+            : FleetPalette.background
     }
 
     private var cardBackground: Color {

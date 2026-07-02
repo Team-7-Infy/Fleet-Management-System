@@ -35,7 +35,7 @@ struct EndTripView: View {
                                 TextField("e.g. 45120", text: $endOdometer)
                                     .keyboardType(.numberPad)
                                     .multilineTextAlignment(.trailing)
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(FleetPalette.inProgress)
                                     .font(.system(.body, design: .monospaced))
                             }
                             .padding()
@@ -66,7 +66,7 @@ struct EndTripView: View {
                                 Button(action: { signaturePath = Path() }) {
                                     Text("Clear")
                                         .font(.caption)
-                                        .foregroundColor(.red)
+                                        .foregroundColor(FleetPalette.danger)
                                 }
                             }
                             

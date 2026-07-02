@@ -16,7 +16,7 @@ struct PasswordResetSuccessView: View {
             VStack(spacing: 16) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 64))
-                    .foregroundStyle(.green)
+                    .foregroundStyle(FleetPalette.success)
 
                 Text("Password Updated")
                     .font(.system(size: 30, weight: .bold, design: .rounded))
@@ -72,6 +72,6 @@ struct PasswordResetSuccessView: View {
     private var pageBackground: Color {
         colorScheme == .dark
             ? Color(red: 0.035, green: 0.04, blue: 0.05)
-            : Color(red: 0.975, green: 0.978, blue: 0.99)
+            : FleetPalette.background
     }
 }

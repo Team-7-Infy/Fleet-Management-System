@@ -44,7 +44,7 @@ struct ActiveTrackingView: View {
                         Text("ACTIVE TRIP")
                             .font(.caption)
                             .fontWeight(.black)
-                            .foregroundColor(.blue)
+                            .foregroundColor(FleetPalette.inProgress)
                         Text("Awaiting Trip...")
                             .font(.headline)
                             .fontWeight(.bold)
@@ -57,7 +57,7 @@ struct ActiveTrackingView: View {
                             .font(.title2)
                             .foregroundColor(.white)
                             .padding(12)
-                            .background(Circle().fill(Color.red).shadow(radius: 5))
+                            .background(Circle().fill(FleetPalette.danger).shadow(radius: 5))
                     }
                 }
                 .padding()
@@ -92,8 +92,8 @@ struct ActiveTrackingView: View {
                     .padding(.horizontal)
                     
                     HStack(spacing: 15) {
-                        TelemetryWidget(title: "ETA", value: eta, icon: "clock.fill", color: .blue)
-                        TelemetryWidget(title: "Remaining", value: distanceRemaining, icon: "location.fill", color: .green)
+                        TelemetryWidget(title: "ETA", value: eta, icon: "clock.fill", color: FleetPalette.inProgress)
+                        TelemetryWidget(title: "Remaining", value: distanceRemaining, icon: "location.fill", color: FleetPalette.success)
                     }
                     .padding(.horizontal)
                     

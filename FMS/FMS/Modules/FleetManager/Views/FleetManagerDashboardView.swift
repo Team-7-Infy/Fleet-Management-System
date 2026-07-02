@@ -34,6 +34,7 @@ struct FleetManagerDashboardView: View {
     @StateObject private var vehiclesViewModel: VehicleViewModel
     @StateObject private var tripsViewModel: TripManagementViewModel
     @StateObject private var maintenanceViewModel: MaintenanceViewModel
+    @StateObject private var notificationController: ManagerNotificationController
     let onLogout: () -> Void
     private let authService: AuthServiceProtocol
 
@@ -70,6 +71,9 @@ struct FleetManagerDashboardView: View {
                 vehicleService: services.vehicleService
             )
         )
+        _notificationController = StateObject(
+            wrappedValue: ManagerNotificationController(service: services.fleetNotificationService)
+        )
     }
 
     var body: some View {
@@ -95,7 +99,7 @@ struct FleetManagerDashboardView: View {
                 .tabItem { Label("Service", systemImage: "wrench") }
                 .tag(ManagerTab.maintenance)
         }
-        .tint(FleetPalette.primary)
+        .tint(FleetPalette.accent)
         .task {
             currentUserId = try? await authService.currentSession()?.id
             await refreshAll()
@@ -129,11 +133,11 @@ struct FleetManagerDashboardView: View {
                 vehiclesViewModel: vehiclesViewModel,
                 tripsViewModel: tripsViewModel,
                 maintenanceViewModel: maintenanceViewModel,
+                notificationController: notificationController,
                 refresh: refreshAll,
                 currentUserId: currentUserId,
                 onProfile: { isShowingProfile = true }
             )
-            .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $isShowingProfile) {
                 NavigationStack {
                     ManagerAccountView(
@@ -214,6 +218,7 @@ struct FleetManagerDashboardView: View {
         await vehiclesViewModel.load()
         await tripsViewModel.load()
         await maintenanceViewModel.load()
+        await notificationController.load(recipientId: currentUserId)
     }
 
 }

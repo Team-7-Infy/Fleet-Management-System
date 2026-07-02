@@ -8,12 +8,14 @@ struct FleetManagerMetric: Identifiable {
 }
 
 struct FleetManagerUserForm {
+    var name = ""
     var firstName = ""
     var lastName = ""
     var email = ""
     var aadhar = ""
     var contact = ""
     var address = ""
+    var avatarUrl = ""
     var role: UserRole = .driver
     var licenceNumber = ""
     var vehicleType = "van"
@@ -22,19 +24,36 @@ struct FleetManagerUserForm {
         Int64(contact.filter(\.isNumber))
     }
 
+    var normalizedName: String {
+        let directName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if directName.isEmpty == false {
+            return directName
+        }
+
+        return "\(firstName) \(lastName)"
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var normalizedNameParts: (first: String, last: String) {
+        let parts = normalizedName
+            .split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+            .map(String.init)
+
+        guard let first = parts.first else { return ("", "") }
+        return (first, parts.count > 1 ? parts[1] : "")
+    }
+
+    var normalizedAvatarUrl: String? {
+        let trimmed = avatarUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     var isValid: Bool {
         guard email.contains("@"),
-              firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
-              lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
-              aadhar.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
-              address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+              normalizedName.isEmpty == false,
               contactValue != nil
         else {
             return false
-        }
-
-        if role == .driver {
-            return licenceNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
         }
 
         return true
@@ -42,6 +61,7 @@ struct FleetManagerUserForm {
 
     func makeUser(id: UUID = UUID()) throws -> User {
         guard let contactValue else { throw FleetManagerFormError.invalidContact }
+        let nameParts = normalizedNameParts
 
         return User(
             id: id,
@@ -49,11 +69,12 @@ struct FleetManagerUserForm {
             aadhar: aadhar.trimmingCharacters(in: .whitespacesAndNewlines),
             contact: contactValue,
             role: role,
-            fName: firstName.trimmingCharacters(in: .whitespacesAndNewlines),
-            lName: lastName.trimmingCharacters(in: .whitespacesAndNewlines),
+            fName: nameParts.first,
+            lName: nameParts.last,
             address: address.trimmingCharacters(in: .whitespacesAndNewlines),
             isActive: true,
-            createdAt: Date()
+            createdAt: Date(),
+            avatarUrl: normalizedAvatarUrl
         )
     }
 }
@@ -129,6 +150,7 @@ struct FleetManagerTripForm {
 }
 
 struct FleetManagerMaintenanceTaskForm {
+    var title = ""
     var description = ""
     var scheduledDate = Date()
     var isUrgent = false
@@ -136,20 +158,27 @@ struct FleetManagerMaintenanceTaskForm {
     var scheduledBy: UUID?
     var executedBy: UUID?
     var status: MaintenanceTaskStatus = .scheduled
+    var photoUrl = ""
 
     var isValid: Bool {
+        title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
         description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }
 
     func makeTask() -> MaintenanceTask {
-        MaintenanceTask(
+        let photo = photoUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return MaintenanceTask(
             id: UUID(),
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
             description: description.trimmingCharacters(in: .whitespacesAndNewlines),
             scheduledDate: DateOnly(wrappedValue: scheduledDate),
             isUrgent: isUrgent,
             scheduledBy: scheduledBy,
             executedBy: executedBy,
-            status: status
+            status: status,
+            reportedDate: Date(),
+            photoUrls: photo.isEmpty ? nil : [photo]
         )
     }
 }
@@ -173,7 +202,12 @@ enum FleetManagerFormError: LocalizedError {
 
 extension User {
     var displayName: String {
-        "\(fName) \(lName)".trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = "\(fName) \(lName)".trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? email : name
+    }
+
+    var shortUID: String {
+        String(id.uuidString.prefix(8)).uppercased()
     }
 
     var avatarImageURL: URL? {
@@ -182,9 +216,39 @@ extension User {
             return url
         }
 
-        let seed = "\(displayName)-\(email)"
+        let seed = "\(displayName)-\(email)-\(role.rawValue)"
             .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? id.uuidString
-        return URL(string: "https://api.dicebear.com/9.x/initials/png?seed=\(seed)&backgroundColor=167d7f,4f46e5,b7791f,2e7d32&fontFamily=Helvetica")
+        return URL(string: "https://i.pravatar.cc/240?u=\(seed)")
+    }
+}
+
+extension MaintenanceTask {
+    var displayTitle: String {
+        let trimmedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if trimmedTitle.isEmpty == false {
+            return trimmedTitle
+        }
+
+        let trimmedDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedDescription.count > 52 else { return trimmedDescription }
+        return "\(trimmedDescription.prefix(49))..."
+    }
+
+    var reportedOrScheduledDate: Date {
+        reportedDate ?? scheduledDate.date
+    }
+
+    var hoursAgoText: String {
+        let hours = max(0, Calendar.current.dateComponents([.hour], from: reportedOrScheduledDate, to: Date()).hour ?? 0)
+        if hours < 1 {
+            return "Just now"
+        }
+        return hours == 1 ? "1 hour ago" : "\(hours) hours ago"
+    }
+
+    var formattedCost: String {
+        guard let totalCost else { return "Not recorded" }
+        return totalCost.formatted(.currency(code: Locale.current.currency?.identifier ?? "USD"))
     }
 }
 

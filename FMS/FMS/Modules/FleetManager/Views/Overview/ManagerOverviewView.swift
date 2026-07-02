@@ -5,10 +5,12 @@ struct ManagerOverviewView: View {
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var tripsViewModel: TripManagementViewModel
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
+    @ObservedObject var notificationController: ManagerNotificationController
 
     var refresh: () async -> Void
     var currentUserId: UUID?
     var onProfile: (() -> Void)?
+    @State private var isShowingNotifications = false
 
     private var activeTrips: [Trip] {
         tripsViewModel.trips
@@ -60,13 +62,6 @@ struct ManagerOverviewView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .top) {
-                    ScreenHeader(title: "Live")
-                    Spacer()
-                    if let onProfile {
-                        profileButton(action: onProfile)
-                    }
-                }
                 tripStatusCard
                 fleetStatusSection
                 maintenanceSection
@@ -77,6 +72,34 @@ struct ManagerOverviewView: View {
         .fleetScreenBackground()
         .refreshable {
             await refresh()
+        }
+        .navigationTitle("Live")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    isShowingNotifications = true
+                } label: {
+                    NotificationToolbarIcon(count: notificationController.unreadCount)
+                }
+                .accessibilityLabel("Notifications")
+
+                if let onProfile {
+                    Button(action: onProfile) {
+                        ProfileToolbarIcon(user: currentUserId.flatMap { usersViewModel.user(for: $0) })
+                    }
+                    .accessibilityLabel("Account")
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingNotifications) {
+            NavigationStack {
+                ManagerNotificationsView(
+                    controller: notificationController,
+                    usersViewModel: usersViewModel,
+                    recipientId: currentUserId
+                )
+            }
         }
     }
 
@@ -104,7 +127,7 @@ struct ManagerOverviewView: View {
                     DashboardMetricCard(
                         title: "Drivers",
                         systemImage: "person.2.fill",
-                        tint: FleetPalette.primary,
+                        tint: FleetPalette.accent,
                         metrics: [
                             ("Active", "\(enrouteDrivers.count)"),
                             ("Available", "\(availableDrivers.count)"),
@@ -125,7 +148,7 @@ struct ManagerOverviewView: View {
                     DashboardMetricCard(
                         title: "Vehicles",
                         systemImage: "car.2.fill",
-                        tint: FleetPalette.primary,
+                        tint: FleetPalette.accent,
                         metrics: [
                             ("On trip", "\(enrouteVehicles.count)"),
                             ("Available", "\(availableVehicles.count)"),
@@ -145,7 +168,12 @@ struct ManagerOverviewView: View {
                     Label("Maintenance", systemImage: "calendar.badge.clock")
                         .font(.headline.weight(.bold))
                     Spacer()
-                    StatusPill(text: "\(maintenanceViewModel.openTasks.count) open", color: FleetPalette.warning)
+                    HStack(spacing: 6) {
+                        StatusDot(text: "Open", color: FleetPalette.warning, size: 12)
+                        Text("\(maintenanceViewModel.openTasks.count) open")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(FleetPalette.textSecondary)
+                    }
                 }
 
                 if maintenanceViewModel.openTasks.isEmpty {
@@ -167,39 +195,328 @@ struct ManagerOverviewView: View {
         }
     }
 
-    private func profileButton(action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            if let user = currentUserId.flatMap({ usersViewModel.user(for: $0) }),
-               let avatarUrl = user.avatarUrl,
-               let imageURL = URL(string: avatarUrl) {
-                AsyncImage(url: imageURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 48, height: 48)
-                            .clipShape(Circle())
-                    default:
-                        profileFallbackIcon
-                    }
-                }
-            } else {
-                profileFallbackIcon
+}
+
+private struct NotificationToolbarIcon: View {
+    var count: Int
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Image(systemName: count > 0 ? "bell.badge.fill" : "bell")
+                .font(.title3.weight(.semibold))
+                .symbolRenderingMode(.hierarchical)
+
+            if count > 0 {
+                Text(count > 99 ? "99+" : "\(count)")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 4)
+                    .frame(minWidth: 16, minHeight: 16)
+                    .background(FleetPalette.danger, in: Capsule())
+                    .offset(x: 7, y: -7)
             }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Account")
+        .frame(width: 30, height: 30)
+    }
+}
+
+private struct ProfileToolbarIcon: View {
+    var user: User?
+
+    var body: some View {
+        if let imageURL = user?.avatarImageURL {
+            AsyncImage(url: imageURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 30, height: 30)
+                        .clipShape(Circle())
+                default:
+                    fallback
+                }
+            }
+        } else {
+            fallback
+        }
     }
 
-    private var profileFallbackIcon: some View {
-        Image(systemName: FleetIcon.account)
-            .resizable()
-            .scaledToFit()
-            .frame(width: 48, height: 48)
-            .foregroundStyle(FleetPalette.primary)
-            .background(Circle().fill(Color.white))
+    private var fallback: some View {
+        Image(systemName: "person.crop.circle")
+            .font(.title2.weight(.semibold))
+            .symbolRenderingMode(.hierarchical)
+            .frame(width: 30, height: 30)
     }
+}
+
+private struct ManagerNotificationsView: View {
+    @ObservedObject var controller: ManagerNotificationController
+    @ObservedObject var usersViewModel: UserManagementViewModel
+    var recipientId: UUID?
+
+    @State private var searchText = ""
+    @State private var isSelecting = false
+    @State private var selectedIds: Set<UUID> = []
+
+    private var visibleNotifications: [FleetNotification] {
+        controller.notifications(searchText: searchText)
+    }
+
+    var body: some View {
+        ZStack {
+            FleetPalette.surface.ignoresSafeArea()
+
+            if controller.isLoading && controller.notifications.isEmpty {
+                ProgressView()
+                    .tint(FleetPalette.accent)
+            } else if visibleNotifications.isEmpty {
+                emptyState
+            } else {
+                List {
+                    ForEach(visibleNotifications) { notification in
+                        Button {
+                            handleTap(notification)
+                        } label: {
+                            ManagerNotificationRow(
+                                notification: notification,
+                                sender: sender(for: notification),
+                                imageURL: usersViewModel.user(for: notification.actorUserId)?.avatarImageURL,
+                                isSelecting: isSelecting,
+                                isSelected: selectedIds.contains(notification.id)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .listRowSeparatorTint(Color.black.opacity(0.08))
+                        .listRowInsets(EdgeInsets(top: 10, leading: 20, bottom: 10, trailing: 14))
+                    }
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+            }
+        }
+        .navigationTitle(controller.selectedFilter == .all ? "Notifications" : controller.selectedFilter.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search notifications")
+        .safeAreaInset(edge: .bottom) {
+            if isSelecting {
+                selectionBar
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(isSelecting ? "Done" : "Edit") {
+                    withAnimation(.snappy) {
+                        isSelecting.toggle()
+                        selectedIds.removeAll()
+                    }
+                }
+                .fontWeight(.semibold)
+                .disabled(controller.notifications.isEmpty)
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                if isSelecting {
+                    Button("Select All") {
+                        selectedIds = Set(visibleNotifications.map(\.id))
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(visibleNotifications.isEmpty)
+                } else {
+                    Menu {
+                        Picker("Filter", selection: $controller.selectedFilter) {
+                            ForEach(FleetNotificationFilter.allCases) { filter in
+                                Label(filter.title, systemImage: filter.systemImage)
+                                    .tag(filter)
+                            }
+                        }
+
+                        Divider()
+
+                        Button("Clear Filter", systemImage: "xmark.circle") {
+                            controller.selectedFilter = .all
+                            selectedIds.removeAll()
+                        }
+                    } label: {
+                        Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                    }
+                    .labelStyle(.iconOnly)
+                    .accessibilityLabel("Filter notifications")
+                }
+            }
+        }
+        .refreshable {
+            await controller.load(recipientId: recipientId)
+        }
+        .task {
+            await controller.load(recipientId: recipientId)
+        }
+    }
+
+    private var emptyState: some View {
+        Group {
+            if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                ContentUnavailableView(
+                    "No notifications",
+                    systemImage: "bell.slash",
+                    description: Text("Fleet alerts, service updates, and trip requests will appear here.")
+                )
+            } else {
+                ContentUnavailableView.search
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var selectionBar: some View {
+        HStack(spacing: 12) {
+            Button(selectedIds.isEmpty ? "Read All" : "Read Selected") {
+                Task {
+                    await markSelectedOrAllRead()
+                }
+            }
+            .buttonStyle(.borderedProminent)
+
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 10)
+        .background(.ultraThinMaterial)
+    }
+
+    private func sender(for notification: FleetNotification) -> String {
+        if let user = usersViewModel.user(for: notification.actorUserId) {
+            return user.displayName
+        }
+
+        switch notification.category {
+        case .system:
+            return "Fleet System"
+        default:
+            return notification.category.title
+        }
+    }
+
+    private func handleTap(_ notification: FleetNotification) {
+        if isSelecting {
+            if selectedIds.contains(notification.id) {
+                selectedIds.remove(notification.id)
+            } else {
+                selectedIds.insert(notification.id)
+            }
+            return
+        }
+
+        Task {
+            await controller.markRead(notification)
+        }
+    }
+
+    private func markSelectedOrAllRead() async {
+        if selectedIds.isEmpty {
+            await controller.markAllRead()
+        } else {
+            let selectedNotifications = visibleNotifications.filter { selectedIds.contains($0.id) }
+            for notification in selectedNotifications {
+                await controller.markRead(notification)
+            }
+        }
+
+        withAnimation(.snappy) {
+            selectedIds.removeAll()
+            isSelecting = false
+        }
+    }
+}
+
+private struct ManagerNotificationRow: View {
+    var notification: FleetNotification
+    var sender: String
+    var imageURL: URL?
+    var isSelecting: Bool
+    var isSelected: Bool
+
+    private var preview: String {
+        "\(notification.title): \(notification.message)"
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            if isSelecting {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title2.weight(.medium))
+                    .foregroundStyle(isSelected ? FleetPalette.accent : FleetPalette.textSecondary)
+                    .frame(width: 26)
+            }
+
+            notificationAvatar
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(sender)
+                        .font(.headline.weight(notification.isRead ? .semibold : .bold))
+                        .foregroundStyle(FleetPalette.textPrimary)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    if notification.isRead == false {
+                        Circle()
+                            .fill(FleetPalette.accent)
+                            .frame(width: 8, height: 8)
+                    }
+                    Text(ManagerNotificationDateFormatter.short.string(from: notification.createdAt))
+                        .font(.subheadline)
+                        .foregroundStyle(FleetPalette.textSecondary)
+                }
+
+                Text(preview)
+                    .font(.subheadline.weight(notification.isRead ? .regular : .medium))
+                    .foregroundStyle(FleetPalette.textSecondary)
+                    .lineLimit(2)
+            }
+
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(Color.black.opacity(0.18))
+        }
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var notificationAvatar: some View {
+        if let imageURL {
+            AsyncImage(url: imageURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                default:
+                    avatarFallback
+                }
+            }
+            .frame(width: 58, height: 58)
+            .clipShape(Circle())
+        } else {
+            avatarFallback
+        }
+    }
+
+    private var avatarFallback: some View {
+        Image(systemName: notification.category.systemImage)
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(.white)
+            .frame(width: 58, height: 58)
+            .background(notification.category.tint.gradient, in: Circle())
+    }
+}
+
+private enum ManagerNotificationDateFormatter {
+    static let short: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM/yy"
+        return formatter
+    }()
 }
 
 private struct DashboardTripStatusCard: View {
@@ -214,7 +531,7 @@ private struct DashboardTripStatusCard: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Trip Status")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(FleetPalette.primary)
+                            .foregroundStyle(FleetPalette.accent)
                         Text(activeTrips.isEmpty ? "No live trip" : "\(activeTrips.count) live")
                             .font(.title2.weight(.bold))
                             .foregroundStyle(FleetPalette.textPrimary)
@@ -224,7 +541,7 @@ private struct DashboardTripStatusCard: View {
 
                     IconBubble(
                         systemImage: activeTrips.isEmpty ? "location.slash" : "location.north.line.fill",
-                        tint: activeTrips.isEmpty ? FleetPalette.neutral : FleetPalette.primary
+                        tint: activeTrips.isEmpty ? FleetPalette.neutral : FleetPalette.accent
                     )
                 }
 
@@ -301,7 +618,7 @@ private struct DashboardMaintenanceRow: View {
 
             Spacer()
 
-            StatusPill(text: task.status.title, color: FleetPalette.maintenanceStatus(task.status))
+            StatusDot(text: task.status.title, color: FleetPalette.maintenanceStatus(task.status))
         }
     }
 }
@@ -409,7 +726,7 @@ private struct DriverStatusRow: View {
 
             Spacer()
 
-            StatusPill(text: driver.status.title, color: driver.status == .active ? FleetPalette.success : FleetPalette.neutral)
+            StatusDot(text: driver.status.title, color: FleetPalette.personnelStatus(driver.status))
         }
     }
 }
@@ -420,7 +737,7 @@ private struct VehicleStatusRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            IconBubble(systemImage: vehicleIcon, tint: FleetPalette.primary)
+            VehicleAssetImage(vehicle: vehicle, width: 64, height: 50, cornerRadius: 14)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(vehicle.licencePlate)
@@ -435,11 +752,7 @@ private struct VehicleStatusRow: View {
 
             Spacer()
 
-            StatusPill(text: vehicle.status.title, color: FleetPalette.vehicleStatus(vehicle.status))
+            StatusDot(text: vehicle.status.title, color: FleetPalette.vehicleStatus(vehicle.status))
         }
-    }
-
-    private var vehicleIcon: String {
-        vehicle.vehicleType.localizedCaseInsensitiveContains("bus") ? "bus.fill" : "car.fill"
     }
 }

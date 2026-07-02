@@ -27,13 +27,13 @@ struct TripCardView: View {
 
                 Spacer(minLength: 8)
 
-                StatusPill(text: trip.status.title, color: FleetPalette.tripStatus(trip.status))
+                StatusDot(text: trip.status.title, color: FleetPalette.tripStatus(trip.status))
             }
 
             HStack(spacing: 12) {
                 if let vehicle {
-                    Image(systemName: "car.fill")
-                        .foregroundStyle(FleetPalette.textSecondary)
+                    VehicleAssetImage(vehicle: vehicle, width: 48, height: 38, cornerRadius: 10)
+
                     Text("\(vehicle.make) \(vehicle.model)")
                         .font(.subheadline)
                     Text(vehicle.licencePlate)
@@ -70,7 +70,7 @@ struct TripCardView: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(FleetPalette.tertiary.opacity(0.55), lineWidth: 1)
         }
-        .shadow(color: FleetPalette.primary.opacity(0.10), radius: 16, x: 0, y: 9)
+        .shadow(color: FleetPalette.accent.opacity(0.10), radius: 16, x: 0, y: 9)
     }
 
     @ViewBuilder
@@ -102,7 +102,7 @@ struct TripCardView: View {
                     .padding(.vertical, 6)
             }
             .buttonStyle(.borderedProminent)
-            .tint(FleetPalette.primary)
+            .tint(FleetPalette.accent)
 
         case .inProgress:
             Button(action: onEnd) {
@@ -136,12 +136,12 @@ private struct TripCardRouteGlyph: View {
         VStack(spacing: 4) {
             Image(systemName: "mappin.circle.fill")
                 .font(.title2.weight(.bold))
-                .foregroundStyle(FleetPalette.primary)
+                .foregroundStyle(FleetPalette.accent)
 
             VStack(spacing: 3) {
                 ForEach(0..<4, id: \.self) { _ in
                     Circle()
-                        .fill(FleetPalette.primary.opacity(0.62))
+                        .fill(FleetPalette.accent.opacity(0.62))
                         .frame(width: 4, height: 4)
                 }
             }

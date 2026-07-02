@@ -66,7 +66,7 @@ final class UserManagementViewModel: ObservableObject {
 
         do {
             let password = Self.generateRandomPassword()
-            let displayName = "\(form.firstName) \(form.lastName)".trimmingCharacters(in: .whitespaces)
+            let displayName = form.normalizedName
             let authUserId = try await authService.inviteUser(
                 email: form.email,
                 password: password,
@@ -77,10 +77,12 @@ final class UserManagementViewModel: ObservableObject {
 
             switch createdUser.role {
             case .driver:
+                let licenceNumber = form.licenceNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+                let vehicleType = form.vehicleType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                 let driver = Driver(
                     id: UUID(),
-                    licenceNum: form.licenceNumber.trimmingCharacters(in: .whitespacesAndNewlines),
-                    vehicleType: form.vehicleType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+                    licenceNum: licenceNumber.isEmpty ? "Pending" : licenceNumber,
+                    vehicleType: vehicleType.isEmpty ? "van" : vehicleType,
                     status: .active,
                     userId: createdUser.id
                 )
@@ -132,6 +134,26 @@ final class UserManagementViewModel: ObservableObject {
                 users[index] = user
             }
             successMessage = "\(user.displayName) updated."
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            successMessage = nil
+            return false
+        }
+    }
+
+    func updateDriverProfile(userId: UUID, licenceNumber: String, vehicleType: String) async -> Bool {
+        do {
+            let trimmedLicence = licenceNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedVehicleType = vehicleType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            try await service.updateDriverProfile(
+                userId: userId,
+                licenceNumber: trimmedLicence.isEmpty ? "Pending" : trimmedLicence,
+                vehicleType: trimmedVehicleType.isEmpty ? "van" : trimmedVehicleType
+            )
+            await load()
+            successMessage = "Driver profile updated."
             errorMessage = nil
             return true
         } catch {

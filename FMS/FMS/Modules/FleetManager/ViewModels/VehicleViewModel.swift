@@ -28,6 +28,7 @@ final class VehicleViewModel: ObservableObject {
 
         do {
             vehicles = try await service.fetchVehicles()
+                .filter { $0.isPlaceholderDemoRecord == false }
                 .sorted { $0.licencePlate.localizedCaseInsensitiveCompare($1.licencePlate) == .orderedAscending }
             errorMessage = nil
         } catch is CancellationError {
@@ -117,5 +118,24 @@ final class VehicleViewModel: ObservableObject {
         vehicles.sort {
             $0.licencePlate.localizedCaseInsensitiveCompare($1.licencePlate) == .orderedAscending
         }
+    }
+}
+
+private extension Vehicle {
+    var isPlaceholderDemoRecord: Bool {
+        let normalizedPlate = licencePlate
+            .filter { $0.isWhitespace == false }
+            .uppercased()
+        if ["UK071234", "UK07AJ9125", "UL043456"].contains(normalizedPlate) {
+            return true
+        }
+
+        let normalizedName = "\(make) \(model)"
+            .lowercased()
+            .replacingOccurrences(of: "’", with: "'")
+        return normalizedName.contains("that's lead")
+            || normalizedName.contains("thats lead")
+            || normalizedName.contains("saw safe")
+            || normalizedName.contains("mercedes abcd")
     }
 }

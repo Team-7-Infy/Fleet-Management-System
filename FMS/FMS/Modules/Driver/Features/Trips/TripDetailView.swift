@@ -41,7 +41,7 @@ struct TripDetailView: View {
                 Spacer()
                 Text(trip.status.rawValue.uppercased())
                     .font(.system(size: 11, weight: .black))
-                    .foregroundColor(trip.status == .pending ? .orange : .green)
+                    .foregroundColor(trip.status == .pending ? FleetPalette.warning : FleetPalette.success)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(Color.white.opacity(0.2))
@@ -52,8 +52,7 @@ struct TripDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
-                colors: [Color(red: 0.20, green: 0.19, blue: 0.42),
-                         Color(red: 0.08, green: 0.36, blue: 0.55)],
+                colors: [FleetPalette.inProgress, FleetPalette.secondary],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
         )
@@ -67,9 +66,9 @@ struct TripDetailView: View {
 
             HStack(spacing: 16) {
                 VStack(spacing: 0) {
-                    Circle().fill(Color.blue).frame(width: 12, height: 12)
-                    Rectangle().fill(Color.blue.opacity(0.3)).frame(width: 2, height: 40)
-                    Circle().fill(Color.green).frame(width: 12, height: 12)
+                    Circle().fill(FleetPalette.inProgress).frame(width: 12, height: 12)
+                    Rectangle().fill(FleetPalette.inProgress.opacity(0.3)).frame(width: 2, height: 40)
+                    Circle().fill(FleetPalette.success).frame(width: 12, height: 12)
                 }
 
                 VStack(alignment: .leading, spacing: 20) {
