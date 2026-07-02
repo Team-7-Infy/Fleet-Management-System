@@ -13,10 +13,8 @@ final class CompleteWorkOrderViewModel: ObservableObject {
     @Published var laborCost: String = ""
     @Published var remarks: String = ""
     
-    private var timer: Timer?
-    private var isTimerRunning = false
+    private var startTime: Date?
     var wasCompleted = false
-    var wasExplicitlyPaused = false
     
     // Mock parts exactly matching the design
     @Published var usedParts: [PartItem] = []
@@ -46,7 +44,10 @@ final class CompleteWorkOrderViewModel: ObservableObject {
         vehicleService = dependencies.vehicleService
     }
 
+    private var isLoaded = false
+    
     func load() async {
+        if isLoaded { return }
         state = .loading
         do {
             workOrder = try await workOrderService.workOrder(id: workOrderID)
@@ -71,7 +72,8 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                     }
                     self.currentVehicleType = fetchedVehicleType
                 }
-                startTimer()
+                self.startTime = Date()
+                self.isLoaded = true
                 state = .loaded(())
             }
             // Mark task as in-progress immediately when the view loads
@@ -80,7 +82,9 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                     id: workOrderID,
                     status: .inProgress,
                     elapsedTime: elapsedTime,
-                    parts: usedParts
+                    parts: usedParts,
+                    remarks: nil,
+                    totalCost: nil
                 )
             }
         } catch let error as AppError {
@@ -90,62 +94,20 @@ final class CompleteWorkOrderViewModel: ObservableObject {
         }
     }
     
-    func pauseAndExit() async {
-        stopTimer()
-        wasExplicitlyPaused = true
-        
-        // Save parts to database on pause
-        do {
-            try await workOrderService.updateWorkOrder(
-                id: workOrderID,
-                status: .inProgress,
-                elapsedTime: elapsedTime,
-                parts: usedParts
-            )
-            
-            if let wo = workOrder {
-                let activity = Activity(
-                    id: UUID().uuidString,
-                    title: wo.title,
-                    subtitle: "For \(wo.vehicleName)",
-                    date: Date(),
-                    status: .inProgress,
-                    elapsedTime: self.elapsedTime
-                )
-                try await activityService.logActivity(activity)
-            }
-        } catch {
-            print("Failed to save work order state: \(error)")
-        }
-        NotificationCenter.default.post(name: NSNotification.Name("WorkOrderUpdated"), object: nil)
-    }
-    
-    func saveWorkProgress() async {
-        do {
-            try await workOrderService.updateWorkOrder(
-                id: workOrderID,
-                status: .inProgress,
-                elapsedTime: elapsedTime,
-                parts: usedParts
-            )
-        } catch {
-            print("Failed to save work progress: \(error)")
-        }
-        NotificationCenter.default.post(name: NSNotification.Name("WorkOrderUpdated"), object: nil)
-    }
-    
     func completeWorkOrder() async {
-        stopTimer()
         wasCompleted = true
-        
+        if let start = startTime {
+            elapsedTime += Date().timeIntervalSince(start)
+        }
 
-        
         do {
             try await workOrderService.updateWorkOrder(
                 id: workOrderID,
                 status: .completed,
                 elapsedTime: elapsedTime,
-                parts: usedParts
+                parts: usedParts,
+                remarks: remarks,
+                totalCost: totalCost
             )
             
             if let wo = workOrder {
@@ -159,25 +121,13 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                 )
                 try await activityService.logActivity(activity)
             }
+            NotificationCenter.default.post(name: NSNotification.Name("WorkOrderUpdated"), object: nil)
         } catch {
-            print("Failed to complete work order: \(error)")
+            await MainActor.run {
+                self.errorMessage = "Failed to complete work order: \(error.localizedDescription)"
+                self.showError = true
+            }
         }
-        NotificationCenter.default.post(name: NSNotification.Name("WorkOrderUpdated"), object: nil)
-    }
-    
-    func startTimer() {
-        guard !isTimerRunning else { return }
-        isTimerRunning = true
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            self.elapsedTime += 1
-        }
-    }
-    
-    func stopTimer() {
-        timer?.invalidate()
-        timer = nil
-        isTimerRunning = false
     }
     
     func incrementPart(id: String) {

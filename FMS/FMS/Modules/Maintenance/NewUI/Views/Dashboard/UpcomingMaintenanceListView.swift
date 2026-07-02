@@ -21,38 +21,24 @@ struct UpcomingMaintenanceListView: View {
             .refreshable {
                 await viewModel.load(isRefresh: true)
             }
-            .alert(
-                isPaused(workOrderID: workOrderToStart) ? "Continue Work Order" : "Start Work Order",
-                isPresented: Binding(
-                    get: { workOrderToStart != nil },
-                    set: { if !$0 { workOrderToStart = nil } }
-                ),
-                actions: {
-                    Button("Cancel", role: .cancel) {
-                        workOrderToStart = nil
-                    }
-                    Button(isPaused(workOrderID: workOrderToStart) ? "Continue" : "Start") {
-                        if let id = workOrderToStart {
-                            DispatchQueue.main.async {
-                                navigation.push(.completeWorkOrder(workOrderID: id))
-                            }
-                        }
-                    }
-                },
-                message: {
-                    Text(isPaused(workOrderID: workOrderToStart) ? "Are you ready to resume this work order?" : "Are you ready to start this work order? The timer will begin.")
-                }
-            )
-    }
-    
-    private func isPaused(workOrderID: WorkOrder.ID?) -> Bool {
-        guard let id = workOrderID else { return false }
-        for day in viewModel.weeklySchedule {
-            if let match = day.workOrders.first(where: { $0.workOrder.id == id }) {
-                return match.workOrder.status == .inProgress
+            .alert("Start Work Order", isPresented: Binding(
+            get: { workOrderToStart != nil },
+            set: { if !$0 { workOrderToStart = nil } }
+        )) {
+            Button("Cancel", role: .cancel) {
+                workOrderToStart = nil
             }
+            Button("Start") {
+                if let id = workOrderToStart {
+                    DispatchQueue.main.async {
+                        navigation.push(.completeWorkOrder(workOrderID: id))
+                    }
+                }
+                workOrderToStart = nil
+            }
+        } message: {
+            Text("Do you want to start this work order?")
         }
-        return false
     }
     
     @ViewBuilder
@@ -134,8 +120,7 @@ struct UpcomingMaintenanceListView: View {
     private func workOrderRow(for dashboardOrder: DashboardWorkOrder, isLast: Bool) -> some View {
         let workOrder = dashboardOrder.workOrder
         let vehicle = dashboardOrder.vehicle
-        let vehicleDisplay = vehicle?.registrationNumber ?? vehicle?.name ?? "Unknown"
-        let isPaused = workOrder.status == .inProgress
+        let vehicleDisplay = vehicle != nil ? "\(vehicle!.make) \(vehicle!.model)" : "Unknown"
         
         return VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 12) {
@@ -171,12 +156,12 @@ struct UpcomingMaintenanceListView: View {
                 } label: {
                     ZStack {
                         Circle()
-                            .fill(isPaused ? Color.orange.opacity(0.15) : Color.green.opacity(0.15))
-                            .frame(width: 44, height: 44)
+                            .fill(Color.green.opacity(0.15))
+                            .frame(width: 28, height: 28)
                         
-                        Image(systemName: isPaused ? "pause.fill" : "play.fill")
-                            .font(.headline)
-                            .foregroundStyle(isPaused ? Color.orange.opacity(0.7) : Color.green.opacity(0.7))
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.green.opacity(0.7))
                     }
                 }
                 .buttonStyle(.plain)

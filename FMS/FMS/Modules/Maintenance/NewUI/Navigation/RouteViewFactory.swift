@@ -14,6 +14,12 @@ enum RouteViewFactory {
             WorkOrderSuccessView(workOrderID: workOrderID, elapsedTime: elapsedTime, parts: parts, laborCost: laborCost, dependencies: dependencies, navigation: navigation)
         case .upcomingMaintenanceList:
             UpcomingMaintenanceListView(dependencies: dependencies, navigation: navigation)
+        case .allUpcomingWorkOrders:
+            AllUpcomingWorkOrdersView(dependencies: dependencies, navigation: navigation)
+        case .allUnfinishedWorkOrders:
+            AllUnfinishedWorkOrdersView(dependencies: dependencies, navigation: navigation)
+        case .allHistoryWorkOrders:
+            AllHistoryWorkOrdersView(dependencies: dependencies, navigation: navigation)
         case .vehicleDetails(let vehicleID):
             if let uuid = UUID(uuidString: vehicleID) {
                 VehicleDetailsView(vehicleID: uuid, dependencies: dependencies, navigation: navigation)

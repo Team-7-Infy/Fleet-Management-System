@@ -5,7 +5,6 @@ struct RootTabView: View {
     let onLogout: () -> Void
     @State private var selectedTab: AppTab = .dashboard
     @StateObject private var dashboardNavigation = TabNavigationState()
-    @StateObject private var myJobsNavigation = TabNavigationState()
 
     init(dependencies: AppDependencyContainer, coordinator: NavigationCoordinator? = nil, onLogout: @escaping () -> Void = {}) {
         self.dependencies = dependencies
@@ -24,17 +23,12 @@ struct RootTabView: View {
                 Label(AppTab.dashboard.title, systemImage: AppTab.dashboard.systemImage)
             }
             .tag(AppTab.dashboard)
-
-            NavigationStack(path: $myJobsNavigation.path) {
-                MyJobsView(dependencies: dependencies, navigation: myJobsNavigation)
-                    .navigationDestination(for: AppRoute.self) { route in
-                        RouteViewFactory.view(for: route, dependencies: dependencies, navigation: myJobsNavigation)
-                    }
-            }
-            .tabItem {
-                Label(AppTab.myJobs.title, systemImage: AppTab.myJobs.systemImage)
-            }
-            .tag(AppTab.myJobs)
+            
+            InventoryView()
+                .tabItem {
+                    Label(AppTab.inventory.title, systemImage: AppTab.inventory.systemImage)
+                }
+                .tag(AppTab.inventory)
         }
     }
 }

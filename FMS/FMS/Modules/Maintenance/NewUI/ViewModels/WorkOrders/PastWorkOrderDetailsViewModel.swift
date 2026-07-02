@@ -43,21 +43,38 @@ final class PastWorkOrderDetailsViewModel: ObservableObject {
         }
     }
     
-    var formattedTotalCost: String {
+    var formattedPartsCost: String {
         guard let order = workOrder else { return "₹0" }
-        
-        let laborCost = Decimal(0)
-        
         let parts = order.mappedParts.isEmpty ? order.usedParts : order.mappedParts
         let partsCost = parts.reduce(Decimal(0)) { $0 + ($1.unitPrice * Decimal($1.quantity)) }
-        let total = laborCost + partsCost
-        
-        let numberFormatter = NumberFormatter()
-        numberFormatter.numberStyle = .currency
-        numberFormatter.currencySymbol = "₹"
-        numberFormatter.maximumFractionDigits = 0
-        
-        return numberFormatter.string(from: NSDecimalNumber(decimal: total)) ?? "₹0"
+        return formatCurrency(partsCost)
+    }
+    
+    var formattedLaborCost: String {
+        guard let order = workOrder else { return "₹0" }
+        let parts = order.mappedParts.isEmpty ? order.usedParts : order.mappedParts
+        let partsCost = parts.reduce(Double(0)) { $0 + (Double(truncating: $1.unitPrice as NSNumber) * Double($1.quantity)) }
+        let total = order.totalCostDB ?? 0.0
+        let labor = max(0, total - partsCost)
+        return formatCurrency(Decimal(labor))
+    }
+    
+    var formattedTotalCost: String {
+        guard let order = workOrder else { return "₹0" }
+        if let total = order.totalCostDB {
+            return formatCurrency(Decimal(total))
+        }
+        let parts = order.mappedParts.isEmpty ? order.usedParts : order.mappedParts
+        let partsCost = parts.reduce(Decimal(0)) { $0 + ($1.unitPrice * Decimal($1.quantity)) }
+        return formatCurrency(partsCost)
+    }
+
+    private func formatCurrency(_ value: Decimal) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencySymbol = "₹"
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSDecimalNumber(decimal: value)) ?? "₹0"
     }
     
     var usedParts: [PartItem] {

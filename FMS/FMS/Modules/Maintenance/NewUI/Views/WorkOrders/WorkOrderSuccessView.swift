@@ -169,6 +169,26 @@ struct WorkOrderSuccessView: View {
             .padding(16)
             .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
             .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
+            
+            // Card 4: Remarks
+            if let remarks = workOrder.remarks, !remarks.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Image(systemName: "text.bubble.fill")
+                            .foregroundStyle(Color.blue)
+                        Text("Remarks")
+                            .font(.system(size: 14, weight: .bold))
+                        Spacer()
+                    }
+                    Text(remarks)
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.gray)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(16)
+                .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
+                .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
+            }
         }
     }
 }

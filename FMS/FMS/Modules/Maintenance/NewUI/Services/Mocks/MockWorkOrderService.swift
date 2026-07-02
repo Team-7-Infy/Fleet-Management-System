@@ -19,7 +19,7 @@ class MockWorkOrderService: WorkOrderServicing {
         return workOrder
     }
     
-    func updateWorkOrder(id: WorkOrder.ID, status: JobStatus, elapsedTime: TimeInterval, parts: [PartItem]) async throws {
+    func updateWorkOrder(id: WorkOrder.ID, status: JobStatus, elapsedTime: TimeInterval, parts: [PartItem], remarks: String?, totalCost: Decimal?) async throws {
         // Mock update logic simplified for compilation
     }
 
@@ -81,15 +81,26 @@ final class SupabaseWorkOrderService: WorkOrderServicing {
         return task
     }
     
-    func updateWorkOrder(id: WorkOrder.ID, status: JobStatus, elapsedTime: TimeInterval, parts: [PartItem]) async throws {
+    func updateWorkOrder(id: WorkOrder.ID, status: JobStatus, elapsedTime: TimeInterval, parts: [PartItem], remarks: String?, totalCost: Decimal?) async throws {
         // Delete any existing parts for the task
         try await deleteParts(for: id)
         
         // Patch the work order status and elapsed time
-        let update: [String: AnyJSON] = [
+        var update: [String: AnyJSON] = [
             "status": .string(status.rawValue),
             "elapsed_time": .integer(Int(elapsedTime))
         ]
+        if let remarks = remarks, !remarks.isEmpty {
+            update["remarks"] = .string(remarks)
+        }
+        if let totalCost = totalCost {
+            update["totalcost"] = .double(NSDecimalNumber(decimal: totalCost).doubleValue)
+        }
+        if status == .completed {
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            update["completedat"] = .string(isoFormatter.string(from: Date()))
+        }
         try await client
             .from("maintenance_task")
             .update(update)

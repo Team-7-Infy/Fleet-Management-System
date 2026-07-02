@@ -20,42 +20,37 @@ struct CompleteWorkOrderView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         
-                        // 1. Top Card: Issue & Timer
-                        VStack(spacing: 16) {
-                            HStack(alignment: .center, spacing: 16) {
+                        // 1. Top Card: Issue Details
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
                                 ZStack {
-                                    RoundedRectangle(cornerRadius: 12)
+                                    RoundedRectangle(cornerRadius: 8)
                                         .fill(Color.blue.opacity(0.1))
-                                        .frame(width: 48, height: 48)
+                                        .frame(width: 32, height: 32)
                                     
-                                    Image(systemName: "power.circle")
-                                        .font(.system(size: 24))
+                                    Image(systemName: "wrench.and.screwdriver.fill")
+                                        .font(.system(size: 14))
                                         .foregroundStyle(Color.blue)
                                 }
                                 
-                                Text(workOrder.title)
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundStyle(AppColor.textPrimary)
-                                    .lineLimit(2)
+                                Text("#\(workOrder.id.uuidString.prefix(8).uppercased())")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(Color.blue)
                                 
                                 Spacer()
                             }
                             
-                            Divider()
-                                .padding(.horizontal, 8)
-                            
-                            // Timer centered below
-                            VStack(alignment: .center, spacing: 4) {
-                                Text("ELAPSED TIME")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(AppColor.textSecondary)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(workOrder.title)
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundStyle(AppColor.textPrimary)
+                                    .lineLimit(2)
                                 
-                                Text(formatTime(viewModel.elapsedTime))
-                                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                                    .monospacedDigit()
-                                    .foregroundStyle(AppColor.success)
+                                Text(workOrder.description)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(AppColor.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
-                            .padding(.bottom, 4)
                         }
                         .padding(16)
                         .background(
@@ -82,6 +77,35 @@ struct CompleteWorkOrderView: View {
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.blue.opacity(0.1))
                             )
+                        }
+                        
+                        // Attached Photos
+                        if let photoUrls = workOrder.photoUrls, !photoUrls.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Attached Photos")
+                                    .font(.system(size: 16, weight: .bold))
+                                
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 12) {
+                                        ForEach(photoUrls, id: \.self) { urlString in
+                                            AsyncImage(url: URL(string: urlString)) { image in
+                                                image
+                                                    .resizable()
+                                                    .scaledToFill()
+                                            } placeholder: {
+                                                Rectangle()
+                                                    .fill(Color.gray.opacity(0.2))
+                                                    .overlay(
+                                                        Image(systemName: "photo")
+                                                            .foregroundStyle(Color.gray)
+                                                    )
+                                            }
+                                            .frame(width: 100, height: 100)
+                                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        }
+                                    }
+                                }
+                            }
                         }
                         
                         // 2. Parts Used Card
@@ -290,23 +314,6 @@ struct CompleteWorkOrderView: View {
                         HStack(spacing: 16) {
                             Button(action: {
                                 Task {
-                                    await viewModel.pauseAndExit()
-                                    await MainActor.run {
-                                        navigation.pop()
-                                    }
-                                }
-                            }) {
-                                Text("Pause & Exit")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundStyle(Color.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
-                                    .background(Color.red)
-                                    .clipShape(Capsule())
-                            }
-                            
-                            Button(action: {
-                                Task {
                                     await viewModel.completeWorkOrder()
                                     if let id = viewModel.workOrder?.id {
                                         await MainActor.run {
@@ -337,27 +344,12 @@ struct CompleteWorkOrderView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                VStack {
-                    Text("Complete Work Order")
-                        .font(.system(size: 16, weight: .bold))
-                    if let id = viewModel.workOrder?.id {
-                        Text(id.uuidString.prefix(8).uppercased())
-                            .font(.system(size: 10))
-                            .foregroundStyle(.gray)
-                    }
-                }
+                Text("Complete Work Order")
+                    .font(.system(size: 16, weight: .bold))
             }
         }
         .task {
             await viewModel.load()
-        }
-        .onDisappear {
-            viewModel.stopTimer()
-            if !viewModel.wasCompleted && !viewModel.wasExplicitlyPaused && viewModel.elapsedTime > 0 {
-                Task {
-                    await viewModel.saveWorkProgress()
-                }
-            }
         }
         .sheet(isPresented: $showingAddPartsSheet) {
             AddPartsSheet(dependencies: dependencies, usedParts: viewModel.usedParts, vehicleType: viewModel.currentVehicleType) { part, qty in

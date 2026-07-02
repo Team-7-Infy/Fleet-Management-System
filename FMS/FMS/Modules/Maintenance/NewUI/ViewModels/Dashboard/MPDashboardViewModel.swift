@@ -82,20 +82,26 @@ final class MPDashboardViewModel: ObservableObject {
         }
     }
     
-    var inProgressCount: Int {
-        workOrders.filter { $0.status == .inProgress }.count
+    var todayWorkOrders: [DashboardWorkOrder] {
+        activeDashboardOrders.filter { Calendar.current.isDateInToday($0.workOrder.dueDate) }
     }
     
-    var completedCount: Int {
-        workOrders.filter { $0.status == .completed }.count
+    var upcomingWorkOrdersFiltered: [DashboardWorkOrder] {
+        activeDashboardOrders.filter {
+            let startOfTomorrow = Calendar.current.startOfDay(for: Date().addingTimeInterval(86400))
+            return $0.workOrder.dueDate >= startOfTomorrow
+        }
     }
     
-    var remainingCount: Int {
-        workOrders.filter { $0.status.isStartable }.count
+    var backlogWorkOrders: [DashboardWorkOrder] {
+        activeDashboardOrders.filter {
+            let startOfToday = Calendar.current.startOfDay(for: Date())
+            return $0.workOrder.dueDate < startOfToday
+        }
     }
     
-    var upcomingWorkOrders: [DashboardWorkOrder] {
-        let activeOrders = workOrders.filter { $0.status.isStartable }
+    private var activeDashboardOrders: [DashboardWorkOrder] {
+        let activeOrders = workOrders.filter { $0.status.isStartable || $0.status == .inProgress }
         return activeOrders.map { order in
             let vehicle = vehicles.first(where: { $0.id.uuidString == order.vehicleID })
             return DashboardWorkOrder(workOrder: order, vehicle: vehicle)
@@ -107,6 +113,16 @@ final class MPDashboardViewModel: ObservableObject {
             } else {
                 return $0.workOrder.dueDate < $1.workOrder.dueDate
             }
+        }
+    }
+    
+    var completedWorkOrders: [DashboardWorkOrder] {
+        let completedOrders = workOrders.filter { $0.status == .completed }
+        return completedOrders.map { order in
+            let vehicle = vehicles.first(where: { $0.id.uuidString == order.vehicleID })
+            return DashboardWorkOrder(workOrder: order, vehicle: vehicle)
+        }.sorted { 
+            $0.workOrder.dueDate > $1.workOrder.dueDate
         }
     }
 }

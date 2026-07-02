@@ -8,6 +8,7 @@ struct MPDashboardView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var isShowingProfile = false
     @State private var workOrderToStart: WorkOrder.ID?
+    @State private var isTodayExpanded = false
     private let dependencies: AppDependencyContainer
     private let onLogout: () -> Void
 
@@ -26,9 +27,10 @@ struct MPDashboardView: View {
                 if viewModel.state.isLoading {
                     LoadingView(title: "Loading dashboard")
                 } else {
-                    progressSection
-                    servicesSection
-                    activitySection
+                    todaySection
+                    upcomingSection
+                    unfinishedTasksSection
+                    historySection
                 }
             }
             .padding(.horizontal, 16)
@@ -36,7 +38,7 @@ struct MPDashboardView: View {
             .padding(.bottom, 60)
         }
         .background(AppColor.background.ignoresSafeArea())
-        .toolbar(.hidden, for: .navigationBar) // Hide navigation bar to match design
+        .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $isShowingProfile) {
             MPProfileView(dependencies: dependencies, onLogout: onLogout)
         }
@@ -59,11 +61,25 @@ struct MPDashboardView: View {
                 await viewModel.load(isRefresh: true)
             }
         }
-    }
-    
-    private func isPaused(workOrderID: WorkOrder.ID?) -> Bool {
-        guard let id = workOrderID else { return false }
-        return viewModel.upcomingWorkOrders.first(where: { $0.workOrder.id == id })?.workOrder.status == .inProgress
+        .alert(
+            "Start Work Order",
+            isPresented: Binding(
+                get: { workOrderToStart != nil },
+                set: { if !$0 { workOrderToStart = nil } }
+            )
+        ) {
+            Button("Cancel", role: .cancel) {
+                workOrderToStart = nil
+            }
+            Button("Start") {
+                if let id = workOrderToStart {
+                    navigation.push(.completeWorkOrder(workOrderID: id))
+                }
+                workOrderToStart = nil
+            }
+        } message: {
+            Text("Do you want to start this work order?")
+        }
     }
 
     private var greeting: String {
@@ -118,56 +134,77 @@ struct MPDashboardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
     
-
-
-    private var progressSection: some View {
+    private var todaySection: some View {
         VStack(alignment: .leading, spacing: AppSpacing.medium) {
-            Text("Overview")
+            Text("Today")
                 .font(AppTypography.title)
                 .foregroundStyle(AppColor.textPrimary)
             
-            HStack(spacing: AppSpacing.small) {
-                progressCard(title: "On Going", value: "\(viewModel.inProgressCount)", color: AppColor.warning)
-                progressCard(title: "Completed", value: "\(viewModel.completedCount)", color: AppColor.success)
-                progressCard(title: "Remaining", value: "\(viewModel.remainingCount)", color: AppColor.brand)
-            }
-        }
-    }
-    
-    private func progressCard(title: String, value: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(value)
-                .font(AppTypography.largeTitle)
-                .foregroundStyle(color)
-            Text(title)
-                .font(AppTypography.caption)
-                .foregroundStyle(AppColor.textSecondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(AppSpacing.medium)
-        .background(
-            RoundedRectangle(cornerRadius: AppCornerRadius.medium)
-                .fill(Color.white)
-                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
-        )
-    }
-
-    private var servicesSection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.medium) {
-            sectionHeaderWithAction(title: "Scheduled", actionTitle: "View All") {
-                navigation.push(.upcomingMaintenanceList)
-            }
-            
-            if viewModel.upcomingWorkOrders.isEmpty {
-                MPEmptyStateView(title: "No Scheduled Tasks", message: "Scheduled tasks will appear here.", systemImage: FleetIcon.calendar)
+            if viewModel.todayWorkOrders.isEmpty {
+                MPEmptyStateView(title: "No Tasks Today", message: "You're all caught up for today.", systemImage: FleetIcon.calendar)
             } else {
                 VStack(spacing: 0) {
-                    let items = Array(viewModel.upcomingWorkOrders.prefix(5))
-                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    let itemsToShow = isTodayExpanded ? viewModel.todayWorkOrders : Array(viewModel.todayWorkOrders.prefix(5))
+                    ForEach(Array(itemsToShow.enumerated()), id: \.element.id) { index, item in
                         Button {
-                            // Optionally push to job summary
+                            // push to summary
                         } label: {
-                            workOrderRow(for: item, isLast: index == items.count - 1)
+                            workOrderRow(for: item, isLast: index == itemsToShow.count - 1 && (isTodayExpanded || viewModel.todayWorkOrders.count <= 5))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(Color.white)
+                        .shadow(color: AppColor.textPrimary.opacity(0.06), radius: 8, x: 0, y: 4)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20)
+                                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                        )
+                )
+                
+                if !isTodayExpanded && viewModel.todayWorkOrders.count > 5 {
+                    let extraCount = viewModel.todayWorkOrders.count - 5
+                    Button(action: {
+                        withAnimation {
+                            isTodayExpanded = true
+                        }
+                    }) {
+                        Text("+\(extraCount) more")
+                            .font(AppTypography.callout.weight(.medium))
+                            .foregroundStyle(AppColor.brand)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                    }
+                }
+            }
+        }
+        .padding(.bottom, AppSpacing.medium)
+    }
+    
+    private var upcomingSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.medium) {
+            if viewModel.upcomingWorkOrdersFiltered.count > 5 {
+                sectionHeaderWithAction(title: "Upcoming", actionTitle: "View All") {
+                    navigation.push(.allUpcomingWorkOrders)
+                }
+            } else {
+                Text("Upcoming")
+                    .font(AppTypography.title)
+                    .foregroundStyle(AppColor.textPrimary)
+            }
+            
+            if viewModel.upcomingWorkOrdersFiltered.isEmpty {
+                MPEmptyStateView(title: "No Upcoming Tasks", message: "You don't have any upcoming tasks scheduled.", systemImage: FleetIcon.calendar)
+            } else {
+                VStack(spacing: 0) {
+                    let itemsToShow = Array(viewModel.upcomingWorkOrdersFiltered.prefix(5))
+                    ForEach(Array(itemsToShow.enumerated()), id: \.element.id) { index, item in
+                        Button {
+                            // push to summary
+                        } label: {
+                            workOrderRow(for: item, isLast: index == itemsToShow.count - 1, showDate: true)
                         }
                         .buttonStyle(.plain)
                     }
@@ -183,60 +220,133 @@ struct MPDashboardView: View {
                 )
             }
         }
-        .alert(
-            isPaused(workOrderID: workOrderToStart) ? "Continue Work Order" : "Start Work Order",
-            isPresented: Binding(
-                get: { workOrderToStart != nil },
-                set: { if !$0 { workOrderToStart = nil } }
-            ),
-            actions: {
-                Button("Cancel", role: .cancel) {
-                    workOrderToStart = nil
-                }
-                Button(isPaused(workOrderID: workOrderToStart) ? "Continue" : "Start") {
-                    if let id = workOrderToStart {
-                        DispatchQueue.main.async {
-                            navigation.push(.completeWorkOrder(workOrderID: id))
-                        }
-                    }
-                }
-            },
-            message: {
-                Text(isPaused(workOrderID: workOrderToStart) ? "Are you ready to resume this work order?" : "Are you ready to start this work order? The timer will begin.")
-            }
-        )
+        .padding(.bottom, AppSpacing.medium)
     }
 
-    private func workOrderRow(for dashboardOrder: DashboardWorkOrder, isLast: Bool) -> some View {
+    private var unfinishedTasksSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.medium) {
+            if viewModel.backlogWorkOrders.count > 5 {
+                sectionHeaderWithAction(title: "Unfinished Tasks", actionTitle: "View All") {
+                    navigation.push(.allUnfinishedWorkOrders)
+                }
+            } else {
+                Text("Unfinished Tasks")
+                    .font(AppTypography.title)
+                    .foregroundStyle(AppColor.textPrimary)
+            }
+            
+            if viewModel.backlogWorkOrders.isEmpty {
+                MPEmptyStateView(title: "No Unfinished Tasks", message: "You don't have any past tasks pending.", systemImage: "tray")
+            } else {
+                VStack(spacing: 0) {
+                    let itemsToShow = Array(viewModel.backlogWorkOrders.prefix(5))
+                    ForEach(Array(itemsToShow.enumerated()), id: \.element.id) { index, item in
+                        Button {
+                            // push to summary
+                        } label: {
+                            workOrderRow(for: item, isLast: index == itemsToShow.count - 1)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(Color.white)
+                        .shadow(color: AppColor.textPrimary.opacity(0.06), radius: 8, x: 0, y: 4)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20)
+                                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                        )
+                )
+            }
+        }
+        .padding(.bottom, AppSpacing.medium)
+    }
+
+    private var historySection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.medium) {
+            if viewModel.completedWorkOrders.count > 3 {
+                sectionHeaderWithAction(title: "History", actionTitle: "View All") {
+                    navigation.push(.allHistoryWorkOrders)
+                }
+            } else {
+                Text("History")
+                    .font(AppTypography.title)
+                    .foregroundStyle(AppColor.textPrimary)
+            }
+            
+            if viewModel.completedWorkOrders.isEmpty {
+                MPEmptyStateView(title: "No History", message: "You don't have any completed tasks.", systemImage: "clock")
+            } else {
+                VStack(spacing: 0) {
+                    let itemsToShow = Array(viewModel.completedWorkOrders.prefix(3))
+                    ForEach(Array(itemsToShow.enumerated()), id: \.element.id) { index, item in
+                        Button {
+                            navigation.push(.pastWorkOrderDetails(workOrderID: item.workOrder.id))
+                        } label: {
+                            historyWorkOrderRow(for: item, isLast: index == itemsToShow.count - 1)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(Color.white)
+                        .shadow(color: AppColor.textPrimary.opacity(0.06), radius: 8, x: 0, y: 4)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20)
+                                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                        )
+                )
+            }
+        }
+    }
+
+    private func workOrderRow(for dashboardOrder: DashboardWorkOrder, isLast: Bool, showDate: Bool = false) -> some View {
         let workOrder = dashboardOrder.workOrder
         let vehicle = dashboardOrder.vehicle
-        let vehicleDisplay = vehicle?.registrationNumber ?? vehicle?.name ?? "Unknown"
-        let isPaused = workOrder.status == .inProgress
+        let vehicleDisplay = vehicle != nil ? "\(vehicle!.make) \(vehicle!.model)" : "Unknown"
         
         return VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 12) {
-                Image(systemName: vehicle?.sfSymbolName ?? FleetIcon.car)
-                    .font(.title3)
+                Image(systemName: "car.fill")
+                    .font(.system(size: 16))
                     .foregroundStyle(AppColor.brand)
-                    .frame(width: 44, height: 28)
+                    .frame(width: 36, height: 36)
+                    .background(Color.gray.opacity(0.1))
+                    .clipShape(Circle())
                 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(vehicleDisplay)
-                        .font(AppTypography.headline)
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(AppColor.textPrimary)
                     
-                    Text(workOrder.title)
-                        .font(AppTypography.callout)
-                        .foregroundStyle(AppColor.textSecondary)
-                        .lineLimit(2)
+                    HStack(spacing: 8) {
+                        Text(workOrder.title)
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppColor.textSecondary)
+                            .lineLimit(1)
+                        
+                        if workOrder.isUrgent == true {
+                            Text("Urgent")
+                                .font(.system(size: 9, weight: .bold))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(Color.red.opacity(0.1))
+                                .foregroundStyle(Color.red)
+                                .cornerRadius(4)
+                        }
+                    }
                     
-                    HStack(spacing: 4) {
-                        Image(systemName: FleetIcon.calendar)
-                            .font(AppTypography.footnote)
-                            .foregroundStyle(workOrder.isUrgent == true ? Color.red : Color.gray)
-                        Text("Due: \(workOrder.dueDate.formatted(.dateTime.month(.abbreviated).day().year()))")
-                            .font(AppTypography.footnote)
-                            .foregroundStyle(workOrder.isUrgent == true ? Color.red : Color.gray)
+                    if showDate {
+                        HStack(spacing: 4) {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 10))
+                            Text(workOrder.dueDate.formatted(date: .abbreviated, time: .shortened))
+                                .font(.system(size: 10))
+                        }
+                        .foregroundStyle(Color.gray)
+                        .padding(.top, 2)
                     }
                 }
                 
@@ -247,17 +357,102 @@ struct MPDashboardView: View {
                 } label: {
                     ZStack {
                         Circle()
-                            .fill(isPaused ? Color.orange.opacity(0.15) : Color.green.opacity(0.15))
-                            .frame(width: 44, height: 44)
+                            .fill(Color.green.opacity(0.15))
+                            .frame(width: 28, height: 28)
                         
-                        Image(systemName: isPaused ? "pause.fill" : "play.fill")
-                            .font(.headline)
-                            .foregroundStyle(isPaused ? Color.orange.opacity(0.7) : Color.green.opacity(0.7))
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.green.opacity(0.7))
                     }
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.vertical, AppSpacing.medium)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            
+            if !isLast {
+                Divider()
+                    .padding(.leading, 44 + 12 + 16)
+                    .padding(.trailing, 16)
+            }
+        }
+    }
+    
+    private func historyWorkOrderRow(for dashboardOrder: DashboardWorkOrder, isLast: Bool) -> some View {
+        let workOrder = dashboardOrder.workOrder
+        let vehicle = dashboardOrder.vehicle
+        let vehicleDisplay = vehicle != nil ? "\(vehicle!.make) \(vehicle!.model)" : "Unknown"
+        
+        return VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: "car.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(AppColor.brand)
+                    .frame(width: 36, height: 36)
+                    .background(Color.gray.opacity(0.1))
+                    .clipShape(Circle())
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(vehicleDisplay)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppColor.textPrimary)
+                    
+                    HStack(spacing: 8) {
+                        Text(workOrder.title)
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppColor.textSecondary)
+                            .lineLimit(1)
+                        
+                        if workOrder.isUrgent == true {
+                            Text("Urgent")
+                                .font(.system(size: 9, weight: .bold))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(Color.red.opacity(0.1))
+                                .foregroundStyle(Color.red)
+                                .cornerRadius(4)
+                        }
+                    }
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: FleetIcon.checkmark)
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.green)
+                        Text("Completed")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(Color.green)
+                        
+                        Text("•")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.gray)
+                        
+                        Image(systemName: "stopwatch")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.gray)
+                        Text(workOrder.formattedElapsedTime)
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.gray)
+                        
+                        Text("•")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.gray)
+                        
+                        Image(systemName: "calendar")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.gray)
+                        Text(workOrder.completedDateFormatted)
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.gray)
+                    }
+                }
+                
+                Spacer()
+                
+                Image(systemName: FleetIcon.chevronRight)
+                    .foregroundStyle(Color.gray)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .padding(.vertical, 12)
             .padding(.horizontal, 16)
             
             if !isLast {
@@ -268,105 +463,6 @@ struct MPDashboardView: View {
         }
     }
 
-    private var activitySection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.medium) {
-            sectionHeaderWithAction(title: "Activity History", actionTitle: "See All") {
-                navigation.push(.activityHistory)
-            }
-            
-            // Timeline Card
-            VStack(alignment: .leading, spacing: 0) {
-                let filteredActivities = viewModel.activities.filter { $0.status == .completed || $0.status == .inProgress }
-                let items = filteredActivities.prefix(3).map { activity -> MaintenanceTimelineItem in
-                    let status: TimelineStatus = activity.status == .completed ? .done : .paused
-                    let sfSymbol = activity.status == .completed ? FleetIcon.checkmark : "pause.circle.fill"
-                    
-                    let formatter = DateFormatter()
-                    if Calendar.current.isDateInToday(activity.date) {
-                        formatter.dateFormat = "'Today •' HH:mm"
-                    } else {
-                        formatter.dateFormat = "MMM d '•' HH:mm"
-                    }
-                    let dateStr = formatter.string(from: activity.date)
-                    
-                    let elapsedStr: String?
-                    if let elapsed = activity.elapsedTime, elapsed > 0 {
-                        let hours = Int(elapsed) / 3600
-                        let minutes = (Int(elapsed) % 3600) / 60
-                        let seconds = Int(elapsed) % 60
-                        
-                        if hours > 0 {
-                            elapsedStr = "\(hours)h \(minutes)m"
-                        } else if minutes > 0 {
-                            elapsedStr = "\(minutes)m \(seconds)s"
-                        } else {
-                            elapsedStr = "\(seconds)s"
-                        }
-                    } else {
-                        elapsedStr = nil
-                    }
-                    
-                    return MaintenanceTimelineItem(dateStr: dateStr, elapsedStr: elapsedStr, title: activity.title, subtitle: activity.subtitle, status: status, sfSymbol: sfSymbol)
-                }
-                
-                if items.isEmpty {
-                    MPEmptyStateView(title: "Nothing is done yet", message: "Your recent activities will appear here.", systemImage: "clock")
-                } else {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-                            maintenanceTimelineRow(item, isLast: index == items.count - 1)
-                        }
-                    }
-                    .padding(20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 24)
-                            .fill(Color.white)
-                            .shadow(color: AppColor.textPrimary.opacity(0.06), radius: 8, x: 0, y: 4)
-                    )
-                }
-            }
-
-        }
-    }
-
-    private func maintenanceTimelineRow(_ item: MaintenanceTimelineItem, isLast: Bool) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Timeline line & icon
-            VStack(spacing: 0) {
-                ZStack {
-                    Circle()
-                        .fill(item.status.color.opacity(0.15))
-                        .frame(width: 28, height: 28)
-                    Image(systemName: item.sfSymbol)
-                        .font(AppTypography.caption.weight(.bold))
-                        .foregroundStyle(item.status.color)
-                }
-            }
-
-            // Content
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .center) {
-                    Text(item.dateStr)
-                        .font(AppTypography.caption.weight(.semibold))
-                        .foregroundStyle(item.status.color)
-                    Spacer()
-                }
-                
-                Text(item.title)
-                    .font(AppTypography.callout.weight(.semibold))
-                    .foregroundStyle(AppColor.textPrimary)
-                    
-                if let elapsed = item.elapsedStr {
-                    Text("Worked for \(elapsed)")
-                        .font(AppTypography.caption)
-                        .foregroundStyle(.gray)
-                }
-            }
-            .padding(.bottom, 16)
-        }
-        .fixedSize(horizontal: false, vertical: true)
-    }
-    
     private func sectionHeaderWithAction(title: String, actionTitle: String, action: @escaping () -> Void) -> some View {
         HStack {
             Text(title)
@@ -384,37 +480,6 @@ struct MPDashboardView: View {
             }
         }
     }
-}
-
-enum TimelineStatus {
-    case done, paused, now, next
-    
-    var color: Color {
-        switch self {
-        case .done: return Color.green
-        case .paused: return Color.orange
-        case .now: return Color.blue
-        case .next: return Color.gray
-        }
-    }
-    
-    var badgeText: String {
-        switch self {
-        case .done: return "Done"
-        case .paused: return "Paused"
-        case .now: return "Now"
-        case .next: return "Next"
-        }
-    }
-}
-
-struct MaintenanceTimelineItem {
-    let dateStr: String
-    let elapsedStr: String?
-    let title: String
-    let subtitle: String
-    let status: TimelineStatus
-    let sfSymbol: String
 }
 
 #Preview {

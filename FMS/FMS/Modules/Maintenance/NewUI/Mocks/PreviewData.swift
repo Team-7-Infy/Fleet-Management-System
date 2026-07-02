@@ -44,12 +44,17 @@ enum PreviewData {
     static let workOrders = [
         WorkOrder(
             id: UUID(),
+            taskTitle: "Engine Maintenance",
             description: "Engine temp is high.",
             scheduledDate: "2026-06-25",
             scheduledBy: currentUser.id,
             executedBy: currentUser.id,
             isUrgent: true,
             statusString: JobStatus.inProgress.rawValue,
+            totalCostDB: nil,
+            photoUrls: nil,
+            remarks: nil,
+            completedAt: nil,
             taskVehicles: [MpTaskVehicle(vin: vehicles[0].id)],
             taskParts: nil,
             elapsedTime: 2730, // 45m 30s
