@@ -473,12 +473,13 @@ private struct TripVehicleInfoRow: View {
     }
 }
 
-private struct ManagerTripDetailView: View {
+struct ManagerTripDetailView: View {
     var trip: Trip
     @ObservedObject var viewModel: TripManagementViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
     @State private var driverMessage = ""
+    @State private var isMapFullScreen = false
 
     private var currentTrip: Trip {
         viewModel.trip(for: trip.id) ?? trip
@@ -497,6 +498,45 @@ private struct ManagerTripDetailView: View {
     }
 
     var body: some View {
+        ZStack {
+            if isMapFullScreen {
+                fullScreenMapView
+            } else {
+                normalDetailView
+            }
+        }
+        .navigationTitle(isLive ? "Live Trip" : currentTrip.status == .completed ? "Trip History" : "Scheduled Trip")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarHidden(isMapFullScreen)
+        .toolbar(isMapFullScreen ? .hidden : .automatic, for: .tabBar)
+    }
+
+    private var fullScreenMapView: some View {
+        ZStack(alignment: .topTrailing) {
+            RouteMapPreview(
+                startLocation: currentTrip.startLocation,
+                endLocation: currentTrip.endLocation,
+                isLive: isLive
+            )
+            .ignoresSafeArea()
+
+            Button {
+                withAnimation(.easeInOut) {
+                    isMapFullScreen = false
+                }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.title3.weight(.bold))
+                    .foregroundColor(.white)
+                    .padding(12)
+                    .background(.black.opacity(0.5), in: Circle())
+            }
+            .padding(.top, 60)
+            .padding(.trailing, 20)
+        }
+    }
+
+    private var normalDetailView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 routeHero
@@ -512,50 +552,57 @@ private struct ManagerTripDetailView: View {
         }
         .background(FleetPalette.background.ignoresSafeArea())
         .ignoresSafeArea(edges: .top)
-        .navigationTitle(isLive ? "Live Trip" : currentTrip.status == .completed ? "Trip History" : "Scheduled Trip")
-        .navigationBarTitleDisplayMode(.inline)
     }
 
     private var routeHero: some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: .bottomTrailing) {
             RouteMapPreview(
                 startLocation: currentTrip.startLocation,
                 endLocation: currentTrip.endLocation,
                 isLive: isLive
             )
-                .frame(height: 330)
+            .frame(height: 330)
 
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 12) {
-                    IconBubble(systemImage: isLive ? "location.north.line.fill" : "calendar", tint: .white)
-                    StatusDot(text: currentTrip.status.title, color: FleetPalette.tripStatus(currentTrip.status))
+            Button {
+                withAnimation(.easeInOut) {
+                    isMapFullScreen = true
                 }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Map View")
-                        .font(.title2.weight(.bold))
-                    Text("\(currentTrip.startLocation) to \(currentTrip.endLocation)")
-                        .font(.headline)
-                        .lineLimit(3)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.caption.weight(.bold))
+                    Text("Maximize")
+                        .font(.caption.weight(.bold))
                 }
-                .foregroundStyle(.white)
-
-                RouteTimeline(start: currentTrip.startLocation, end: currentTrip.endLocation)
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(.black.opacity(0.5), in: Capsule())
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 24)
+            .padding(.bottom, 16)
+            .padding(.trailing, 16)
         }
     }
 
     private var routeDetails: some View {
-        GlassPanel {
+        GlassPanel(hasBorder: false) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Route Details")
-                        .font(.title3.weight(.bold))
+                        .font(.headline.weight(.bold))
                     Spacer()
-                    StatusDot(text: currentTrip.status.title, color: FleetPalette.tripStatus(currentTrip.status))
+                    Text(currentTrip.status.title.uppercased())
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(FleetPalette.tripStatus(currentTrip.status))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(FleetPalette.tripStatus(currentTrip.status).opacity(0.12))
+                        .clipShape(Capsule())
                 }
+                
+                Divider()
+                    .padding(.vertical, 4)
+                
                 InfoRow(title: "Pickup", value: currentTrip.startLocation)
                 InfoRow(title: "Destination", value: currentTrip.endLocation)
                 InfoRow(title: "Start", value: FleetManagerFormat.shortDateTime.string(from: currentTrip.startTime))
@@ -563,35 +610,52 @@ private struct ManagerTripDetailView: View {
                     title: currentTrip.endTime == nil ? "ETA" : "Stop",
                     value: currentTrip.endTime.map { FleetManagerFormat.shortDateTime.string(from: $0) } ?? "TBD"
                 )
+                
                 TripRouteEstimateSummary(
                     startLocation: currentTrip.startLocation,
                     endLocation: currentTrip.endLocation,
                     startTime: currentTrip.startTime
                 )
-                InfoRow(title: "Cost", value: "Not recorded")
-                InfoRow(title: "Fuel Receipt", value: "Not uploaded")
             }
         }
     }
 
     private var driverCard: some View {
-        GlassPanel {
-            HStack(alignment: .top, spacing: 14) {
-                AvatarView(name: driver?.displayName ?? "Driver", role: .driver, size: 58, imageURL: driver?.avatarImageURL)
+        GlassPanel(hasBorder: false) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 14) {
+                    AvatarView(name: driver?.displayName ?? "Driver", role: .driver, size: 50, imageURL: driver?.avatarImageURL)
 
-                VStack(alignment: .leading, spacing: 7) {
-                    HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Driver Profile")
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(FleetPalette.textSecondary)
                         Text(driver?.displayName ?? "Driver unavailable")
-                            .font(.title3.weight(.semibold))
+                            .font(.system(size: 18, weight: .bold))
                             .foregroundStyle(FleetPalette.textPrimary)
-                        Spacer()
-                        StatusDot(text: isLive ? "Assigned" : "Pending", color: isLive ? FleetPalette.success : FleetPalette.warning)
                     }
 
-                    if let driver {
+                    Spacer()
+
+                    Text(isLive ? "ASSIGNED" : "PENDING")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(isLive ? FleetPalette.success : FleetPalette.warning)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background((isLive ? FleetPalette.success : FleetPalette.warning).opacity(0.12))
+                        .clipShape(Capsule())
+                }
+
+                if let driver {
+                    Divider()
+                        .padding(.vertical, 4)
+
+                    HStack(spacing: 8) {
+                        Image(systemName: "envelope.fill")
+                            .foregroundColor(FleetPalette.textSecondary)
                         Text(driver.email)
                             .font(.subheadline)
-                            .foregroundStyle(FleetPalette.textSecondary)
+                            .foregroundStyle(FleetPalette.textPrimary)
                     }
 
                     HStack(spacing: 10) {
@@ -623,30 +687,37 @@ private struct ManagerTripDetailView: View {
     }
 
     private var vehicleCard: some View {
-        GlassPanel {
+        GlassPanel(hasBorder: false) {
             VStack(alignment: .leading, spacing: 12) {
                 if let vehicle {
                     HStack(spacing: 14) {
-                        VehicleAssetImage(vehicle: vehicle, width: 86, height: 64, cornerRadius: 17)
+                        VehicleAssetImage(vehicle: vehicle, width: 70, height: 52, cornerRadius: 12)
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Vehicle")
-                                .font(.title3.weight(.bold))
-                                .foregroundStyle(FleetPalette.textPrimary)
+                            Text("Vehicle Profile")
+                                .font(.caption.weight(.bold))
+                                .foregroundColor(FleetPalette.textSecondary)
                             Text(vehicle.licencePlate)
-                                .font(.headline.weight(.semibold))
+                                .font(.system(size: 18, weight: .bold))
                                 .foregroundStyle(FleetPalette.textPrimary)
                         }
 
                         Spacer(minLength: 0)
 
-                        StatusDot(text: vehicle.status.title, color: FleetPalette.vehicleStatus(vehicle.status))
+                        Text(vehicle.status.title.uppercased())
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundColor(FleetPalette.vehicleStatus(vehicle.status))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(FleetPalette.vehicleStatus(vehicle.status).opacity(0.12))
+                            .clipShape(Capsule())
                     }
 
-                    InfoRow(title: "Number", value: vehicle.licencePlate)
+                    Divider()
+                        .padding(.vertical, 4)
+
                     InfoRow(title: "Model", value: "\(vehicle.year) \(vehicle.make) \(vehicle.model)")
                     InfoRow(title: "Type", value: vehicle.vehicleType.capitalized)
-                    InfoRow(title: "Status", value: vehicle.status.title)
                 } else {
                     Text("Vehicle")
                         .font(.title3.weight(.bold))
@@ -660,7 +731,6 @@ private struct ManagerTripDetailView: View {
             }
         }
     }
-
 }
 
 private struct RouteMapPreview: View {

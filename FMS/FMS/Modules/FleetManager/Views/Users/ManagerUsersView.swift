@@ -285,7 +285,7 @@ private struct ManagerUserCard: View {
     }
 }
 
-private struct ManagerUserDetailView: View {
+struct ManagerUserDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State var user: User
     @ObservedObject var viewModel: UserManagementViewModel
@@ -316,11 +316,15 @@ private struct ManagerUserDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                header
+                if user.role != .driver {
+                    header
+                }
 
                 switch user.role {
                 case .driver:
-                    driverDetails
+                    driverHeroSection
+                    driverInfoCard
+                    driverTripHistorySection
                 case .maintenancePersonnel:
                     maintenanceDetails
                 case .fleetManager:
@@ -382,8 +386,108 @@ private struct ManagerUserDetailView: View {
         }
     }
 
+    private var driverHeroSection: some View {
+        VStack(spacing: 10) {
+            AvatarView(name: user.displayName, role: .driver, size: 86, imageURL: user.avatarImageURL)
+
+            VStack(spacing: 4) {
+                Text(user.displayName)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(FleetPalette.textPrimary)
+
+                Text(user.email)
+                    .font(.subheadline)
+                    .foregroundStyle(FleetPalette.textSecondary)
+                
+                HStack(spacing: 8) {
+                    Text("UID \(user.shortUID)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(FleetPalette.textSecondary)
+                    
+                    Text(user.isActive ? "ACTIVE" : "INACTIVE")
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(user.isActive ? FleetPalette.success : FleetPalette.neutral)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background((user.isActive ? FleetPalette.success : FleetPalette.neutral).opacity(0.12))
+                        .clipShape(Capsule())
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+
+    private var driverInfoCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionTitle("Driver Info")
+            
+            GlassPanel(hasBorder: false) {
+                if let driverProfile {
+                    VStack(spacing: 12) {
+                        InfoRow(title: "License", value: driverProfile.licenceNum.isEmpty ? "Not available" : driverProfile.licenceNum)
+                        Divider()
+                        InfoRow(title: "Vehicle Type", value: driverProfile.vehicleType.isEmpty ? "Not available" : driverProfile.vehicleType.capitalized)
+                        Divider()
+                        InfoRow(title: "Status", value: driverProfile.status.title)
+                        Divider()
+                        InfoRow(title: "Phone", value: "\(user.contact)")
+                        Divider()
+                        InfoRow(title: "Aadhar", value: user.aadhar.isEmpty ? "Not provided" : user.aadhar)
+                        Divider()
+                        InfoRow(title: "Address", value: user.address.isEmpty ? "Not provided" : user.address)
+                    }
+                } else {
+                    EmptyStateView(
+                        title: "Profile pending",
+                        message: "This driver user exists but the driver profile record could not be found.",
+                        systemImage: "person.text.rectangle"
+                    )
+                }
+            }
+        }
+    }
+
+    private var driverTripHistorySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionTitle("Trip History")
+            
+            GlassPanel(hasBorder: false) {
+                let completedTrips = driverTrips.filter { $0.status == .completed }
+                if completedTrips.isEmpty {
+                    EmptyStateView(
+                        title: "No completed trips",
+                        message: "Completed assignments will appear here.",
+                        systemImage: "checkmark.circle"
+                    )
+                } else {
+                    VStack(spacing: 12) {
+                        ForEach(completedTrips) { trip in
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("\(trip.startLocation) to \(trip.endLocation)")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(FleetPalette.textPrimary)
+                                
+                                if let endTime = trip.endTime {
+                                    Text("Completed \(endTime, style: .date)")
+                                        .font(.caption)
+                                        .foregroundStyle(FleetPalette.textSecondary)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            
+                            if trip.id != completedTrips.last?.id {
+                                Divider()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var header: some View {
-        GlassPanel {
+        GlassPanel(hasBorder: false) {
             HStack(spacing: 14) {
                 AvatarView(name: user.displayName, role: user.role, size: 86, imageURL: user.avatarImageURL)
 
@@ -397,44 +501,24 @@ private struct ManagerUserDetailView: View {
                     Text("UID \(user.shortUID)")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(FleetPalette.textSecondary)
-                    HStack {
+                    HStack(spacing: 8) {
                         StatusPill(text: user.role.title, color: FleetPalette.accent)
-                        StatusDot(
-                            text: user.isActive ? "Active" : "Inactive",
-                            color: FleetPalette.userActive(user.isActive)
-                        )
+                        
+                        Text(user.isActive ? "ACTIVE" : "INACTIVE")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundColor(user.isActive ? FleetPalette.success : FleetPalette.neutral)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background((user.isActive ? FleetPalette.success : FleetPalette.neutral).opacity(0.12))
+                            .clipShape(Capsule())
                     }
                 }
             }
         }
     }
 
-    private var driverDetails: some View {
-        GlassPanel {
-            if let driverProfile {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Driver Profile")
-                        .font(.title3.bold())
-                    InfoRow(title: "Phone", value: "\(user.contact)")
-                    InfoRow(title: "Aadhar", value: user.aadhar)
-                    InfoRow(title: "License", value: driverProfile.licenceNum)
-                    InfoRow(title: "Vehicle Type", value: driverProfile.vehicleType.capitalized)
-                    InfoRow(title: "Trips", value: "\(driverTrips.count)")
-                    InfoRow(title: "Address", value: user.address)
-                    InfoRow(title: "Photo / DP", value: user.avatarUrl?.isEmpty == false ? "Added" : "Not added")
-                }
-            } else {
-                EmptyStateView(
-                    title: "Profile pending",
-                    message: "This driver user exists but the driver profile record could not be found.",
-                    systemImage: "person.text.rectangle"
-                )
-            }
-        }
-    }
-
     private var maintenanceDetails: some View {
-        GlassPanel {
+        GlassPanel(hasBorder: false) {
             if let maintenanceProfile {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Maintenance Profile")
@@ -457,7 +541,7 @@ private struct ManagerUserDetailView: View {
     }
 
     private var managerDetails: some View {
-        GlassPanel {
+        GlassPanel(hasBorder: false) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Manager Profile")
                     .font(.title3.bold())

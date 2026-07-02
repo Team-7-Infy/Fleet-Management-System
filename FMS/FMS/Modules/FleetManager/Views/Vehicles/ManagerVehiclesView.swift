@@ -175,7 +175,7 @@ private struct ManagerVehicleRow: View {
     }
 }
 
-private struct ManagerVehicleDetailView: View {
+struct ManagerVehicleDetailView: View {
     var vehicle: Vehicle
     @ObservedObject var viewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
@@ -188,7 +188,7 @@ private struct ManagerVehicleDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                vehicleHeader
+                vehicleHeroSection
                 FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
                 vehicleDetails
                 assignmentDetails
@@ -206,57 +206,117 @@ private struct ManagerVehicleDetailView: View {
         }
     }
 
-    private var vehicleHeader: some View {
-        GlassPanel {
-            HStack(alignment: .center, spacing: 16) {
-                VehicleAssetImage(vehicle: currentVehicle, width: 94, height: 70, cornerRadius: 18)
+    private var vehicleHeroSection: some View {
+        VStack(spacing: 12) {
+            VehicleAssetImage(vehicle: currentVehicle, width: 140, height: 100, cornerRadius: 20)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(currentVehicle.licencePlate)
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(FleetPalette.textPrimary)
-                    Text("\(currentVehicle.year) \(currentVehicle.make) \(currentVehicle.model)")
-                        .font(.subheadline)
-                        .foregroundStyle(FleetPalette.textSecondary)
-                    HStack {
-                        StatusDot(text: currentVehicle.status.title, color: FleetPalette.vehicleStatus(currentVehicle.status))
-                        StatusPill(text: currentVehicle.vehicleType.capitalized, color: FleetPalette.accent)
-                    }
+            VStack(spacing: 6) {
+                Text(currentVehicle.licencePlate)
+                    .font(.title.weight(.bold))
+                    .foregroundStyle(FleetPalette.textPrimary)
+
+                Text("\(String(currentVehicle.year)) \(currentVehicle.make) \(currentVehicle.model)")
+                    .font(.headline)
+                    .foregroundStyle(FleetPalette.textSecondary)
+                    .multilineTextAlignment(.center)
+                
+                HStack(spacing: 8) {
+                    // Status Badge
+                    Text(currentVehicle.status.title.uppercased())
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(FleetPalette.vehicleStatus(currentVehicle.status))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(FleetPalette.vehicleStatus(currentVehicle.status).opacity(0.12))
+                        .clipShape(Capsule())
+                    
+                    // Vehicle Type Badge
+                    Text(currentVehicle.vehicleType.uppercased())
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(FleetPalette.accent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(FleetPalette.accent.opacity(0.12))
+                        .clipShape(Capsule())
+                    
+                    // Health Score Badge
+                    let healthScore = VehicleHealth.score(for: currentVehicle)
+                    let healthColor = healthScore >= 80 ? FleetPalette.success : healthScore >= 50 ? FleetPalette.warning : FleetPalette.danger
+                    Text("HEALTH \(healthScore)%")
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(healthColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(healthColor.opacity(0.12))
+                        .clipShape(Capsule())
                 }
-
-                Spacer()
-
-                VehicleHealthRing(score: VehicleHealth.score(for: currentVehicle))
             }
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
     }
 
     private var vehicleDetails: some View {
-        GlassPanel {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Fleet Details")
-                    .font(.title3.bold())
-                InfoRow(title: "Plate Number", value: currentVehicle.licencePlate)
-                InfoRow(title: "VIN", value: currentVehicle.id.uuidString)
-                InfoRow(title: "Make", value: currentVehicle.make)
-                InfoRow(title: "Model", value: currentVehicle.model)
-                InfoRow(title: "Year", value: "\(currentVehicle.year)")
-                InfoRow(title: "Type", value: currentVehicle.vehicleType.capitalized)
-                InfoRow(title: "Status", value: currentVehicle.status.title)
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionTitle("Fleet Details")
+            
+            GlassPanel(hasBorder: false) {
+                VStack(spacing: 12) {
+                    InfoRow(title: "Plate Number", value: currentVehicle.licencePlate)
+                    Divider()
+                    InfoRow(title: "VIN", value: formatVIN(currentVehicle.id.uuidString))
+                    Divider()
+                    InfoRow(title: "Make", value: currentVehicle.make)
+                    Divider()
+                    InfoRow(title: "Model", value: currentVehicle.model)
+                    Divider()
+                    InfoRow(title: "Year", value: String(currentVehicle.year))
+                    Divider()
+                    InfoRow(title: "Type", value: currentVehicle.vehicleType.capitalized)
+                    Divider()
+                    InfoRow(title: "Status", value: currentVehicle.status.title)
+                }
             }
         }
     }
 
-    private var assignmentDetails: some View {
-        GlassPanel {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Assignment")
-                    .font(.title3.bold())
+    private func formatVIN(_ id: String) -> String {
+        let clean = id.replacingOccurrences(of: "-", with: "")
+        if clean.count > 12 {
+            let first = clean.prefix(8)
+            let last = clean.suffix(6)
+            return "\(first)...\(last)".uppercased()
+        }
+        return id.uppercased()
+    }
 
+    private var assignmentDetails: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionTitle("Assignment")
+            
+            GlassPanel(hasBorder: false) {
                 if let driver = usersViewModel.driverUser(for: currentVehicle.driverId) {
-                    InfoRow(title: "Assigned Driver", value: driver.displayName)
-                    InfoRow(title: "Contact", value: "\(driver.contact)")
-                    InfoRow(title: "Email", value: driver.email)
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 14) {
+                            AvatarView(name: driver.displayName, role: .driver, size: 48, imageURL: driver.avatarImageURL)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Assigned Driver")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundColor(FleetPalette.textSecondary)
+                                Text(driver.displayName)
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(FleetPalette.textPrimary)
+                            }
+                        }
+                        
+                        Divider()
+                            .padding(.vertical, 4)
+                        
+                        InfoRow(title: "Phone", value: "\(driver.contact)")
+                        Divider()
+                        InfoRow(title: "Email", value: driver.email)
+                    }
                 } else {
                     EmptyStateView(
                         title: "Unassigned",
@@ -269,24 +329,25 @@ private struct ManagerVehicleDetailView: View {
     }
 
     private var maintenanceDetails: some View {
-        GlassPanel {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Maintenance")
-                    .font(.title3.bold())
-
-                if currentVehicle.status != .maintenance {
-                    Button {
-                        openMaintenanceRequest(currentVehicle.id)
-                    } label: {
-                        Label("Send to Maintenance", systemImage: "wrench.and.screwdriver")
-                            .frame(maxWidth: .infinity)
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionTitle("Maintenance")
+            
+            GlassPanel(hasBorder: false) {
+                VStack(alignment: .leading, spacing: 12) {
+                    if currentVehicle.status != .maintenance {
+                        Button {
+                            openMaintenanceRequest(currentVehicle.id)
+                        } label: {
+                            Label("Send to Maintenance", systemImage: "wrench.and.screwdriver")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(FleetPalette.accent)
+                    } else {
+                        Text("This vehicle is currently marked for maintenance.")
+                            .font(.subheadline)
+                            .foregroundStyle(FleetPalette.textSecondary)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(FleetPalette.accent)
-                } else {
-                    Text("This vehicle is currently marked for maintenance.")
-                        .font(.subheadline)
-                        .foregroundStyle(FleetPalette.textSecondary)
                 }
             }
         }

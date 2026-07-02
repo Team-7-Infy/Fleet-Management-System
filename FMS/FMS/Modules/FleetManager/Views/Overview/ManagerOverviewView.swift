@@ -61,8 +61,9 @@ struct ManagerOverviewView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                tripStatusCard
+            VStack(alignment: .leading, spacing: 22) {
+                activeTripsHeaderCard
+                tripMetricsRow
                 fleetStatusSection
                 maintenanceSection
             }
@@ -103,91 +104,147 @@ struct ManagerOverviewView: View {
         }
     }
 
-    private var tripStatusCard: some View {
-        DashboardTripStatusCard(
-            activeTrips: activeTrips,
-            pendingTrips: pendingTrips,
-            completedTrips: completedTrips
-        )
+    private var activeTripsHeaderCard: some View {
+        Group {
+            if activeTrips.isEmpty {
+                FleetStatusOverviewGradientCard()
+            } else {
+                TabView {
+                    ForEach(activeTrips) { trip in
+                        ActiveTripGradientCard(
+                            trip: trip,
+                            tripsViewModel: tripsViewModel,
+                            vehiclesViewModel: vehiclesViewModel,
+                            usersViewModel: usersViewModel
+                        )
+                    }
+                }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
+                .frame(height: 310)
+            }
+        }
+    }
+    
+    private var tripMetricsRow: some View {
+        let total = activeTrips.count + pendingTrips.count + completedTrips.count
+        let completedProgress = total > 0 ? Double(completedTrips.count) / Double(total) : 0.0
+        let pendingProgress = total > 0 ? Double(pendingTrips.count) / Double(total) : 0.0
+        
+        return HStack(spacing: 12) {
+            FMSMetricWidget(
+                title: "Pending Trips",
+                value: "\(pendingTrips.count)",
+                subtitle: pendingTrips.count == 1 ? "Awaiting driver" : "Awaiting drivers",
+                progress: pendingProgress,
+                color: FleetPalette.warning
+            )
+            
+            FMSMetricWidget(
+                title: "Completed Trips",
+                value: "\(completedTrips.count)",
+                subtitle: "Finished today",
+                progress: completedProgress,
+                color: FleetPalette.success
+            )
+        }
     }
 
     private var fleetStatusSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Fleet Status")
 
-            LazyVGrid(columns: FleetPalette.twoColumnGrid, spacing: 12) {
-                NavigationLink {
-                    DashboardDriverStatusListView(
-                        usersViewModel: usersViewModel,
-                        activeDrivers: enrouteDrivers,
-                        availableDrivers: availableDrivers,
-                        offDutyDrivers: offDutyDrivers
-                    )
-                } label: {
-                    DashboardMetricCard(
-                        title: "Drivers",
-                        systemImage: "person.2.fill",
-                        tint: FleetPalette.accent,
-                        metrics: [
-                            ("Active", "\(enrouteDrivers.count)"),
-                            ("Available", "\(availableDrivers.count)"),
-                            ("Off duty", "\(offDutyDrivers.count)")
-                        ]
-                    )
-                }
-                .buttonStyle(.plain)
+            GlassPanel(hasBorder: false) {
+                VStack(spacing: 0) {
+                    NavigationLink {
+                        DashboardDriverStatusListView(
+                            usersViewModel: usersViewModel,
+                            tripsViewModel: tripsViewModel,
+                            maintenanceViewModel: maintenanceViewModel,
+                            activeDrivers: enrouteDrivers,
+                            availableDrivers: availableDrivers,
+                            offDutyDrivers: offDutyDrivers
+                        )
+                    } label: {
+                        FleetStatusRowContent(
+                            title: "Drivers",
+                            systemImage: "person.2.fill",
+                            tint: FleetPalette.accent,
+                            metrics: [
+                                ("Active", "\(enrouteDrivers.count)", FleetPalette.success),
+                                ("Available", "\(availableDrivers.count)", FleetPalette.accent),
+                                ("Off duty", "\(offDutyDrivers.count)", FleetPalette.neutral)
+                            ]
+                        )
+                    }
+                    .buttonStyle(.plain)
 
-                NavigationLink {
-                    DashboardVehicleStatusListView(
-                        usersViewModel: usersViewModel,
-                        onTripVehicles: enrouteVehicles,
-                        availableVehicles: availableVehicles,
-                        maintenanceVehicles: maintenanceVehicles
-                    )
-                } label: {
-                    DashboardMetricCard(
-                        title: "Vehicles",
-                        systemImage: "car.2.fill",
-                        tint: FleetPalette.accent,
-                        metrics: [
-                            ("On trip", "\(enrouteVehicles.count)"),
-                            ("Available", "\(availableVehicles.count)"),
-                            ("Maintenance", "\(maintenanceVehicles.count)")
-                        ]
-                    )
+                    Divider()
+                        .padding(.vertical, 4)
+
+                    NavigationLink {
+                        DashboardVehicleStatusListView(
+                            usersViewModel: usersViewModel,
+                            vehiclesViewModel: vehiclesViewModel,
+                            onTripVehicles: enrouteVehicles,
+                            availableVehicles: availableVehicles,
+                            maintenanceVehicles: maintenanceVehicles
+                        )
+                    } label: {
+                        FleetStatusRowContent(
+                            title: "Vehicles",
+                            systemImage: "car.2.fill",
+                            tint: FleetPalette.accent,
+                            metrics: [
+                                ("On trip", "\(enrouteVehicles.count)", FleetPalette.success),
+                                ("Available", "\(availableVehicles.count)", FleetPalette.accent),
+                                ("Maintenance", "\(maintenanceVehicles.count)", FleetPalette.warning)
+                            ]
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
     }
 
     private var maintenanceSection: some View {
-        GlassPanel {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Label("Maintenance", systemImage: "calendar.badge.clock")
-                        .font(.headline.weight(.bold))
-                    Spacer()
-                    HStack(spacing: 6) {
-                        StatusDot(text: "Open", color: FleetPalette.warning, size: 12)
-                        Text("\(maintenanceViewModel.openTasks.count) open")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(FleetPalette.textSecondary)
-                    }
-                }
-
-                if maintenanceViewModel.openTasks.isEmpty {
-                    Text("No open maintenance tasks.")
-                        .font(.subheadline)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                DashboardSectionTitle("Maintenance")
+                Spacer()
+                HStack(spacing: 4) {
+                    Circle().fill(FleetPalette.warning).frame(width: 8, height: 8)
+                    Text("\(maintenanceViewModel.openTasks.count) open")
+                        .font(.caption.weight(.bold))
                         .foregroundStyle(FleetPalette.textSecondary)
-                } else {
-                    ForEach(Array(maintenanceViewModel.openTasks.prefix(3))) { task in
-                        DashboardMaintenanceRow(
-                            task: task,
-                            assignee: usersViewModel.personnelUser(for: task.executedBy)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(FleetPalette.warning.opacity(0.12))
+                .clipShape(Capsule())
+            }
+            .padding(.horizontal, 2)
+
+            GlassPanel(hasBorder: false) {
+                VStack(spacing: 0) {
+                    if maintenanceViewModel.openTasks.isEmpty {
+                        EmptyStateView(
+                            title: "No Open Maintenance",
+                            message: "All vehicles are serviced and ready.",
+                            systemImage: "wrench.and.screwdriver"
                         )
-                        if task.id != maintenanceViewModel.openTasks.prefix(3).last?.id {
-                            Divider()
+                        .padding(.vertical, 20)
+                    } else {
+                        ForEach(Array(maintenanceViewModel.openTasks.prefix(3).enumerated()), id: \.element.id) { index, task in
+                            DashboardMaintenanceRow(
+                                task: task,
+                                assignee: usersViewModel.personnelUser(for: task.executedBy)
+                            )
+                            
+                            if index < min(maintenanceViewModel.openTasks.count, 3) - 1 {
+                                Divider()
+                                    .padding(.vertical, 12)
+                            }
                         }
                     }
                 }
@@ -519,76 +576,302 @@ private enum ManagerNotificationDateFormatter {
     }()
 }
 
-private struct DashboardTripStatusCard: View {
-    var activeTrips: [Trip]
-    var pendingTrips: [Trip]
-    var completedTrips: [Trip]
-
+struct FleetStatusOverviewGradientCard: View {
     var body: some View {
-        GlassPanel {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Trip Status")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(FleetPalette.accent)
-                        Text(activeTrips.isEmpty ? "No live trip" : "\(activeTrips.count) live")
-                            .font(.title2.weight(.bold))
-                            .foregroundStyle(FleetPalette.textPrimary)
-                    }
-
-                    Spacer()
-
-                    IconBubble(
-                        systemImage: activeTrips.isEmpty ? "location.slash" : "location.north.line.fill",
-                        tint: activeTrips.isEmpty ? FleetPalette.neutral : FleetPalette.accent
-                    )
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color.white.opacity(0.8))
+                        .frame(width: 8, height: 8)
+                    Text("FLEET OVERVIEW")
+                        .font(.caption2.weight(.bold))
+                        .foregroundColor(.white)
                 }
-
-                LazyVGrid(columns: FleetPalette.twoColumnGrid, spacing: 10) {
-                    MiniMetric(title: "Pending", value: "\(pendingTrips.count)", tint: FleetPalette.warning)
-                    MiniMetric(title: "Completed", value: "\(completedTrips.count)", tint: FleetPalette.success)
-                }
-
-                if let trip = activeTrips.first {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Current route")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(FleetPalette.textSecondary)
-                        Text("\(trip.startLocation) to \(trip.endLocation)")
-                            .font(.headline.weight(.semibold))
-                            .foregroundStyle(FleetPalette.textPrimary)
-                            .lineLimit(2)
-                        Text(FleetManagerFormat.shortDateTime.string(from: trip.startTime))
-                            .font(.caption)
-                            .foregroundStyle(FleetPalette.textSecondary)
-                    }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(FleetPalette.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.black.opacity(0.15))
+                .clipShape(Capsule())
+                
+                Spacer()
+                
+                Image(systemName: "shippingbox.fill")
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.8))
             }
+            
+            VStack(alignment: .leading, spacing: 6) {
+                Text("No Active Trips")
+                    .font(.title3.weight(.bold))
+                    .foregroundColor(.white)
+                Text("All fleet vehicles are currently available, off duty, or scheduled for service.")
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.85))
+                    .lineLimit(2)
+            }
+            
+            Spacer()
         }
+        .padding(20)
+        .frame(height: 180)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: 0x007AFF), Color(hex: 0x004CE5)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(24)
+        .shadow(color: Color(hex: 0x007AFF).opacity(0.25), radius: 15, x: 0, y: 8)
     }
 }
 
-private struct MiniMetric: View {
+struct ActiveTripGradientCard: View {
+    let trip: Trip
+    @ObservedObject var tripsViewModel: TripManagementViewModel
+    @ObservedObject var vehiclesViewModel: VehicleViewModel
+    @ObservedObject var usersViewModel: UserManagementViewModel
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color(hex: 0x00E676))
+                        .frame(width: 8, height: 8)
+                        .shadow(color: Color(hex: 0x00E676), radius: 4)
+                    Text("LIVE TRIP")
+                        .font(.caption2.weight(.bold))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.black.opacity(0.15))
+                .clipShape(Capsule())
+                
+                Spacer()
+                
+                HStack(spacing: 4) {
+                    Image(systemName: "clock.fill")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.8))
+                    Text("ETA \(formattedTime(trip.endTime ?? trip.startTime.addingTimeInterval(8 * 3600)))")
+                        .font(.caption2.weight(.bold))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.black.opacity(0.15))
+                .clipShape(Capsule())
+            }
+            
+            HStack(alignment: .top, spacing: 14) {
+                VStack(spacing: 0) {
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 8, height: 8)
+                    Rectangle()
+                        .fill(Color.white.opacity(0.5))
+                        .frame(width: 2, height: 26)
+                    Circle()
+                        .stroke(Color.white, lineWidth: 2)
+                        .frame(width: 8, height: 8)
+                }
+                .padding(.top, 4)
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("START LOCATION")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.white.opacity(0.7))
+                        Text(trip.startLocation)
+                            .font(.subheadline.weight(.bold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("END LOCATION")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.white.opacity(0.7))
+                        Text(trip.endLocation)
+                            .font(.subheadline.weight(.bold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            
+            VStack(spacing: 6) {
+                let progress = getTripProgress(for: trip)
+                let dist = getTripDistances(for: trip)
+                
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.black.opacity(0.15))
+                            .frame(height: 6)
+                        Capsule()
+                            .fill(Color.white)
+                            .frame(width: geometry.size.width * progress, height: 6)
+                            .shadow(color: .white.opacity(0.4), radius: 4)
+                    }
+                }
+                .frame(height: 6)
+                
+                HStack {
+                    Text("\(dist.covered) km Covered")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundColor(.white.opacity(0.85))
+                    Spacer()
+                    Text("\(dist.left) km Left")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundColor(.white.opacity(0.85))
+                }
+            }
+            
+            NavigationLink {
+                ManagerTripDetailView(
+                    trip: trip,
+                    viewModel: tripsViewModel,
+                    vehiclesViewModel: vehiclesViewModel,
+                    usersViewModel: usersViewModel
+                )
+            } label: {
+                HStack {
+                    Image(systemName: "location.north.line.fill")
+                        .font(.subheadline)
+                    Text("Track Live")
+                        .font(.subheadline.weight(.bold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(.ultraThinMaterial)
+                .environment(\.colorScheme, .dark)
+                .foregroundColor(.white)
+                .cornerRadius(14)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(20)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: 0x007AFF), Color(hex: 0x004CE5)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(24)
+        .shadow(color: Color(hex: 0x007AFF).opacity(0.25), radius: 15, x: 0, y: 8)
+    }
+    
+    private func getTripProgress(for trip: Trip) -> Double {
+        let elapsed = Date().timeIntervalSince(trip.startTime)
+        let totalDuration: TimeInterval = 8 * 3600
+        let ratio = elapsed / totalDuration
+        return min(max(ratio, 0.18), 0.92)
+    }
+
+    private func getTripDistances(for trip: Trip) -> (covered: Int, left: Int) {
+        let progress = getTripProgress(for: trip)
+        let totalDist = 450
+        let covered = Int(Double(totalDist) * progress)
+        let left = totalDist - covered
+        return (covered, left)
+    }
+
+    private func formattedTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "hh:mm a"
+        return formatter.string(from: date)
+    }
+}
+
+struct FMSMetricWidget: View {
+    let title: String
+    let value: String
+    let subtitle: String
+    let progress: Double
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title.uppercased())
+                .font(.caption2.weight(.bold))
+                .foregroundColor(.secondary)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                    .foregroundColor(color)
+                Text(subtitle)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
+            
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.black.opacity(0.05))
+                        .frame(height: 6)
+                    Capsule()
+                        .fill(color)
+                        .frame(width: geometry.size.width * min(max(progress, 0.05), 1.0), height: 6)
+                }
+            }
+            .frame(height: 6)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(FleetPalette.tertiary.opacity(0.15), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
+    }
+}
+
+struct FleetStatusRowContent: View {
     var title: String
-    var value: String
+    var systemImage: String
     var tint: Color
+    var metrics: [(String, String, Color)]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption)
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                IconBubble(systemImage: systemImage, tint: tint)
+                Text(title)
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(FleetPalette.textPrimary)
+            }
+            .frame(width: 80, alignment: .leading)
+            
+            Divider()
+                .padding(.vertical, 4)
+            
+            HStack(spacing: 0) {
+                ForEach(metrics, id: \.0) { metric in
+                    VStack(spacing: 6) {
+                        Text(metric.0.uppercased())
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(FleetPalette.textSecondary)
+                            .lineLimit(1)
+                        
+                        Text(metric.1)
+                            .font(.system(size: 20, weight: .heavy, design: .rounded))
+                            .foregroundStyle(metric.2)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.bold))
                 .foregroundStyle(FleetPalette.textSecondary)
-            Text(value)
-                .font(.title3.weight(.bold))
-                .foregroundStyle(tint)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FleetPalette.background, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.vertical, 8)
     }
 }
 
@@ -597,47 +880,59 @@ private struct DashboardMaintenanceRow: View {
     var assignee: User?
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             IconBubble(
                 systemImage: task.isUrgent ? "exclamationmark.triangle.fill" : "wrench.and.screwdriver.fill",
                 tint: task.isUrgent ? FleetPalette.danger : FleetPalette.warning
             )
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(task.description)
-                    .font(.headline)
+                    .font(.subheadline.weight(.bold))
                     .foregroundStyle(FleetPalette.textPrimary)
-                    .lineLimit(2)
-                Text(FleetManagerFormat.day.string(from: task.scheduledDate.date))
-                    .font(.subheadline)
-                    .foregroundStyle(FleetPalette.textSecondary)
-                Text(assignee.map { "Assigned to \($0.displayName)" } ?? "Unassigned")
-                    .font(.caption)
-                    .foregroundStyle(FleetPalette.textSecondary)
+                    .lineLimit(1)
+                
+                HStack(spacing: 8) {
+                    Text(FleetManagerFormat.day.string(from: task.scheduledDate.date))
+                    Text("•")
+                    Text(assignee.map { "\($0.displayName)" } ?? "Unassigned")
+                }
+                .font(.caption)
+                .foregroundStyle(FleetPalette.textSecondary)
             }
 
             Spacer()
 
-            StatusDot(text: task.status.title, color: FleetPalette.maintenanceStatus(task.status))
+            Text(task.status.title)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(FleetPalette.maintenanceStatus(task.status))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(FleetPalette.maintenanceStatus(task.status).opacity(0.12))
+                .clipShape(Capsule())
         }
+        .contentShape(Rectangle())
     }
 }
 
 private struct DashboardDriverStatusListView: View {
     @ObservedObject var usersViewModel: UserManagementViewModel
+    @ObservedObject var tripsViewModel: TripManagementViewModel
+    @ObservedObject var maintenanceViewModel: MaintenanceViewModel
     var activeDrivers: [Driver]
     var availableDrivers: [Driver]
     var offDutyDrivers: [Driver]
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 20) {
                 ScreenHeader(title: "Drivers")
-                driverSection(title: "Active", drivers: activeDrivers)
-                driverSection(title: "Available", drivers: availableDrivers)
-                driverSection(title: "Off Duty", drivers: offDutyDrivers)
+                driverSection(title: "Active", drivers: activeDrivers, color: FleetPalette.success)
+                driverSection(title: "Available", drivers: availableDrivers, color: FleetPalette.accent)
+                driverSection(title: "Off Duty", drivers: offDutyDrivers, color: FleetPalette.neutral)
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.bottom, 24)
         }
         .fleetScreenBackground()
         .navigationTitle("Driver Status")
@@ -645,14 +940,40 @@ private struct DashboardDriverStatusListView: View {
     }
 
     @ViewBuilder
-    private func driverSection(title: String, drivers: [Driver]) -> some View {
+    private func driverSection(title: String, drivers: [Driver], color: Color) -> some View {
         if drivers.isEmpty == false {
-            VStack(alignment: .leading, spacing: 8) {
-                DashboardSectionTitle(title)
-                GlassPanel {
-                    VStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    DashboardSectionTitle(title)
+                    Spacer()
+                    Text("\(drivers.count)")
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(color)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(color.opacity(0.12))
+                        .clipShape(Capsule())
+                }
+                
+                GlassPanel(hasBorder: false) {
+                    VStack(spacing: 14) {
                         ForEach(drivers) { driver in
-                            DriverStatusRow(driver: driver, user: usersViewModel.user(for: driver.userId))
+                            if let driverUser = usersViewModel.user(for: driver.userId) {
+                                NavigationLink {
+                                    ManagerUserDetailView(
+                                        user: driverUser,
+                                        viewModel: usersViewModel,
+                                        tripsViewModel: tripsViewModel,
+                                        maintenanceViewModel: maintenanceViewModel
+                                    )
+                                } label: {
+                                    DriverStatusRow(driver: driver, user: driverUser, color: color)
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                DriverStatusRow(driver: driver, user: nil, color: color)
+                            }
+                            
                             if driver.id != drivers.last?.id {
                                 Divider()
                             }
@@ -666,19 +987,21 @@ private struct DashboardDriverStatusListView: View {
 
 private struct DashboardVehicleStatusListView: View {
     @ObservedObject var usersViewModel: UserManagementViewModel
+    @ObservedObject var vehiclesViewModel: VehicleViewModel
     var onTripVehicles: [Vehicle]
     var availableVehicles: [Vehicle]
     var maintenanceVehicles: [Vehicle]
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 20) {
                 ScreenHeader(title: "Vehicles")
-                vehicleSection(title: "On Trip", vehicles: onTripVehicles)
-                vehicleSection(title: "Available", vehicles: availableVehicles)
-                vehicleSection(title: "Maintenance", vehicles: maintenanceVehicles)
+                vehicleSection(title: "On Trip", vehicles: onTripVehicles, color: FleetPalette.success)
+                vehicleSection(title: "Available", vehicles: availableVehicles, color: FleetPalette.accent)
+                vehicleSection(title: "Maintenance", vehicles: maintenanceVehicles, color: FleetPalette.warning)
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.bottom, 24)
         }
         .fleetScreenBackground()
         .navigationTitle("Vehicle Status")
@@ -686,17 +1009,40 @@ private struct DashboardVehicleStatusListView: View {
     }
 
     @ViewBuilder
-    private func vehicleSection(title: String, vehicles: [Vehicle]) -> some View {
+    private func vehicleSection(title: String, vehicles: [Vehicle], color: Color) -> some View {
         if vehicles.isEmpty == false {
-            VStack(alignment: .leading, spacing: 8) {
-                DashboardSectionTitle(title)
-                GlassPanel {
-                    VStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    DashboardSectionTitle(title)
+                    Spacer()
+                    Text("\(vehicles.count)")
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(color)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(color.opacity(0.12))
+                        .clipShape(Capsule())
+                }
+                
+                GlassPanel(hasBorder: false) {
+                    VStack(spacing: 14) {
                         ForEach(vehicles) { vehicle in
-                            VehicleStatusRow(
-                                vehicle: vehicle,
-                                driver: usersViewModel.driverUser(for: vehicle.driverId)
-                            )
+                            NavigationLink {
+                                ManagerVehicleDetailView(
+                                    vehicle: vehicle,
+                                    viewModel: vehiclesViewModel,
+                                    usersViewModel: usersViewModel,
+                                    openMaintenanceRequest: { _ in }
+                                )
+                            } label: {
+                                VehicleStatusRow(
+                                    vehicle: vehicle,
+                                    driver: usersViewModel.driverUser(for: vehicle.driverId),
+                                    color: color
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            
                             if vehicle.id != vehicles.last?.id {
                                 Divider()
                             }
@@ -711,22 +1057,35 @@ private struct DashboardVehicleStatusListView: View {
 private struct DriverStatusRow: View {
     var driver: Driver
     var user: User?
+    var color: Color
 
     var body: some View {
-        HStack(spacing: 12) {
-            AvatarView(name: user?.displayName ?? driver.licenceNum, role: .driver, size: 48, imageURL: user?.avatarImageURL)
+        HStack(spacing: 14) {
+            AvatarView(name: user?.displayName ?? driver.licenceNum, role: .driver, size: 46, imageURL: user?.avatarImageURL)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(user?.displayName ?? "Driver")
-                    .font(.headline)
-                Text("\(driver.vehicleType.capitalized) - \(driver.licenceNum)")
-                    .font(.subheadline)
-                    .foregroundStyle(FleetPalette.textSecondary)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(FleetPalette.textPrimary)
+                
+                HStack(spacing: 6) {
+                    Image(systemName: "truck.box.fill")
+                        .font(.caption)
+                    Text("\(driver.vehicleType.capitalized) • \(driver.licenceNum)")
+                        .font(.caption.weight(.medium))
+                }
+                .foregroundColor(FleetPalette.textSecondary)
             }
 
             Spacer()
 
-            StatusDot(text: driver.status.title, color: FleetPalette.personnelStatus(driver.status))
+            Text(driver.status.title.uppercased())
+                .font(.system(size: 10, weight: .black))
+                .foregroundColor(color)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(color.opacity(0.12))
+                .clipShape(Capsule())
         }
     }
 }
@@ -734,25 +1093,39 @@ private struct DriverStatusRow: View {
 private struct VehicleStatusRow: View {
     var vehicle: Vehicle
     var driver: User?
+    var color: Color
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             VehicleAssetImage(vehicle: vehicle, width: 64, height: 50, cornerRadius: 14)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(vehicle.licencePlate)
-                    .font(.headline)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(FleetPalette.textPrimary)
+                
                 Text("\(vehicle.year) \(vehicle.make) \(vehicle.model)")
-                    .font(.subheadline)
-                    .foregroundStyle(FleetPalette.textSecondary)
-                Text(driver.map { "Driver: \($0.displayName)" } ?? "Driver: Unassigned")
                     .font(.caption)
-                    .foregroundStyle(FleetPalette.textSecondary)
+                    .foregroundColor(FleetPalette.textSecondary)
+                
+                HStack(spacing: 4) {
+                    Image(systemName: "person.circle.fill")
+                        .font(.caption2)
+                    Text(driver?.displayName ?? "Unassigned")
+                        .font(.caption2.weight(.medium))
+                }
+                .foregroundColor(FleetPalette.textSecondary)
             }
 
             Spacer()
 
-            StatusDot(text: vehicle.status.title, color: FleetPalette.vehicleStatus(vehicle.status))
+            Text(vehicle.status.title.uppercased())
+                .font(.system(size: 10, weight: .black))
+                .foregroundColor(color)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(color.opacity(0.12))
+                .clipShape(Capsule())
         }
     }
 }

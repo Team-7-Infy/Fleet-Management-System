@@ -9,9 +9,11 @@
 import SwiftUI
 struct GlassPanel<Content: View>: View {
     private let content: Content
+    private let hasBorder: Bool
 
-    init(@ViewBuilder content: () -> Content) {
+    init(hasBorder: Bool = true, @ViewBuilder content: () -> Content) {
         self.content = content()
+        self.hasBorder = hasBorder
     }
 
     var body: some View {
@@ -20,9 +22,16 @@ struct GlassPanel<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(FleetPalette.tertiary.opacity(0.55), lineWidth: 1)
+                if hasBorder {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(FleetPalette.tertiary.opacity(0.55), lineWidth: 1)
+                }
             }
-            .shadow(color: FleetPalette.accent.opacity(0.10), radius: 16, x: 0, y: 9)
+            .shadow(
+                color: hasBorder ? FleetPalette.accent.opacity(0.10) : Color.black.opacity(0.03),
+                radius: hasBorder ? 16 : 15,
+                x: 0,
+                y: hasBorder ? 9 : 5
+            )
     }
 }
