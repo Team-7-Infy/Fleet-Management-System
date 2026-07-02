@@ -58,8 +58,8 @@ final class UserManagementViewModel: ObservableObject {
     }
 
     func createUser(form: FleetManagerUserForm) async -> Bool {
-        guard form.isValid else {
-            errorMessage = "Complete all required user fields."
+        if let issue = form.validationIssues.first {
+            errorMessage = issue.message
             successMessage = nil
             return false
         }
@@ -68,7 +68,7 @@ final class UserManagementViewModel: ObservableObject {
             let password = Self.generateRandomPassword()
             let displayName = form.normalizedName
             let authUserId = try await authService.inviteUser(
-                email: form.email,
+                email: form.normalizedEmail,
                 password: password,
                 displayName: displayName
             )
@@ -77,7 +77,7 @@ final class UserManagementViewModel: ObservableObject {
 
             switch createdUser.role {
             case .driver:
-                let licenceNumber = form.licenceNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+                let licenceNumber = form.normalizedLicenceNumber
                 let vehicleType = form.vehicleType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                 let driver = Driver(
                     id: UUID(),
@@ -101,7 +101,7 @@ final class UserManagementViewModel: ObservableObject {
                 _ = try await service.createFleetManager(manager)
             }
 
-            successMessage = "\(createdUser.displayName) added. An invitation email has been sent to \(form.email)."
+            successMessage = "\(createdUser.displayName) added. An invitation email has been sent to \(form.normalizedEmail)."
             errorMessage = nil
             await load()
             return true
@@ -145,7 +145,14 @@ final class UserManagementViewModel: ObservableObject {
 
     func updateDriverProfile(userId: UUID, licenceNumber: String, vehicleType: String) async -> Bool {
         do {
-            let trimmedLicence = licenceNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedLicence = UserProfileValidation.normalizedLicenceNumber(licenceNumber)
+            if trimmedLicence.isEmpty == false,
+               UserProfileValidation.isValidLicenceNumber(trimmedLicence) == false {
+                errorMessage = "Licence must look like DL-042026-7101 or MH12 2026 1234567."
+                successMessage = nil
+                return false
+            }
+
             let trimmedVehicleType = vehicleType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             try await service.updateDriverProfile(
                 userId: userId,

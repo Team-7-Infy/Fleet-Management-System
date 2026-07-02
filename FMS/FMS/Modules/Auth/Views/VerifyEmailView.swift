@@ -35,8 +35,6 @@ struct VerifyEmailView: View {
                         )
                     )
                     .frame(width: 82, height: 82)
-                    .shadow(color: FleetPalette.accent.opacity(0.45),
-                            radius: 14, x: 0, y: 6)
                     .shadow(color: Color.black.opacity(0.15),
                             radius: 4, x: 0, y: 2)
 

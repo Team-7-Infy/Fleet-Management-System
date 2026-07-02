@@ -88,28 +88,70 @@ struct FirstTimeSetupView: View {
     }
 
     private var profileContactValue: Int64? {
-        Int64(profileContact.filter(\.isNumber))
+        guard UserProfileValidation.isValidContact(profileContact) else { return nil }
+        return Int64(UserProfileValidation.normalizedContact(profileContact))
+    }
+
+    private var profileValidationIssues: [UserProfileValidationIssue] {
+        var issues: [UserProfileValidationIssue] = []
+
+        if UserProfileValidation.isValidName(profileName) == false {
+            issues.append(UserProfileValidationIssue(
+                field: .name,
+                message: "Enter a valid name using letters, spaces, apostrophes, or hyphens."
+            ))
+        }
+
+        if UserProfileValidation.isValidEmail(profileEmail) == false {
+            issues.append(UserProfileValidationIssue(
+                field: .email,
+                message: "Enter a valid email address."
+            ))
+        }
+
+        if UserProfileValidation.isValidContact(profileContact) == false {
+            issues.append(UserProfileValidationIssue(
+                field: .contact,
+                message: "Contact must be a 10-digit mobile number starting with 6, 7, 8, or 9."
+            ))
+        }
+
+        if user.role == .driver || user.role == .maintenancePersonnel {
+            if UserProfileValidation.isValidAddress(profileAddress) == false {
+                issues.append(UserProfileValidationIssue(
+                    field: .address,
+                    message: "Address must be 5-160 characters and use only common address characters."
+                ))
+            }
+
+            if UserProfileValidation.isValidAadhaar(profileAadhar) == false {
+                issues.append(UserProfileValidationIssue(
+                    field: .aadhaar,
+                    message: "Aadhaar must be exactly 12 digits."
+                ))
+            }
+        }
+
+        if UserProfileValidation.isValidOptionalURL(profileAvatarUrl) == false {
+            issues.append(UserProfileValidationIssue(
+                field: .avatarURL,
+                message: "Photo URL must start with http:// or https://."
+            ))
+        }
+
+        if user.role == .driver,
+           UserProfileValidation.isValidLicenceNumber(licenceNumber, allowsPending: false) == false {
+            issues.append(UserProfileValidationIssue(
+                field: .licenceNumber,
+                message: "Licence must look like DL-042026-7101 or MH12 2026 1234567."
+            ))
+        }
+
+        return issues
     }
 
     private var isProfileValid: Bool {
-        guard profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
-              profileEmail.contains("@"),
-              profileContactValue != nil
-        else {
-            return false
-        }
-
-        switch user.role {
-        case .driver:
-            return profileAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
-                profileAadhar.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
-                licenceNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-        case .maintenancePersonnel:
-            return profileAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
-                profileAadhar.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-        case .fleetManager:
-            return true
-        }
+        profileValidationIssues.isEmpty
     }
 
     private var isValid: Bool {
@@ -128,6 +170,15 @@ struct FirstTimeSetupView: View {
                 Button("Sign Out") { onLogout() }
                     .foregroundStyle(FleetPalette.danger)
             }
+        }
+        .onChange(of: profileContact) { _, newValue in
+            profileContact = String(UserProfileValidation.normalizedContact(newValue).prefix(10))
+        }
+        .onChange(of: profileAadhar) { _, newValue in
+            profileAadhar = String(UserProfileValidation.normalizedAadhaar(newValue).prefix(12))
+        }
+        .onChange(of: licenceNumber) { _, newValue in
+            licenceNumber = UserProfileValidation.normalizedLicenceNumber(newValue)
         }
         .onTapGesture { focusedField = nil }
     }
@@ -318,18 +369,18 @@ struct FirstTimeSetupView: View {
                 .font(.headline.weight(.semibold))
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            profileField("Name", systemImage: "person", text: $profileName, keyboardType: .default)
-            profileField("Email", systemImage: "envelope", text: $profileEmail, keyboardType: .emailAddress)
-            profileField("Contact no.", systemImage: "phone", text: $profileContact, keyboardType: .phonePad)
+            profileField("Name", systemImage: "person", text: $profileName, keyboardType: .default, validationMessage: visibleProfileValidationMessage(for: .name))
+            profileField("Email", systemImage: "envelope", text: $profileEmail, keyboardType: .emailAddress, validationMessage: visibleProfileValidationMessage(for: .email))
+            profileField("Contact no.", systemImage: "phone", text: $profileContact, keyboardType: .phonePad, validationMessage: visibleProfileValidationMessage(for: .contact))
 
             if user.role == .driver || user.role == .maintenancePersonnel {
-                profileField("Address", systemImage: "mappin.and.ellipse", text: $profileAddress, keyboardType: .default)
-                profileField("Aadhaar no.", systemImage: "number", text: $profileAadhar, keyboardType: .numberPad)
-                profileField("Photo / DP URL", systemImage: "photo", text: $profileAvatarUrl, keyboardType: .URL)
+                profileField("Address", systemImage: "mappin.and.ellipse", text: $profileAddress, keyboardType: .default, validationMessage: visibleProfileValidationMessage(for: .address))
+                profileField("Aadhaar no.", systemImage: "number", text: $profileAadhar, keyboardType: .numberPad, validationMessage: visibleProfileValidationMessage(for: .aadhaar))
+                profileField("Photo / DP URL", systemImage: "photo", text: $profileAvatarUrl, keyboardType: .URL, validationMessage: visibleProfileValidationMessage(for: .avatarURL))
             }
 
             if user.role == .driver {
-                profileField("Driving licence", systemImage: "doc.text", text: $licenceNumber, keyboardType: .default)
+                profileField("Driving licence", systemImage: "doc.text", text: $licenceNumber, keyboardType: .default, validationMessage: visibleProfileValidationMessage(for: .licenceNumber))
 
                 Picker("Vehicle Type", selection: $vehicleType) {
                     ForEach(["car", "van", "bus", "truck"], id: \.self) { type in
@@ -363,13 +414,13 @@ struct FirstTimeSetupView: View {
                 }
                 let activatedUser = try await authService.completeFirstTimeProfile(
                     user: user,
-                    name: profileName,
-                    email: profileEmail,
+                    name: UserProfileValidation.normalizedName(profileName),
+                    email: UserProfileValidation.normalizedEmail(profileEmail),
                     contact: contact,
-                    address: profileAddress,
-                    aadhar: profileAadhar,
-                    avatarUrl: profileAvatarUrl,
-                    licenceNumber: licenceNumber,
+                    address: profileAddress.trimmingCharacters(in: .whitespacesAndNewlines),
+                    aadhar: UserProfileValidation.normalizedAadhaar(profileAadhar),
+                    avatarUrl: UserProfileValidation.normalizedURL(profileAvatarUrl),
+                    licenceNumber: UserProfileValidation.normalizedLicenceNumber(licenceNumber),
                     vehicleType: vehicleType
                 )
                 isLoading = false
@@ -383,7 +434,13 @@ struct FirstTimeSetupView: View {
 
     // MARK: - Shared UI
 
-    private func profileField(_ label: String, systemImage: String, text: Binding<String>, keyboardType: UIKeyboardType) -> some View {
+    private func profileField(
+        _ label: String,
+        systemImage: String,
+        text: Binding<String>,
+        keyboardType: UIKeyboardType,
+        validationMessage: String? = nil
+    ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label)
                 .font(.subheadline.weight(.medium))
@@ -398,6 +455,34 @@ struct FirstTimeSetupView: View {
                     .foregroundStyle(.primary)
                     .frame(minWidth: 0, maxWidth: .infinity)
             }
+
+            if let validationMessage {
+                Label(validationMessage, systemImage: "exclamationmark.circle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(FleetPalette.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func visibleProfileValidationMessage(for field: UserProfileValidationField) -> String? {
+        switch field {
+        case .name where UserProfileValidation.normalizedName(profileName).isEmpty:
+            return nil
+        case .email where profileEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:
+            return nil
+        case .contact where UserProfileValidation.normalizedContact(profileContact).isEmpty:
+            return nil
+        case .address where profileAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:
+            return nil
+        case .aadhaar where UserProfileValidation.normalizedAadhaar(profileAadhar).isEmpty:
+            return nil
+        case .avatarURL where profileAvatarUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:
+            return nil
+        case .licenceNumber where UserProfileValidation.normalizedLicenceNumber(licenceNumber).isEmpty:
+            return nil
+        default:
+            return profileValidationIssues.first { $0.field == field }?.message
         }
     }
 

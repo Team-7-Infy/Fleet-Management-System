@@ -482,28 +482,41 @@ private struct ManagerUserEditView: View {
                 TextField("Name", text: $form.name)
                     .textContentType(.name)
                     .fleetField()
+                FleetFieldValidationMessage(message: visibleValidationMessage(for: .name))
+
                 TextField("Email / Login ID", text: $form.email)
                     .keyboardType(.emailAddress)
+                    .textContentType(.emailAddress)
                     .textInputAutocapitalization(.never)
                     .fleetField()
+                FleetFieldValidationMessage(message: visibleValidationMessage(for: .email))
+
                 TextField("Aadhar", text: $form.aadhar)
                     .keyboardType(.numberPad)
                     .fleetField()
+                FleetFieldValidationMessage(message: visibleValidationMessage(for: .aadhaar))
+
                 TextField("Contact", text: $form.contact)
                     .keyboardType(.phonePad)
                     .fleetField()
+                FleetFieldValidationMessage(message: visibleValidationMessage(for: .contact))
+
                 TextField("Address", text: $form.address, axis: .vertical)
                     .lineLimit(2...4)
                     .fleetField()
+                FleetFieldValidationMessage(message: visibleValidationMessage(for: .address))
+
                 TextField("Photo / DP URL", text: $form.avatarUrl)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     .fleetField()
+                FleetFieldValidationMessage(message: visibleValidationMessage(for: .avatarURL))
 
                 if user.role == .driver {
                     TextField("Licence number", text: $form.licenceNumber)
                         .textInputAutocapitalization(.characters)
                         .fleetField()
+                    FleetFieldValidationMessage(message: visibleValidationMessage(for: .licenceNumber))
 
                     Picker("Vehicle Type", selection: $form.vehicleType) {
                         ForEach(["car", "van", "bus", "truck"], id: \.self) { type in
@@ -517,13 +530,19 @@ private struct ManagerUserEditView: View {
 
                 Button {
                     Task {
+                        if let issue = form.validationIssues.first {
+                            viewModel.errorMessage = issue.message
+                            viewModel.successMessage = nil
+                            return
+                        }
+
                         var updated = user
                         let nameParts = form.normalizedNameParts
                         updated.fName = nameParts.first
                         updated.lName = nameParts.last
-                        updated.email = form.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                        updated.aadhar = form.aadhar.trimmingCharacters(in: .whitespacesAndNewlines)
-                        updated.address = form.address.trimmingCharacters(in: .whitespacesAndNewlines)
+                        updated.email = form.normalizedEmail
+                        updated.aadhar = form.normalizedAadhaar
+                        updated.address = form.normalizedAddress
                         updated.avatarUrl = form.normalizedAvatarUrl
                         if let contact = form.contactValue {
                             updated.contact = contact
@@ -532,7 +551,7 @@ private struct ManagerUserEditView: View {
                         let driverSaved = user.role == .driver
                             ? await viewModel.updateDriverProfile(
                                 userId: user.id,
-                                licenceNumber: form.licenceNumber,
+                                licenceNumber: form.normalizedLicenceNumber,
                                 vehicleType: form.vehicleType
                             )
                             : true
@@ -558,6 +577,36 @@ private struct ManagerUserEditView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") { dismiss() }
             }
+        }
+        .onChange(of: form.aadhar) { _, newValue in
+            form.aadhar = String(UserProfileValidation.normalizedAadhaar(newValue).prefix(12))
+        }
+        .onChange(of: form.contact) { _, newValue in
+            form.contact = String(UserProfileValidation.normalizedContact(newValue).prefix(10))
+        }
+        .onChange(of: form.licenceNumber) { _, newValue in
+            form.licenceNumber = UserProfileValidation.normalizedLicenceNumber(newValue)
+        }
+    }
+
+    private func visibleValidationMessage(for field: UserProfileValidationField) -> String? {
+        switch field {
+        case .name where form.normalizedName.isEmpty:
+            return nil
+        case .email where form.email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:
+            return nil
+        case .aadhaar where form.normalizedAadhaar.isEmpty:
+            return nil
+        case .contact where form.normalizedContact.isEmpty:
+            return nil
+        case .address where form.normalizedAddress.isEmpty:
+            return nil
+        case .avatarURL where form.avatarUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:
+            return nil
+        case .licenceNumber where form.normalizedLicenceNumber.isEmpty:
+            return nil
+        default:
+            return form.validationMessage(for: field)
         }
     }
 }

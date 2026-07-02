@@ -18,7 +18,10 @@ struct ManagerVehicleFormSheet: View {
             VStack(alignment: .leading, spacing: 16) {
                 TextField("Plate number", text: $form.licencePlate)
                     .textInputAutocapitalization(.characters)
+                    .keyboardType(.asciiCapable)
                     .fleetField()
+                FleetFieldValidationMessage(message: visiblePlateValidationMessage)
+
                 TextField("VIN UUID (optional)", text: $form.vin)
                     .textInputAutocapitalization(.never)
                     .fleetField()
@@ -31,7 +34,7 @@ struct ManagerVehicleFormSheet: View {
                 }
 
                 HStack {
-                    TextField("Year", value: $form.year, format: .number)
+                    TextField("Year", text: $form.year)
                         .keyboardType(.numberPad)
                         .fleetField()
                     Picker("Type", selection: $form.vehicleType) {
@@ -42,6 +45,7 @@ struct ManagerVehicleFormSheet: View {
                     .pickerStyle(.menu)
                     .fleetField()
                 }
+                FleetFieldValidationMessage(message: visibleYearValidationMessage)
 
                 Picker("Status", selection: $form.status) {
                     ForEach(VehicleStatus.allCases) { status in
@@ -70,5 +74,19 @@ struct ManagerVehicleFormSheet: View {
         .fleetScreenBackground()
         .navigationTitle("Add Vehicle")
         .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: form.licencePlate) { _, newValue in
+            form.licencePlate = FleetManagerVehicleForm.sanitizedLicencePlateInput(newValue)
+        }
+        .onChange(of: form.year) { _, newValue in
+            form.year = String(newValue.filter(\.isNumber).prefix(4))
+        }
+    }
+
+    private var visiblePlateValidationMessage: String? {
+        form.normalizedLicencePlate.isEmpty ? nil : form.licencePlateValidationMessage
+    }
+
+    private var visibleYearValidationMessage: String? {
+        form.year.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : form.yearValidationMessage
     }
 }

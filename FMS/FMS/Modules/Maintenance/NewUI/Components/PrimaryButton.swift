@@ -27,7 +27,6 @@ struct PrimaryButtonStyle: ButtonStyle {
             .foregroundStyle(.white)
             .background(AppColor.brand)
             .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium, style: .continuous))
-            .shadow(color: AppColor.brand.opacity(configuration.isPressed ? 0.0 : 0.3), radius: 8, x: 0, y: 4)
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .opacity(configuration.isPressed ? 0.9 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)

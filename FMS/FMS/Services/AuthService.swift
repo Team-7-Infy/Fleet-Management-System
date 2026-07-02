@@ -215,15 +215,47 @@ final actor AuthService: AuthServiceProtocol {
         licenceNumber: String?,
         vehicleType: String?
     ) async throws -> User {
-        let nameParts = Self.nameParts(from: name)
-        let trimmedAvatar = avatarUrl?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let normalizedName = UserProfileValidation.normalizedName(name)
+        let normalizedEmail = UserProfileValidation.normalizedEmail(email)
+        let normalizedContact = "\(contact)"
+        let normalizedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedAadhaar = UserProfileValidation.normalizedAadhaar(aadhar)
+        let trimmedAvatar = UserProfileValidation.normalizedURL(avatarUrl ?? "")
+
+        guard UserProfileValidation.isValidName(normalizedName) else {
+            throw AuthError.functionError("Enter a valid name using letters, spaces, apostrophes, or hyphens.")
+        }
+
+        guard UserProfileValidation.isValidEmail(normalizedEmail) else {
+            throw AuthError.functionError("Enter a valid email address.")
+        }
+
+        guard UserProfileValidation.isValidContact(normalizedContact) else {
+            throw AuthError.functionError("Contact must be a 10-digit mobile number starting with 6, 7, 8, or 9.")
+        }
+
+        if user.role == .driver || user.role == .maintenancePersonnel {
+            guard UserProfileValidation.isValidAddress(normalizedAddress) else {
+                throw AuthError.functionError("Address must be 5-160 characters and use only common address characters.")
+            }
+
+            guard UserProfileValidation.isValidAadhaar(normalizedAadhaar) else {
+                throw AuthError.functionError("Aadhaar must be exactly 12 digits.")
+            }
+        }
+
+        guard UserProfileValidation.isValidOptionalURL(trimmedAvatar) else {
+            throw AuthError.functionError("Photo URL must start with http:// or https://.")
+        }
+
+        let nameParts = Self.nameParts(from: normalizedName)
         var userUpdate: [String: AnyJSON] = [
-            "email": .string(email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()),
+            "email": .string(normalizedEmail),
             "contact": .integer(Int(contact)),
             "f_name": .string(nameParts.first),
             "l_name": .string(nameParts.last),
-            "address": .string(address.trimmingCharacters(in: .whitespacesAndNewlines)),
-            "aadhar": .string(aadhar.trimmingCharacters(in: .whitespacesAndNewlines)),
+            "address": .string(normalizedAddress),
+            "aadhar": .string(normalizedAadhaar),
             "first_time_login": .bool(false)
         ]
         userUpdate["avatarurl"] = trimmedAvatar.isEmpty ? .null : .string(trimmedAvatar)
@@ -235,10 +267,14 @@ final actor AuthService: AuthServiceProtocol {
             .execute()
 
         if user.role == .driver {
-            let trimmedLicence = licenceNumber?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let trimmedLicence = UserProfileValidation.normalizedLicenceNumber(licenceNumber ?? "")
+            guard UserProfileValidation.isValidLicenceNumber(trimmedLicence, allowsPending: false) else {
+                throw AuthError.functionError("Licence must look like DL-042026-7101 or MH12 2026 1234567.")
+            }
+
             let trimmedVehicleType = vehicleType?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
             let driverUpdate: [String: AnyJSON] = [
-                "licencenum": .string(trimmedLicence.isEmpty ? "Pending" : trimmedLicence),
+                "licencenum": .string(trimmedLicence),
                 "vehicletype": .string(trimmedVehicleType.isEmpty ? "van" : trimmedVehicleType)
             ]
 

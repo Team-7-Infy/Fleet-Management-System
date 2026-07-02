@@ -144,6 +144,17 @@ struct ManagerTripFormSheet: View {
         vehiclesViewModel.vehicles.filter { $0.status == .active }
     }
 
+    private var selectedVehicleTitle: String? {
+        guard let vehicle = vehiclesViewModel.vehicle(for: form.vehicleId) else { return nil }
+        return "\(vehicle.licencePlate) - \(vehicle.make) \(vehicle.model)"
+    }
+
+    private var selectedDriverTitle: String? {
+        guard let driver = usersViewModel.driver(for: form.driverId) else { return nil }
+        let user = usersViewModel.user(for: driver.userId)
+        return user?.displayName ?? driver.licenceNum
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -192,23 +203,41 @@ struct ManagerTripFormSheet: View {
                             .foregroundStyle(FleetPalette.warning)
                     }
 
-                    Picker("Vehicle", selection: $form.vehicleId) {
+                    Picker(selection: $form.vehicleId) {
                         Text("Select vehicle").tag(Optional<UUID>.none)
                         ForEach(availableVehicles) { vehicle in
                             Text("\(vehicle.licencePlate) - \(vehicle.make) \(vehicle.model)")
                                 .tag(Optional(vehicle.id))
                         }
+                    } label: {
+                        TripSelectionMenuLabel(
+                            title: "Vehicle",
+                            value: selectedVehicleTitle,
+                            placeholder: "Select vehicle",
+                            systemImage: "car.fill"
+                        )
                     }
+                    .pickerStyle(.menu)
+                    .tint(FleetPalette.accent)
                     .fleetField()
 
-                    Picker("Driver", selection: $form.driverId) {
-                        Text("Select driver").tag(Optional<UUID>.none)
+                    Picker(selection: $form.driverId) {
+                        Text("Select user").tag(Optional<UUID>.none)
                         ForEach(availableDrivers) { driver in
                             let user = usersViewModel.user(for: driver.userId)
                             Text(user?.displayName ?? driver.licenceNum)
                                 .tag(Optional(driver.id))
                         }
+                    } label: {
+                        TripSelectionMenuLabel(
+                            title: "User",
+                            value: selectedDriverTitle,
+                            placeholder: "Select user",
+                            systemImage: "person.fill"
+                        )
                     }
+                    .pickerStyle(.menu)
+                    .tint(FleetPalette.accent)
                     .fleetField()
 
                     DatePicker("Start", selection: $form.startTime, in: minimumStartTime...)
@@ -320,6 +349,43 @@ struct ManagerTripFormSheet: View {
             routeEstimate = nil
             routeMessage = error.localizedDescription
         }
+    }
+}
+
+private struct TripSelectionMenuLabel: View {
+    var title: String
+    var value: String?
+    var placeholder: String
+    var systemImage: String
+
+    private var displayedValue: String {
+        let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmedValue.isEmpty ? placeholder : trimmedValue
+    }
+
+    private var hasValue: Bool {
+        value?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Label(title, systemImage: systemImage)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(FleetPalette.textPrimary)
+
+            Spacer(minLength: 8)
+
+            Text(displayedValue)
+                .font(.body)
+                .foregroundStyle(hasValue ? FleetPalette.textSecondary : FleetPalette.textTertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(FleetPalette.accent)
+        }
+        .contentShape(Rectangle())
     }
 }
 

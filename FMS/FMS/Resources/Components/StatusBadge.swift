@@ -34,7 +34,6 @@ struct StatusDot: View {
                     Circle()
                         .stroke(.white.opacity(0.88), lineWidth: max(1.5, size * 0.12))
                 }
-                .shadow(color: color.opacity(0.24), radius: 3, y: 1)
 
             Text(text)
                 .font(.subheadline.weight(.medium))

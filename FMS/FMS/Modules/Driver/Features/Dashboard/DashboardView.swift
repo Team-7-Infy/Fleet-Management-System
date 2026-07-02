@@ -150,7 +150,7 @@ struct ActiveRouteCard: View {
         }
         .padding(24)
         .background(LinearGradient(colors: [FleetPalette.inProgress, FleetPalette.secondary], startPoint: .topLeading, endPoint: .bottomTrailing))
-        .cornerRadius(24).shadow(color: FleetPalette.inProgress.opacity(0.25), radius: 20, x: 0, y: 12)
+        .cornerRadius(24)
     }
 }
 

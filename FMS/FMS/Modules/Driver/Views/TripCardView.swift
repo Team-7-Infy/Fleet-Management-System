@@ -70,7 +70,6 @@ struct TripCardView: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(FleetPalette.tertiary.opacity(0.55), lineWidth: 1)
         }
-        .shadow(color: FleetPalette.accent.opacity(0.10), radius: 16, x: 0, y: 9)
     }
 
     @ViewBuilder

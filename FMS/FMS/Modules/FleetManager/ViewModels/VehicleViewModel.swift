@@ -40,7 +40,7 @@ final class VehicleViewModel: ObservableObject {
 
     func createVehicle(form: FleetManagerVehicleForm) async -> Bool {
         guard form.isValid else {
-            errorMessage = "Complete vehicle details. VIN must be a valid UUID if supplied."
+            errorMessage = form.validationMessage ?? "Complete vehicle details. VIN must be a valid UUID if supplied."
             successMessage = nil
             return false
         }
