@@ -34,24 +34,25 @@ struct FleetManagerDashboardView: View {
     @StateObject private var vehiclesViewModel: VehicleViewModel
     @StateObject private var tripsViewModel: TripManagementViewModel
     @StateObject private var maintenanceViewModel: MaintenanceViewModel
-    @StateObject private var notificationController: ManagerNotificationController
+    @StateObject private var notificationViewModel: NotificationViewModel
+    let services: AppServices
     let onLogout: () -> Void
     private let authService: AuthServiceProtocol
-    private let inventoryService: InventoryServiceProtocol
 
     @State private var selectedTab: ManagerTab = .live
     @State private var selectedUserSegment: ManagerUserSegment = .drivers
     @State private var addSheet: ManagerAddSheet?
     @State private var maintenanceVehicleId: UUID?
     @State private var currentUserId: UUID?
-    @State private var isShowingAccount = false
     @State private var isRefreshingAll = false
+    @State private var isShowingProfile = false
+    @State private var showingNotifications = false
     @Environment(\.scenePhase) private var scenePhase
 
     init(services: AppServices, onLogout: @escaping () -> Void) {
+        self.services = services
         self.onLogout = onLogout
         self.authService = services.authService
-        self.inventoryService = services.inventoryService
         _usersViewModel = StateObject(
             wrappedValue: UserManagementViewModel(
                 service: services.userManagementService,
@@ -73,38 +74,63 @@ struct FleetManagerDashboardView: View {
                 vehicleService: services.vehicleService
             )
         )
-        _notificationController = StateObject(
-            wrappedValue: ManagerNotificationController(service: services.fleetNotificationService)
+        _notificationViewModel = StateObject(
+            wrappedValue: NotificationViewModel(
+                notificationService: services.notificationService,
+                recipientId: nil,
+                role: .manager
+            )
         )
     }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            liveTab
-                .tabItem { Label("Dashboard", systemImage: "map") }
-                .tag(ManagerTab.live)
+        ZStack {
+            TabView(selection: $selectedTab) {
+                liveTab
+                    .tabItem { Label("Live", systemImage: "map") }
+                    .tag(ManagerTab.live)
 
-            usersTab
-                .tabItem { Label("Users", systemImage: "person.2") }
-                .tag(ManagerTab.users)
+                usersTab
+                    .tabItem { Label("Users", systemImage: "person.2") }
+                    .tag(ManagerTab.users)
 
-            vehiclesTab
-                .tabItem { Label("Vehicles", systemImage: "car.2") }
-                .tag(ManagerTab.vehicles)
+                vehiclesTab
+                    .tabItem { Label("Vehicles", systemImage: "car.2") }
+                    .tag(ManagerTab.vehicles)
 
-            tripsTab
-                .tabItem { Label("Trips", systemImage: "point.topleft.down.curvedto.point.bottomright.up") }
-                .tag(ManagerTab.trips)
-                .badge(tripsViewModel.rejectionRequests.count)
+                tripsTab
+                    .tabItem { Label("Trips", systemImage: "point.topleft.down.curvedto.point.bottomright.up") }
+                    .tag(ManagerTab.trips)
+                    .badge(tripsViewModel.rejectionRequests.count)
 
-            maintenanceTab
-                .tabItem { Label("Workshop", systemImage: "wrench") }
-                .tag(ManagerTab.maintenance)
+                maintenanceTab
+                    .tabItem { Label("Service", systemImage: "wrench") }
+                    .tag(ManagerTab.maintenance)
+            }
+            .tint(FleetPalette.primary)
+
+            if notificationViewModel.showBanner, let banner = notificationViewModel.currentBanner {
+                NotificationBannerView(
+                    notification: banner,
+                    onTap: {
+                        notificationViewModel.dismissCurrentBanner()
+                        showingNotifications = true
+                    },
+                    onDismiss: {
+                        notificationViewModel.dismissCurrentBanner()
+                    }
+                )
+                .zIndex(99)
+            }
         }
-        .tint(FleetPalette.accent)
         .task {
             currentUserId = try? await authService.currentSession()?.id
             await refreshAll()
+            await notificationViewModel.loadNotifications()
+            notificationViewModel.subscribeToRealtime()
+        }
+        .onDisappear {
+            notificationViewModel.unsubscribeRealtime()
         }
         .onReceive(Timer.publish(every: 20, on: .main, in: .common).autoconnect()) { _ in
             Task { await refreshAll() }
@@ -126,6 +152,9 @@ struct FleetManagerDashboardView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showingNotifications) {
+            NotificationListView(viewModel: notificationViewModel)
+        }
     }
 
     private var liveTab: some View {
@@ -135,16 +164,28 @@ struct FleetManagerDashboardView: View {
                 vehiclesViewModel: vehiclesViewModel,
                 tripsViewModel: tripsViewModel,
                 maintenanceViewModel: maintenanceViewModel,
-                notificationController: notificationController,
+                notificationViewModel: notificationViewModel,
+                showingNotifications: $showingNotifications,
                 refresh: refreshAll,
                 currentUserId: currentUserId,
-                onProfile: { isShowingAccount = true }
+                onProfile: { isShowingProfile = true }
             )
-            .navigationDestination(isPresented: $isShowingAccount) {
-                ManagerAccountView(
-                    user: currentUserId.flatMap { usersViewModel.user(for: $0) },
-                    onLogout: onLogout
-                )
+            .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $isShowingProfile) {
+                NavigationStack {
+                    ManagerAccountView(
+                        user: usersViewModel.user(for: currentUserId),
+                        onLogout: onLogout
+                    )
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") {
+                                isShowingProfile = false
+                            }
+                            .fontWeight(.semibold)
+                        }
+                    }
+                }
             }
         }
     }
@@ -181,7 +222,7 @@ struct FleetManagerDashboardView: View {
                 viewModel: maintenanceViewModel,
                 vehiclesViewModel: vehiclesViewModel,
                 usersViewModel: usersViewModel,
-                inventoryService: inventoryService,
+                inventoryService: services.inventoryService,
                 openMaintenanceRequest: {
                     maintenanceVehicleId = nil
                     addSheet = .maintenanceRequest
@@ -211,7 +252,6 @@ struct FleetManagerDashboardView: View {
         await vehiclesViewModel.load()
         await tripsViewModel.load()
         await maintenanceViewModel.load()
-        await notificationController.load(recipientId: currentUserId)
     }
 
 }
@@ -251,7 +291,7 @@ struct ManagerAddSheetView: View {
     }
 }
 
-struct ManagerAccountView: View {
+private struct ManagerAccountView: View {
     var user: User?
     var onLogout: () -> Void
 

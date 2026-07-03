@@ -15,6 +15,7 @@ struct MaintenanceTask: Identifiable, Codable, Hashable, Sendable {
     var partsSummary: String?
     var totalCost: Double?
     var photoUrls: [String]?
+    var elapsedTime: Int = 0
 
     enum CodingKeys: String, CodingKey {
         case id = "taskid"
@@ -31,5 +32,6 @@ struct MaintenanceTask: Identifiable, Codable, Hashable, Sendable {
         case partsSummary = "partssummary"
         case totalCost = "totalcost"
         case photoUrls = "photourls"
+        case elapsedTime = "elapsed_time"
     }
 }

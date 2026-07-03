@@ -3,8 +3,12 @@
 <plist version="1.0">
 <dict>
 	<key>SUPABASE_ANON_KEY</key>
-	<string>$(SUPABASE_ANON_KEY)</string>
+	<string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZibWxidm5nemN0dGpuYnh5ZGtrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjIwMDEwMCwiZXhwIjoyMDk3Nzc2MTAwfQ.LaUUvN5XpSk-mPnoBoQryso-jvw6omfIuYP-D2Au8d4</string>
 	<key>SUPABASE_URL</key>
-	<string>$(SUPABASE_URL)</string>
+	<string>https:/$()/vbmlbvngzcttjnbxydkk.supabase.co</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app requires access to the camera to take photos of vehicle defects during pre-trip inspection.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app requires access to the photo library to upload defect photos during pre-trip inspection.</string>
 </dict>
 </plist>

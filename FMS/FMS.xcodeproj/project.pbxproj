@@ -7,8 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		00E234C02FF6320C00A3DC2E /* Secrets.debug.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 00E234BF2FF6320C00A3DC2E /* Secrets.debug.xcconfig */; };
-		00E234C22FF6323300A3DC2E /* Secrets.release.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 00E234C12FF6323300A3DC2E /* Secrets.release.xcconfig */; };
 		049343B037CC493187563B3B /* FMS/Modules/Maintenance/NewUI/Components/LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03B30D43FFC44E181A23257 /* FMS/Modules/Maintenance/NewUI/Components/LoadingView.swift */; };
 		0518D3D3D3974739913A910A /* FMS/Modules/Maintenance/NewUI/Theme/AppIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = E23CDBC61E6549CF83AFAB01 /* FMS/Modules/Maintenance/NewUI/Theme/AppIcon.swift */; };
 		09661A12066844109D842F36 /* FMS/Modules/Maintenance/NewUI/Theme/AppCornerRadius.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB013C9D855C4874A0AC191B /* FMS/Modules/Maintenance/NewUI/Theme/AppCornerRadius.swift */; };
@@ -57,6 +55,8 @@
 		7FDB1A49B0984969B9B27C9D /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ActivityHistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81F09F9B5E724E159FF38B43 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ActivityHistoryViewModel.swift */; };
 		80A60FC041B44A77817A0142 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0756826F95CD4D4680140F07 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPDashboardView.swift */; };
 		80F2C6EDF67246499C2EF276 /* FMS/Modules/Maintenance/NewUI/Components/SectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E798FE6A34274003B3743274 /* FMS/Modules/Maintenance/NewUI/Components/SectionHeader.swift */; };
+		84AF374A2FF686B500061534 /* Secrets.release.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 84AF37492FF686B500061534 /* Secrets.release.xcconfig */; };
+		84AF374C2FF686BD00061534 /* Secrets.debug.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 84AF374B2FF686BD00061534 /* Secrets.debug.xcconfig */; };
 		885E3237BF044BAF84BE035C /* FMS/Modules/Maintenance/NewUI/Extensions/String+Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = C92FE302199C496EA374EBA6 /* FMS/Modules/Maintenance/NewUI/Extensions/String+Accessibility.swift */; };
 		90E9CC5D3227424389EC4D41 /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockActivityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D7C04D399749CEBAE9501B /* FMS/Modules/Maintenance/NewUI/Services/Mocks/MockActivityService.swift */; };
 		93B252A15DFE4380864173FC /* FMS/Modules/Maintenance/NewUI/Theme/AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5C420336544DF4A986D124 /* FMS/Modules/Maintenance/NewUI/Theme/AppTheme.swift */; };
@@ -121,8 +121,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		00E234BF2FF6320C00A3DC2E /* Secrets.debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.debug.xcconfig; sourceTree = "<group>"; };
-		00E234C12FF6323300A3DC2E /* Secrets.release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.release.xcconfig; sourceTree = "<group>"; };
 		023BCB53D1454FDCA8324095 /* FMS/Modules/Maintenance/NewUI/Extensions/Date+Formatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FMS/Modules/Maintenance/NewUI/Extensions/Date+Formatting.swift"; sourceTree = "<group>"; };
 		0756826F95CD4D4680140F07 /* FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPDashboardView.swift; sourceTree = "<group>"; };
 		0A66E8FF6C534603AFB001E7 /* FMS/Modules/Maintenance/NewUI/Components/ToastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/ToastView.swift; sourceTree = "<group>"; };
@@ -172,6 +170,8 @@
 		7D683B0B89CF4DE69D6D7586 /* FMS/Modules/Maintenance/NewUI/AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/AppEnvironment.swift; sourceTree = "<group>"; };
 		81F09F9B5E724E159FF38B43 /* FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ActivityHistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/ViewModels/Dashboard/ActivityHistoryViewModel.swift; sourceTree = "<group>"; };
 		849C17524D284AF0B1A00FC8 /* FMS/Modules/Maintenance/NewUI/Components/SecondaryButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/SecondaryButton.swift; sourceTree = "<group>"; };
+		84AF37492FF686B500061534 /* Secrets.release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.release.xcconfig; sourceTree = "<group>"; };
+		84AF374B2FF686BD00061534 /* Secrets.debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.debug.xcconfig; sourceTree = "<group>"; };
 		892B047CB922436F93D22809 /* FMS/Modules/Maintenance/NewUI/Models/MPInspectionItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Models/MPInspectionItem.swift; sourceTree = "<group>"; };
 		8C14CDF3BF4145C18A33972F /* FMS/Modules/Maintenance/NewUI/Components/ReusableNavigationBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/ReusableNavigationBar.swift; sourceTree = "<group>"; };
 		9513E486C5534123AD72B72A /* FMS/Modules/Maintenance/NewUI/Components/DetailRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMS/Modules/Maintenance/NewUI/Components/DetailRow.swift; sourceTree = "<group>"; };
@@ -279,14 +279,14 @@
 		0DBDFD232FEE753800950D07 = {
 			isa = PBXGroup;
 			children = (
+				84AF37492FF686B500061534 /* Secrets.release.xcconfig */,
+				84AF374B2FF686BD00061534 /* Secrets.debug.xcconfig */,
 				0DBDFDE72FEE75FC00950D07 /* FMS */,
 				0DBDFD3C2FEE753A00950D07 /* FMSTests */,
 				0DBDFD462FEE753A00950D07 /* FMSUITests */,
 				0DBDFEC62FEEA20000950D07 /* Frameworks */,
 				0DBDFD2D2FEE753800950D07 /* Products */,
 				F12FE6B92FF14D2600FC295F /* Recovered References */,
-				00E234BF2FF6320C00A3DC2E /* Secrets.debug.xcconfig */,
-				00E234C12FF6323300A3DC2E /* Secrets.release.xcconfig */,
 			);
 			sourceTree = "<group>";
 		};
@@ -529,8 +529,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				00E234C22FF6323300A3DC2E /* Secrets.release.xcconfig in Resources */,
-				00E234C02FF6320C00A3DC2E /* Secrets.debug.xcconfig in Resources */,
+				84AF374C2FF686BD00061534 /* Secrets.debug.xcconfig in Resources */,
+				84AF374A2FF686B500061534 /* Secrets.release.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -681,7 +681,6 @@
 /* Begin XCBuildConfiguration section */
 		0DBDFD4B2FEE753A00950D07 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 00E234BF2FF6320C00A3DC2E /* Secrets.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -746,7 +745,6 @@
 		};
 		0DBDFD4C2FEE753A00950D07 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 00E234C12FF6323300A3DC2E /* Secrets.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -804,13 +802,12 @@
 		};
 		0DBDFD4E2FEE753A00950D07 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 00E234BF2FF6320C00A3DC2E /* Secrets.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 54TNTV532R;
+				DEVELOPMENT_TEAM = H57W4Q745B;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FMS/Info.plist;
@@ -824,7 +821,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.team7.FMS-manager-Aakash";
+				PRODUCT_BUNDLE_IDENTIFIER = com.team7.fms;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -838,13 +835,12 @@
 		};
 		0DBDFD4F2FEE753A00950D07 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 00E234C12FF6323300A3DC2E /* Secrets.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 54TNTV532R;
+				DEVELOPMENT_TEAM = H57W4Q745B;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FMS/Info.plist;
@@ -858,7 +854,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.team7.FMS-manager-Aakash";
+				PRODUCT_BUNDLE_IDENTIFIER = com.team7.fms;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
