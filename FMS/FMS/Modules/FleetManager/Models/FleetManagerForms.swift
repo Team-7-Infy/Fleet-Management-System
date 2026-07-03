@@ -277,7 +277,8 @@ struct FleetManagerVehicleForm {
             licencePlate: normalizedLicencePlate,
             status: status,
             vehicleType: vehicleType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-            driverId: nil
+            driverId: nil,
+            addedToFleetAt: Date()
         )
     }
 
@@ -338,7 +339,10 @@ struct FleetManagerTripForm {
             endTime: endTime,
             vehicleId: vehicleId,
             driverId: driverId,
-            status: status
+            status: status,
+            distanceKm: nil,
+            fuelCost: nil,
+            miscellaneousCost: nil
         )
     }
 }
@@ -372,6 +376,11 @@ struct FleetManagerMaintenanceTaskForm {
             executedBy: executedBy,
             status: status,
             reportedDate: Date(),
+            completedAt: nil,
+            timeTakenHours: nil,
+            partsSummary: nil,
+            totalCost: nil,
+            labourCost: nil,
             photoUrls: photo.isEmpty ? nil : [photo]
         )
     }

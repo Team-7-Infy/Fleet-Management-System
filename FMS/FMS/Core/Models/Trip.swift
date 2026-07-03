@@ -10,7 +10,9 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
     var driverId: UUID?
     var status: TripStatus
     var rejectionReason: String?
-    var distance: Double?
+    var distanceKm: Double?
+    var fuelCost: Double?
+    var miscellaneousCost: Double?
 
     enum CodingKeys: String, CodingKey {
         case id = "tripid"
@@ -22,6 +24,14 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
         case driverId = "driverid"
         case status
         case rejectionReason = "rejection_reason"
-        case distance
+        case distanceKm = "distance_km"
+        case fuelCost = "fuel_cost"
+        case miscellaneousCost = "miscellaneous_cost"
+    }
+}
+
+extension Trip {
+    var totalCost: Double {
+        (fuelCost ?? 0) + (miscellaneousCost ?? 0)
     }
 }

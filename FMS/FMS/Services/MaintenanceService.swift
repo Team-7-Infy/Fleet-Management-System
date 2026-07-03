@@ -54,6 +54,7 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
                 timeTakenHours: nil,
                 partsSummary: nil,
                 totalCost: nil,
+                labourCost: nil,
                 photoUrls: nil
             )
         }

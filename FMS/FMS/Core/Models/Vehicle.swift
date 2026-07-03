@@ -9,6 +9,7 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
     var status: VehicleStatus
     var vehicleType: String
     var driverId: UUID?
+    var addedToFleetAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id = "vin"
@@ -19,5 +20,6 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
         case status
         case vehicleType = "vehicletype"
         case driverId = "driverid"
+        case addedToFleetAt = "added_to_fleet_at"
     }
 }

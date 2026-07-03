@@ -251,7 +251,7 @@ private struct ManagerTripCard: View {
     }
 
     private var distanceTitle: String {
-        guard let distance = trip.distance, distance > 0 else {
+        guard let distance = trip.distanceKm, distance > 0 else {
             return "Distance not recorded"
         }
 

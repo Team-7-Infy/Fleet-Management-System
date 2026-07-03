@@ -10,8 +10,38 @@ struct ManagerOverviewView: View {
     var refresh: () async -> Void
     var currentUserId: UUID?
     var onProfile: (() -> Void)?
+    var onShowReportsHub: (() -> Void)?
     @State private var isShowingNotifications = false
     @State private var selectedActiveTripID: UUID?
+    @StateObject private var reportsViewModel: ReportsViewModel
+
+    init(
+        usersViewModel: UserManagementViewModel,
+        vehiclesViewModel: VehicleViewModel,
+        tripsViewModel: TripManagementViewModel,
+        maintenanceViewModel: MaintenanceViewModel,
+        notificationController: ManagerNotificationController,
+        refresh: @escaping () async -> Void,
+        currentUserId: UUID?,
+        onProfile: (() -> Void)?,
+        onShowReportsHub: (() -> Void)?
+    ) {
+        self.usersViewModel = usersViewModel
+        self.vehiclesViewModel = vehiclesViewModel
+        self.tripsViewModel = tripsViewModel
+        self.maintenanceViewModel = maintenanceViewModel
+        self.notificationController = notificationController
+        self.refresh = refresh
+        self.currentUserId = currentUserId
+        self.onProfile = onProfile
+        self.onShowReportsHub = onShowReportsHub
+        _reportsViewModel = StateObject(wrappedValue: ReportsViewModel(
+            tripsViewModel: tripsViewModel,
+            vehiclesViewModel: vehiclesViewModel,
+            maintenanceViewModel: maintenanceViewModel,
+            usersViewModel: usersViewModel
+        ))
+    }
 
     private var activeTrips: [Trip] {
         tripsViewModel.trips
@@ -27,8 +57,8 @@ struct ManagerOverviewView: View {
 
     private var completedTrips: [Trip] {
         tripsViewModel.trips
-            .filter { $0.status == .completed }
-            .sorted { ($0.endTime ?? $0.startTime) > ($1.endTime ?? $1.startTime) }
+            .filter { $0.status == .accepted || $0.status == .inProgress }
+            .sorted { $0.startTime < $1.startTime }
     }
 
     private var busyDriverIDs: Set<UUID> {
@@ -64,9 +94,9 @@ struct ManagerOverviewView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 activeTripsHeaderCard
-                tripMetricsRow
                 fleetStatusSection
                 maintenanceSection
+                reportsSection
             }
             .padding()
             .padding(.bottom, 10)
@@ -147,28 +177,96 @@ struct ManagerOverviewView: View {
         }
     }
     
-    private var tripMetricsRow: some View {
-        let total = activeTrips.count + pendingTrips.count + completedTrips.count
-        let completedProgress = total > 0 ? Double(completedTrips.count) / Double(total) : 0.0
-        let pendingProgress = total > 0 ? Double(pendingTrips.count) / Double(total) : 0.0
-        
-        return HStack(spacing: 12) {
-            FMSMetricWidget(
-                title: "Pending Trips",
-                value: "\(pendingTrips.count)",
-                subtitle: pendingTrips.count == 1 ? "Awaiting driver" : "Awaiting drivers",
-                progress: pendingProgress,
-                color: FleetPalette.warning
-            )
-            
-            FMSMetricWidget(
-                title: "Completed Trips",
-                value: "\(completedTrips.count)",
-                subtitle: "Finished today",
-                progress: completedProgress,
-                color: FleetPalette.success
-            )
+    private var reportsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                DashboardSectionTitle("Reports & Analytics")
+                Spacer()
+                Button {
+                    onShowReportsHub?()
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("View All")
+                            .font(.caption.weight(.bold))
+                        Image(systemName: "chevron.right")
+                            .font(.caption2.weight(.bold))
+                    }
+                    .foregroundStyle(FleetPalette.accent)
+                }
+            }
+            .padding(.horizontal, 2)
+
+            VStack(spacing: 10) {
+                NavigationLink {
+                    ReportsHubView(
+                        tripsViewModel: tripsViewModel,
+                        vehiclesViewModel: vehiclesViewModel,
+                        maintenanceViewModel: maintenanceViewModel,
+                        usersViewModel: usersViewModel
+                    )
+                } label: {
+                    ReportSummaryCard(
+                        title: "Trips Performance",
+                        primaryValue: "\(reportsViewModel.tripsThisMonthCount)",
+                        primaryLabel: "Trips this month",
+                        secondaryValue: "\(Int(reportsViewModel.completionRate * 100))%",
+                        secondaryLabel: "Completion",
+                        tint: FleetPalette.accent,
+                        trendValue: reportTrendText(reportsViewModel.tripCountChangePercent),
+                        trendIsPositive: reportsViewModel.tripCountChangePercent >= 0
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink {
+                    ReportsHubView(
+                        tripsViewModel: tripsViewModel,
+                        vehiclesViewModel: vehiclesViewModel,
+                        maintenanceViewModel: maintenanceViewModel,
+                        usersViewModel: usersViewModel
+                    )
+                } label: {
+                    ReportSummaryCard(
+                        title: "Fleet Health",
+                        primaryValue: "\(reportsViewModel.fleetHealthScore)",
+                        primaryLabel: "Avg health score",
+                        secondaryValue: "\(reportsViewModel.overdueMaintenanceCount)",
+                        secondaryLabel: "Overdue maintenance",
+                        tint: FleetPalette.success,
+                        trendValue: nil,
+                        trendIsPositive: nil
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink {
+                    ReportsHubView(
+                        tripsViewModel: tripsViewModel,
+                        vehiclesViewModel: vehiclesViewModel,
+                        maintenanceViewModel: maintenanceViewModel,
+                        usersViewModel: usersViewModel
+                    )
+                } label: {
+                    ReportSummaryCard(
+                        title: "Expenditure",
+                        primaryValue: reportsViewModel.currentMonthTotalExpenditure.formatted(.currency(code: "INR")),
+                        primaryLabel: "Total this month",
+                        secondaryValue: "\(reportsViewModel.openTasksCount) / \(reportsViewModel.urgentTasksCount)",
+                        secondaryLabel: "Open / Urgent tasks",
+                        tint: FleetPalette.warning,
+                        trendValue: nil,
+                        trendIsPositive: nil
+                    )
+                }
+                .buttonStyle(.plain)
+            }
         }
+    }
+
+    private func reportTrendText(_ percent: Double) -> String {
+        let absVal = abs(percent)
+        if absVal < 1 { return "Same as last month" }
+        return "\(percent > 0 ? "+" : "")\(Int(absVal))% vs last month"
     }
 
     private var fleetStatusSection: some View {
