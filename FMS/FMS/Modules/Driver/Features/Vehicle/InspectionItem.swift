@@ -1,12 +1,33 @@
 import Foundation
+import UIKit
 
-struct InspectionItem: Identifiable {
-    let id = UUID()
+struct InspectionItem: Identifiable, Equatable {
+    let id: UUID
     let name: String
     let icon: String
-    var status: ItemStatus = .untested
+    var status: ItemStatus
+    var failDescription: String
+    var failImage: UIImage?
+
+    init(id: UUID = UUID(), name: String, icon: String, status: ItemStatus = .untested, failDescription: String = "", failImage: UIImage? = nil) {
+        self.id = id
+        self.name = name
+        self.icon = icon
+        self.status = status
+        self.failDescription = failDescription
+        self.failImage = failImage
+    }
     
     enum ItemStatus {
         case untested, passed, failed
+    }
+
+    static func == (lhs: InspectionItem, rhs: InspectionItem) -> Bool {
+        lhs.id == rhs.id &&
+        lhs.name == rhs.name &&
+        lhs.icon == rhs.icon &&
+        lhs.status == rhs.status &&
+        lhs.failDescription == rhs.failDescription &&
+        lhs.failImage == rhs.failImage
     }
 }

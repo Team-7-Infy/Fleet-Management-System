@@ -287,7 +287,13 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showingInspectionSheet) {
                 NavigationStack {
-                    InspectionFlowView(isPresentedModally: true, trips: trips, vehicles: vehicles, activeTripId: viewModel.activeTripId)
+                    InspectionFlowView(
+                        isPresentedModally: true,
+                        preselectedTripId: selectedTripToStart,
+                        trips: trips,
+                        vehicles: vehicles,
+                        activeTripId: viewModel.activeTripId
+                    )
                 }
             }
             .fullScreenCover(isPresented: $showingActiveNavigation) {
@@ -406,7 +412,8 @@ struct ActiveRouteCard: View {
                             .font(.caption).fontWeight(.heavy).foregroundColor(.white)
                     }
                     .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(.ultraThinMaterial).environment(\.colorScheme, .dark).clipShape(Capsule())
+                    .background(Color.white.opacity(0.15))
+                    .clipShape(Capsule())
 
                     Spacer()
 
@@ -430,11 +437,11 @@ struct ActiveRouteCard: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Color.black.opacity(0.2))
+                    .background(Color.white.opacity(0.15))
                     .cornerRadius(12)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                            .stroke(Color.white.opacity(0.25), lineWidth: 1)
                     )
                 }
 
@@ -511,7 +518,9 @@ struct ActiveRouteCard: View {
                         Text("Open Navigation")
                     }
                     .font(.headline).fontWeight(.bold).frame(maxWidth: .infinity).padding(.vertical, 16)
-                    .background(.ultraThinMaterial).environment(\.colorScheme, .dark).foregroundColor(.white).cornerRadius(16)
+                    .background(Color(red: 0.12, green: 0.26, blue: 0.55))
+                    .foregroundColor(.white)
+                    .cornerRadius(16)
                 }
                 .buttonStyle(PlainButtonStyle())
 
@@ -522,9 +531,11 @@ struct ActiveRouteCard: View {
                                 .foregroundColor(.orange)
                             Text("Log Fuel")
                                 .font(.headline).fontWeight(.bold)
+                                .foregroundColor(.white)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 16)
-                        .background(.ultraThinMaterial).environment(\.colorScheme, .dark).foregroundColor(.white).cornerRadius(16)
+                        .background(Color(red: 0.12, green: 0.26, blue: 0.55))
+                        .cornerRadius(16)
                     }
                     .buttonStyle(PlainButtonStyle())
 
@@ -534,16 +545,24 @@ struct ActiveRouteCard: View {
                                 .foregroundColor(.red)
                             Text("SOS")
                                 .font(.headline).fontWeight(.bold)
+                                .foregroundColor(.white)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 16)
-                        .background(.ultraThinMaterial).environment(\.colorScheme, .dark).foregroundColor(.white).cornerRadius(16)
+                        .background(Color(red: 0.12, green: 0.26, blue: 0.55))
+                        .cornerRadius(16)
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
             }
         }
         .padding(32)
-        .background(LinearGradient(colors: [Color.blue, Color(red: 0.1, green: 0.3, blue: 0.9)], startPoint: .topLeading, endPoint: .bottomTrailing))
+        .background(
+            LinearGradient(
+                colors: [Color(red: 0.0, green: 0.5, blue: 1.0), Color(red: 0.05, green: 0.3, blue: 0.95)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .cornerRadius(24)
         .shadow(color: Color.blue.opacity(0.25), radius: 20, x: 0, y: 12)
         .accessibilityLabel("Active Route from \(startLocation) to \(endLocation). Covered \(distanceCovered), remaining distance \(distanceRemaining), ETA \(eta).")
@@ -1479,7 +1498,10 @@ struct UpcomingLiveTripCard: View {
 
     private var displayDistance: String {
         let hash = abs(trip.id.uuidString.hashValue)
-        return "\(50 + (hash % 450)) km"
+        let km = 1000 + (hash % 500)
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return (formatter.string(from: NSNumber(value: km)) ?? "\(km)") + " km"
     }
 
     var body: some View {
@@ -1487,35 +1509,36 @@ struct UpcomingLiveTripCard: View {
             // Header
             HStack {
                 HStack(spacing: 6) {
-                    Circle().fill(activeTripExists ? Color.gray : Color.orange).frame(width: 8, height: 8).shadow(color: activeTripExists ? .gray : .orange, radius: 4)
+                    Circle().fill(Color.orange).frame(width: 8, height: 8)
                     Text("UPCOMING TRIP")
-                        .font(.caption).fontWeight(.heavy).foregroundColor(.white)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
                 }
                 .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(.ultraThinMaterial).environment(\.colorScheme, .dark).clipShape(Capsule())
+                .background(Color.white.opacity(0.12))
+                .clipShape(Capsule())
 
                 Spacer()
 
-                Text(activeTripExists ? "Gated" : "Starts soon")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white.opacity(0.8))
+                Text("Starts soon")
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.7))
             }
 
             // Route Detail
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 14) {
                     VStack(spacing: 4) {
                         Circle()
                             .stroke(Color.white, lineWidth: 2)
                             .frame(width: 10, height: 10)
 
                         Rectangle()
-                            .fill(Color.white.opacity(0.5))
-                            .frame(width: 2, height: 24)
+                            .fill(Color.white.opacity(0.4))
+                            .frame(width: 2, height: 28)
 
                         Circle()
-                            .fill(activeTripExists ? Color.gray : Color.orange)
+                            .fill(Color.orange)
                             .frame(width: 10, height: 10)
                     }
                     .padding(.top, 4)
@@ -1523,41 +1546,43 @@ struct UpcomingLiveTripCard: View {
                     VStack(alignment: .leading, spacing: 12) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("ORIGIN")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.white.opacity(0.6))
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(Color(red: 0.65, green: 0.75, blue: 0.9))
                             Text(trip.startLocation)
-                                .font(.subheadline)
+                                .font(.body)
                                 .fontWeight(.semibold)
                                 .foregroundColor(.white)
                         }
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("DESTINATION")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.white.opacity(0.6))
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(Color(red: 0.65, green: 0.75, blue: 0.9))
                             Text(trip.endLocation)
-                                .font(.subheadline)
+                                .font(.body)
                                 .fontWeight(.semibold)
                                 .foregroundColor(.white)
                         }
                     }
                 }
 
-                Divider().background(Color.white.opacity(0.2)).padding(.vertical, 4)
+                Divider()
+                    .background(Color.white.opacity(0.15))
+                    .padding(.vertical, 4)
 
                 // Vehicle Details
                 HStack {
                     Label(vehicleNumber, systemImage: "truck.box.fill")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white.opacity(0.8))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Color(red: 0.65, green: 0.75, blue: 0.9))
 
                     Spacer()
 
                     Label(displayDistance, systemImage: "arrow.triangle.turn.up.right.diamond.fill")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white.opacity(0.8))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Color(red: 0.65, green: 0.75, blue: 0.9))
                 }
             }
 
@@ -1571,10 +1596,10 @@ struct UpcomingLiveTripCard: View {
                             .fontWeight(.bold)
                         Spacer()
                     }
-                    .padding(.vertical, 14)
+                    .padding(.vertical, 16)
                     .background(Color.white.opacity(0.15))
                     .foregroundColor(.white.opacity(0.6))
-                    .cornerRadius(12)
+                    .cornerRadius(14)
 
                     Text("Complete your active trip to unlock this inspection.")
                         .font(.system(size: 11, weight: .semibold))
@@ -1583,25 +1608,22 @@ struct UpcomingLiveTripCard: View {
                 }
             } else if !isInspected {
                 Button(action: {
-                    if isInspectionEnabled {
-                        HapticManager.shared.triggerImpact(style: .medium)
-                        onPerformInspection()
-                    }
+                    HapticManager.shared.triggerImpact(style: .medium)
+                    onPerformInspection()
                 }) {
                     HStack {
                         Spacer()
-                        Image(systemName: "shield.checklist")
                         Text("Perform Pre-Trip Inspection")
+                            .font(.headline)
                             .fontWeight(.bold)
                         Spacer()
                     }
-                    .padding(.vertical, 14)
-                    .background(isInspectionEnabled ? Color.orange : Color.gray.opacity(0.3))
-                    .foregroundColor(isInspectionEnabled ? .white : .gray)
-                    .cornerRadius(12)
-                    .shadow(color: isInspectionEnabled ? Color.orange.opacity(0.3) : Color.clear, radius: 6, x: 0, y: 3)
+                    .padding(.vertical, 16)
+                    .background(Color.orange)
+                    .foregroundColor(.white)
+                    .cornerRadius(14)
+                    .shadow(color: Color.orange.opacity(0.35), radius: 8, x: 0, y: 4)
                 }
-                .disabled(!isInspectionEnabled)
             } else {
                 Button(action: {
                     HapticManager.shared.triggerImpact(style: .medium)
@@ -1611,10 +1633,11 @@ struct UpcomingLiveTripCard: View {
                         Spacer()
                         Image(systemName: "play.fill")
                         Text("Start Trip")
+                            .font(.headline)
                             .fontWeight(.bold)
                         Spacer()
                     }
-                    .padding(.vertical, 14)
+                    .padding(.vertical, 16)
                     .background(
                         LinearGradient(
                             colors: [.blue, Color(red: 0.12, green: 0.32, blue: 0.82)],
@@ -1623,23 +1646,15 @@ struct UpcomingLiveTripCard: View {
                         )
                     )
                     .foregroundColor(.white)
-                    .cornerRadius(12)
-                    .shadow(color: Color.blue.opacity(0.3), radius: 6, x: 0, y: 3)
+                    .cornerRadius(14)
+                    .shadow(color: Color.blue.opacity(0.35), radius: 8, x: 0, y: 4)
                 }
             }
         }
-        .padding(20)
-        .background(
-            LinearGradient(
-                colors: activeTripExists ?
-                    [Color(red: 0.15, green: 0.18, blue: 0.22), Color(red: 0.22, green: 0.25, blue: 0.30)] :
-                    [Color(red: 0.11, green: 0.18, blue: 0.35), Color(red: 0.20, green: 0.25, blue: 0.45)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .cornerRadius(24)
-        .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 5)
+        .padding(24)
+        .background(Color(red: 0.11, green: 0.18, blue: 0.35))
+        .cornerRadius(28)
+        .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 6)
     }
 }
 

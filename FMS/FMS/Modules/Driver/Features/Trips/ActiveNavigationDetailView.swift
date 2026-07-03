@@ -158,7 +158,7 @@ struct ActiveNavigationDetailView: View {
     @State private var lastOffset: CGFloat = 0.0
     
     var collapsedOffset: CGFloat {
-        330.0
+        265.0
     }
     
     private var assignedVehicle: String {
@@ -218,62 +218,135 @@ struct ActiveNavigationDetailView: View {
             }
             .ignoresSafeArea()
             
-            // 2. Floating Actions Overlay at the Top
+            // 2. Floating Actions Overlay at the Top (Proceed to the route instruction banner)
             VStack {
-                ZStack {
-                    // Centered Destination info label
-                    HStack {
-                        Spacer()
-                        HStack {
-                            Image(systemName: "flag.checkered.circle.fill")
-                                .foregroundColor(.green)
-                            Text(trip.endLocation)
-                                .font(.subheadline)
-                                .fontWeight(.bold)
-                                .lineLimit(1)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(12)
-                        .shadow(color: .black.opacity(0.08), radius: 4)
-                        Spacer()
-                    }
-                    
+                HStack(alignment: .top, spacing: 12) {
                     // Left Exit Button
-                    HStack {
-                        Button(action: {
-                            HapticManager.shared.triggerImpact(style: .light)
-                            onBack()
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 34))
-                                .foregroundColor(.black.opacity(0.6))
-                                .background(Circle().fill(Color(UIColor.systemBackground)))
-                                .shadow(color: .black.opacity(0.15), radius: 6)
+                    Button(action: {
+                        HapticManager.shared.triggerImpact(style: .light)
+                        onBack()
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 34))
+                            .foregroundColor(.black.opacity(0.6))
+                            .background(Circle().fill(Color(UIColor.systemBackground)))
+                            .shadow(color: .black.opacity(0.15), radius: 6)
+                    }
+                    .padding(.top, 8)
+                    .accessibilityLabel("Exit Navigation")
+                    
+                    // Navigation instructions dark grey banner
+                    HStack(spacing: 16) {
+                        // Custom Direction Icon: dot and arrow inside a circle
+                        ZStack {
+                            Circle()
+                                .stroke(Color.white, lineWidth: 3.5)
+                                .frame(width: 42, height: 42)
+                            
+                            HStack(spacing: 0) {
+                                Circle()
+                                    .fill(Color.white)
+                                    .frame(width: 6, height: 6)
+                                Rectangle()
+                                    .fill(Color.white)
+                                    .frame(width: 12, height: 3.5)
+                                Image(systemName: "triangle.fill")
+                                    .resizable()
+                                    .foregroundColor(.white)
+                                    .frame(width: 8, height: 10)
+                                    .rotationEffect(.degrees(90))
+                                    .offset(x: -2)
+                            }
+                            .offset(x: -1)
                         }
-                        .accessibilityLabel("Exit Navigation")
+                        .frame(width: 44, height: 44)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Proceed to")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("the route")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                        
                         Spacer()
                     }
-                    
-                    // Right Chat Button
-                    HStack {
-                        Spacer()
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color(white: 0.22)) // Dark grey background matching Apple Maps
+                    .cornerRadius(20)
+                    .shadow(color: .black.opacity(0.15), radius: 6)
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+                Spacer()
+            }
+            
+            // 3. Floating Actions on the Right (Quick Access for Chat, Navigation, Fuel, and SOS in a vertical line)
+            VStack {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 16) {
+                        // 1. Dispatch Chat Button (at the top of the line)
                         Button(action: {
                             HapticManager.shared.triggerImpact(style: .medium)
                             showingChatView = true
                         }) {
                             Image(systemName: "message.fill")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.system(size: 20, weight: .bold))
                                 .foregroundColor(.blue)
-                                .frame(width: 44, height: 44)
-                                .background(Circle().fill(Color(UIColor.systemBackground)))
-                                .shadow(color: .black.opacity(0.1), radius: 4)
+                                .frame(width: 50, height: 50)
+                                .background(Circle().fill(Color.white))
+                                .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
                         }
                         .accessibilityLabel("Dispatch Chat")
+                        
+                        // 2. Re-center / Route Focus Button (Navigation)
+                        Button(action: {
+                            HapticManager.shared.triggerImpact(style: .medium)
+                            focusOnDriverAndRoute()
+                        }) {
+                            Image(systemName: "location.fill")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.black)
+                                .frame(width: 50, height: 50)
+                                .background(Circle().fill(Color.white))
+                                .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
+                        }
+                        .accessibilityLabel("Re-center Map")
+                        
+                        // 3. Add Fuel Button
+                        Button(action: {
+                            HapticManager.shared.triggerImpact(style: .medium)
+                            showingFuelSheet = true
+                        }) {
+                            Image(systemName: "fuelpump.fill")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.blue)
+                                .frame(width: 50, height: 50)
+                                .background(Circle().fill(Color.white))
+                                .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
+                        }
+                        .accessibilityLabel("Add Fuel")
+                        
+                        // 4. SOS Button
+                        Button(action: {
+                            HapticManager.shared.triggerNotification(type: .error)
+                            showingSOSAlert = true
+                        }) {
+                            Image(systemName: "exclamationmark.bubble.fill")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.red)
+                                .frame(width: 50, height: 50)
+                                .background(Circle().fill(Color.white))
+                                .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
+                        }
+                        .accessibilityLabel("Emergency SOS")
                     }
+                    .padding(.trailing, 16)
                 }
-                .padding()
+                .padding(.top, 100) // Positioned nicely below the top header instruction banner
                 Spacer()
             }
             
@@ -417,45 +490,7 @@ struct ActiveNavigationDetailView: View {
                     
                     Divider().padding(.horizontal)
                     
-                    // Core action buttons: Fuel and SOS
-                    HStack(spacing: 12) {
-                        Button(action: {
-                            HapticManager.shared.triggerImpact(style: .medium)
-                            showingFuelSheet = true
-                        }) {
-                            HStack {
-                                Image(systemName: "fuelpump.fill")
-                                Text("Add Fuel")
-                                    .fontWeight(.bold)
-                            }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(Color.blue)
-                            .cornerRadius(14)
-                            .shadow(color: Color.blue.opacity(0.2), radius: 5)
-                        }
-                        
-                        Button(action: {
-                            HapticManager.shared.triggerNotification(type: .error)
-                            showingSOSAlert = true
-                        }) {
-                            HStack {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                Text("Emergency SOS")
-                                    .fontWeight(.bold)
-                            }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(Color.red)
-                            .cornerRadius(14)
-                            .shadow(color: Color.red.opacity(0.2), radius: 5)
-                        }
-                    }
-                    .padding(.horizontal)
-                    
-                    Divider().padding(.horizontal)
+
                     
                     if !isTripStopped {
                         // Running Actions
@@ -580,9 +615,11 @@ struct ActiveNavigationDetailView: View {
                         updatedTrip.status = .completed
                         updatedTrip.endTime = Date()
                         updatedTrip.driverNote = driverNote
-                        try? await services.tripService.updateTrip(updatedTrip)
+                        _ = try? await services.tripService.updateTrip(updatedTrip)
+                        await MainActor.run {
+                            onBack()
+                        }
                     }
-                    onBack()
                 }
             )
             .environmentObject(localStore)

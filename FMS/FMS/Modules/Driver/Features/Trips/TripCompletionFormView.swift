@@ -5,6 +5,7 @@
 
 
 import SwiftUI
+import PhotosUI
 
 struct TripCompletionFormView: View {
     @Environment(\.dismiss) var dismiss
@@ -21,6 +22,8 @@ struct TripCompletionFormView: View {
     @State private var selectedIncidentType: Incident.IncidentType = .other
     @State private var incidentDescription: String = ""
     @State private var driverNote: String = ""
+    
+    @State private var selectedFuelPhoto: PhotosPickerItem? = nil
 
     var body: some View {
         NavigationStack {
@@ -56,6 +59,18 @@ struct TripCompletionFormView: View {
                         HStack {
                             Text("Final Fuel Level")
                             Spacer()
+                            
+                            PhotosPicker(selection: $selectedFuelPhoto, matching: .images) {
+                                Image(systemName: "camera.viewfinder")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.blue)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.blue.opacity(0.08))
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                            }
+                            .accessibilityLabel("Scan Fuel Gauge")
+                            
                             Text("\(Int(finalFuelLevel))%")
                                 .fontWeight(.bold)
                                 .foregroundColor(.blue)
@@ -149,6 +164,23 @@ struct TripCompletionFormView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         dismiss()
+                    }
+                }
+            }
+            .onChange(of: selectedFuelPhoto) { newItem in
+                Task {
+                    if let data = try? await newItem?.loadTransferable(type: Data.self),
+                       let uiImage = UIImage(data: data) {
+                        OCRService.extractFuelLevel(from: uiImage) { level in
+                            DispatchQueue.main.async {
+                                if let level = level {
+                                    finalFuelLevel = Double(level)
+                                    HapticManager.shared.triggerImpact(style: .medium)
+                                } else {
+                                    HapticManager.shared.triggerNotification(type: .warning)
+                                }
+                            }
+                        }
                     }
                 }
             }
