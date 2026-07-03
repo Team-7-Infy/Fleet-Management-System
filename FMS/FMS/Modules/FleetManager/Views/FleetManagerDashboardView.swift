@@ -43,6 +43,7 @@ struct FleetManagerDashboardView: View {
     @State private var addSheet: ManagerAddSheet?
     @State private var maintenanceVehicleId: UUID?
     @State private var currentUserId: UUID?
+    @State private var isShowingAccount = false
     @State private var isRefreshingAll = false
     @Environment(\.scenePhase) private var scenePhase
 
@@ -135,8 +136,14 @@ struct FleetManagerDashboardView: View {
                 notificationController: notificationController,
                 refresh: refreshAll,
                 currentUserId: currentUserId,
-                onLogout: onLogout
+                onProfile: { isShowingAccount = true }
             )
+            .navigationDestination(isPresented: $isShowingAccount) {
+                ManagerAccountView(
+                    user: currentUserId.flatMap { usersViewModel.user(for: $0) },
+                    onLogout: onLogout
+                )
+            }
         }
     }
 
