@@ -53,6 +53,24 @@ enum FleetNotificationCategory: String, Codable, CaseIterable, Identifiable, Sen
             return FleetPalette.neutral
         }
     }
+
+    init(databaseValue: String) {
+        let normalizedValue = databaseValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        if normalizedValue.contains("trip") {
+            self = .trips
+        } else if normalizedValue.contains("maintenance")
+            || normalizedValue.contains("service")
+            || normalizedValue.contains("work_order") {
+            self = .maintenance
+        } else if normalizedValue.contains("vehicle") {
+            self = .vehicles
+        } else if normalizedValue.contains("user") || normalizedValue.contains("driver") {
+            self = .users
+        } else {
+            self = .system
+        }
+    }
 }
 
 enum FleetNotificationFilter: String, CaseIterable, Identifiable {
@@ -110,95 +128,74 @@ enum FleetNotificationFilter: String, CaseIterable, Identifiable {
 
 struct FleetNotification: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
-    var recipientUserId: UUID
-    var actorUserId: UUID?
+    var recipientUserId: UUID?
+    var actorUserId: UUID? = nil
     var category: FleetNotificationCategory
     var title: String
     var message: String
-    var relatedTable: String?
+    var relatedTable: String? = nil
     var relatedId: UUID?
     var isRead: Bool
     var createdAt: Date
 
     enum CodingKeys: String, CodingKey {
-        case id = "notificationid"
-        case recipientUserId = "recipient_userid"
-        case actorUserId = "actor_userid"
-        case category
+        case id
+        case recipientUserId = "recipient_id"
+        case category = "type"
         case title
         case message
-        case relatedTable = "related_table"
-        case relatedId = "related_id"
+        case relatedId = "reference_id"
         case isRead = "is_read"
-        case createdAt = "createdat"
+        case createdAt = "created_at"
     }
-}
 
-extension FleetNotification {
-    static func sampleNotifications(recipientId: UUID) -> [FleetNotification] {
-        let now = Date()
+    init(
+        id: UUID,
+        recipientUserId: UUID?,
+        actorUserId: UUID? = nil,
+        category: FleetNotificationCategory,
+        title: String,
+        message: String,
+        relatedTable: String? = nil,
+        relatedId: UUID?,
+        isRead: Bool,
+        createdAt: Date
+    ) {
+        self.id = id
+        self.recipientUserId = recipientUserId
+        self.actorUserId = actorUserId
+        self.category = category
+        self.title = title
+        self.message = message
+        self.relatedTable = relatedTable
+        self.relatedId = relatedId
+        self.isRead = isRead
+        self.createdAt = createdAt
+    }
 
-        return [
-            FleetNotification(
-                id: UUID(uuidString: "A67B4B10-8E3F-44A1-9BA3-4C70A9F6A001")!,
-                recipientUserId: recipientId,
-                actorUserId: nil,
-                category: .trips,
-                title: "Trip awaiting dispatch",
-                message: "Airport pickup is scheduled and waiting for driver acceptance.",
-                relatedTable: "trips",
-                relatedId: nil,
-                isRead: false,
-                createdAt: now.addingTimeInterval(-12 * 60)
-            ),
-            FleetNotification(
-                id: UUID(uuidString: "A67B4B10-8E3F-44A1-9BA3-4C70A9F6A002")!,
-                recipientUserId: recipientId,
-                actorUserId: nil,
-                category: .maintenance,
-                title: "Minor service delay",
-                message: "Brake inspection is running behind schedule by 20 minutes.",
-                relatedTable: "maintenance_tasks",
-                relatedId: nil,
-                isRead: false,
-                createdAt: now.addingTimeInterval(-38 * 60)
-            ),
-            FleetNotification(
-                id: UUID(uuidString: "A67B4B10-8E3F-44A1-9BA3-4C70A9F6A003")!,
-                recipientUserId: recipientId,
-                actorUserId: nil,
-                category: .vehicles,
-                title: "Vehicle check completed",
-                message: "MH 12 AB 4587 passed inspection and is ready for assignment.",
-                relatedTable: "vehicles",
-                relatedId: nil,
-                isRead: true,
-                createdAt: now.addingTimeInterval(-74 * 60)
-            ),
-            FleetNotification(
-                id: UUID(uuidString: "A67B4B10-8E3F-44A1-9BA3-4C70A9F6A004")!,
-                recipientUserId: recipientId,
-                actorUserId: nil,
-                category: .users,
-                title: "New driver profile added",
-                message: "Isha Bansal is active and available for van assignments.",
-                relatedTable: "users",
-                relatedId: nil,
-                isRead: false,
-                createdAt: now.addingTimeInterval(-2 * 60 * 60)
-            ),
-            FleetNotification(
-                id: UUID(uuidString: "A67B4B10-8E3F-44A1-9BA3-4C70A9F6A005")!,
-                recipientUserId: recipientId,
-                actorUserId: nil,
-                category: .system,
-                title: "Daily summary ready",
-                message: "Fleet health and trip completion reports are ready to review.",
-                relatedTable: nil,
-                relatedId: nil,
-                isRead: true,
-                createdAt: now.addingTimeInterval(-3 * 60 * 60)
-            )
-        ]
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(UUID.self, forKey: .id)
+        recipientUserId = try container.decodeIfPresent(UUID.self, forKey: .recipientUserId)
+        let type = try container.decode(String.self, forKey: .category)
+        category = FleetNotificationCategory(databaseValue: type)
+        title = try container.decode(String.self, forKey: .title)
+        message = try container.decode(String.self, forKey: .message)
+        relatedId = try container.decodeIfPresent(UUID.self, forKey: .relatedId)
+        isRead = try container.decodeIfPresent(Bool.self, forKey: .isRead) ?? false
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(recipientUserId, forKey: .recipientUserId)
+        try container.encode(category.rawValue, forKey: .category)
+        try container.encode(title, forKey: .title)
+        try container.encode(message, forKey: .message)
+        try container.encodeIfPresent(relatedId, forKey: .relatedId)
+        try container.encode(isRead, forKey: .isRead)
+        try container.encode(createdAt, forKey: .createdAt)
     }
 }

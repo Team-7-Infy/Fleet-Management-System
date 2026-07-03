@@ -25,25 +25,9 @@ private enum ManagerTripFilter: String, CaseIterable, Identifiable {
         case .live:
             return trip.status == .accepted || trip.status == .inProgress
         case .scheduled:
-            return trip.status == .pending || trip.status == .rejectionPending
+            return trip.status == .scheduled || trip.status == .pending || trip.status == .rejectionPending
         case .history:
-            return trip.status == .completed || trip.status == .rejected
-        }
-    }
-}
-
-private enum ManagerTripSort: String, CaseIterable, Identifiable {
-    case newest
-    case oldest
-    case status
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .newest: return "Newest"
-        case .oldest: return "Oldest"
-        case .status: return "Status"
+            return trip.status == .completed || trip.status == .rejected || trip.status == .cancelled
         }
     }
 }
@@ -61,7 +45,6 @@ struct ManagerTripsView: View {
 
     @State private var searchText = ""
     @State private var filter: ManagerTripFilter = .all
-    @State private var sort: ManagerTripSort = .newest
 
     var openAddTrip: () -> Void
 
@@ -83,19 +66,7 @@ struct ManagerTripsView: View {
                 return matchesSearch(trip, query: query)
             }
 
-        switch sort {
-        case .newest:
-            return visible.sorted { $0.startTime > $1.startTime }
-        case .oldest:
-            return visible.sorted { $0.startTime < $1.startTime }
-        case .status:
-            return visible.sorted {
-                if $0.status.rawValue == $1.status.rawValue {
-                    return $0.startTime > $1.startTime
-                }
-                return $0.status.title.localizedCaseInsensitiveCompare($1.status.title) == .orderedAscending
-            }
-        }
+        return visible.sorted { $0.startTime > $1.startTime }
     }
 
     private var liveTrips: [Trip] {
@@ -105,12 +76,12 @@ struct ManagerTripsView: View {
 
     private var scheduledTrips: [Trip] {
         filteredTrips
-            .filter { $0.status == .pending || $0.status == .rejectionPending }
+            .filter { $0.status == .scheduled || $0.status == .pending || $0.status == .rejectionPending }
     }
 
     private var historyTrips: [Trip] {
         filteredTrips
-            .filter { $0.status == .completed || $0.status == .rejected }
+            .filter { $0.status == .completed || $0.status == .rejected || $0.status == .cancelled }
     }
 
     var body: some View {
@@ -128,7 +99,6 @@ struct ManagerTripsView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 TripFilterMenu(filter: $filter)
-                TripSortMenu(sort: $sort)
                 Button("Add Trip", systemImage: "plus", action: openAddTrip)
             }
         }
@@ -164,8 +134,10 @@ private struct ManagerTripListScreen: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
+            VStack(alignment: .leading, spacing: 10) {
+                if viewModel.successMessage != nil || viewModel.errorMessage != nil {
+                    FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
+                }
 
                 if !viewModel.rejectionRequests.isEmpty {
                     RejectionRequestsSection(
@@ -196,7 +168,9 @@ private struct ManagerTripListScreen: View {
                     }
                 }
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.top, 6)
+            .padding(.bottom)
         }
         .fleetScreenBackground()
     }
@@ -206,23 +180,9 @@ private struct TripFilterMenu: View {
     @Binding var filter: ManagerTripFilter
 
     var body: some View {
-        Menu("Filter", systemImage: "line.3.horizontal.decrease.circle") {
+        Menu("Filter", systemImage: "line.3.horizontal.decrease") {
             Picker("Trip filter", selection: $filter) {
                 ForEach(ManagerTripFilter.allCases) { option in
-                    Text(option.title).tag(option)
-                }
-            }
-        }
-    }
-}
-
-private struct TripSortMenu: View {
-    @Binding var sort: ManagerTripSort
-
-    var body: some View {
-        Menu("Sort", systemImage: "arrow.up.arrow.down.circle") {
-            Picker("Trip sort", selection: $sort) {
-                ForEach(ManagerTripSort.allCases) { option in
                     Text(option.title).tag(option)
                 }
             }
@@ -282,55 +242,81 @@ private struct ManagerTripCard: View {
         return formatter
     }
 
+    private var pickupTitle: String {
+        shortLocationTitle(for: trip.startLocation, pairedWith: trip.endLocation)
+    }
+
+    private var destinationTitle: String {
+        shortLocationTitle(for: trip.endLocation, pairedWith: trip.startLocation)
+    }
+
+    private var distanceTitle: String {
+        guard let distance = trip.distance, distance > 0 else {
+            return "Distance not recorded"
+        }
+
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = distance.truncatingRemainder(dividingBy: 1) == 0 ? 0 : 1
+        let value = formatter.string(from: NSNumber(value: distance)) ?? "\(distance)"
+        return "\(value) km"
+    }
+
+    private func shortLocationTitle(for location: String, pairedWith otherLocation: String) -> String {
+        let current = locationParts(location)
+        let other = locationParts(otherLocation)
+        let currentCity = cityName(from: current)
+        let otherCity = cityName(from: other)
+
+        if currentCity.caseInsensitiveCompare(otherCity) == .orderedSame {
+            return current.first ?? location
+        }
+
+        return currentCity
+    }
+
+    private func locationParts(_ location: String) -> [String] {
+        location
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func cityName(from parts: [String]) -> String {
+        guard let first = parts.first else { return "" }
+        guard parts.count > 1 else { return first }
+
+        let second = parts[1]
+        return first.caseInsensitiveCompare(second) == .orderedSame ? first : second
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Top Row: Trip ID + Status & Vehicle Badge
             HStack(alignment: .center) {
-                HStack(spacing: 8) {
-                    Text(tripShortID)
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(FleetPalette.accent)
-                    
-                    Text(trip.status.title.uppercased())
-                        .font(.caption.weight(.heavy))
-                        .foregroundStyle(FleetPalette.tripStatus(trip.status))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(FleetPalette.tripStatus(trip.status).opacity(0.12))
-                        .clipShape(Capsule())
-                }
+                Text(tripShortID)
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(FleetPalette.accent)
 
                 Spacer()
 
-                if let vehicle {
-                    HStack(spacing: 6) {
-                        Image(systemName: "truck.box.fill")
-                            .font(.caption)
-                        Text(vehicle.licencePlate)
-                            .font(.caption.weight(.bold))
-                    }
-                    .foregroundStyle(FleetPalette.accent)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(FleetPalette.accent.opacity(0.08))
-                    .clipShape(Capsule())
-                }
+                StatusPill(
+                    text: trip.status.title,
+                    color: FleetPalette.tripStatus(trip.status),
+                    dotSize: 8
+                )
             }
 
-            // Route details matching the green dot, vertical line with pink distance text, red flag
             VStack(alignment: .leading, spacing: 0) {
-                // Origin
                 HStack(spacing: 12) {
                     Circle()
                         .fill(Color.green)
                         .frame(width: 8, height: 8)
-                    Text(trip.startLocation)
+                    Text(pickupTitle)
                         .font(.body.weight(.bold))
                         .foregroundStyle(FleetPalette.textPrimary)
                         .lineLimit(1)
                 }
                 
-                // Middle Connection
                 HStack(spacing: 12) {
                     Rectangle()
                         .fill(Color.gray.opacity(0.3))
@@ -340,20 +326,19 @@ private struct ManagerTripCard: View {
                     HStack(spacing: 4) {
                         Image(systemName: "road.lanes")
                             .font(.caption)
-                        Text("Distance not recorded")
+                        Text(distanceTitle)
                             .font(.caption.weight(.semibold))
                     }
                     .foregroundStyle(FleetPalette.textSecondary)
                     .padding(.leading, 6)
                 }
                 
-                // Destination
                 HStack(spacing: 12) {
                     Image(systemName: "flag.fill")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(FleetPalette.danger)
                         .frame(width: 8, height: 8)
-                    Text(trip.endLocation)
+                    Text(destinationTitle)
                         .font(.body.weight(.bold))
                         .foregroundStyle(FleetPalette.textPrimary)
                         .lineLimit(1)
@@ -412,7 +397,7 @@ private struct ManagerTripCard: View {
                         HStack(spacing: 6) {
                             Image(systemName: "car.fill")
                                 .font(.caption)
-                            Text("\(String(vehicle.year)) \(vehicle.make) \(vehicle.model)")
+                            Text(vehicle.licencePlate)
                                 .font(.caption.weight(.medium))
                         }
                         .foregroundStyle(FleetPalette.textSecondary)
@@ -678,13 +663,11 @@ struct ManagerTripDetailView: View {
                     Text("Route Details")
                         .font(.headline.weight(.bold))
                     Spacer()
-                    Text(currentTrip.status.title.uppercased())
-                        .font(.system(size: 10, weight: .black))
-                        .foregroundColor(FleetPalette.tripStatus(currentTrip.status))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(FleetPalette.tripStatus(currentTrip.status).opacity(0.12))
-                        .clipShape(Capsule())
+                    StatusPill(
+                        text: currentTrip.status.title,
+                        color: FleetPalette.tripStatus(currentTrip.status),
+                        dotSize: 8
+                    )
                 }
                 
                 Divider()
@@ -724,13 +707,11 @@ struct ManagerTripDetailView: View {
 
                     Spacer()
 
-                    Text(isLive ? "ASSIGNED" : "PENDING")
-                        .font(.system(size: 10, weight: .black))
-                        .foregroundColor(isLive ? FleetPalette.success : FleetPalette.warning)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background((isLive ? FleetPalette.success : FleetPalette.warning).opacity(0.12))
-                        .clipShape(Capsule())
+                    StatusPill(
+                        text: isLive ? "Assigned" : "Pending",
+                        color: isLive ? FleetPalette.success : FleetPalette.warning,
+                        dotSize: 8
+                    )
                 }
 
                 if let driver {
@@ -791,13 +772,11 @@ struct ManagerTripDetailView: View {
 
                         Spacer(minLength: 0)
 
-                        Text(vehicle.status.title.uppercased())
-                            .font(.system(size: 10, weight: .black))
-                            .foregroundColor(FleetPalette.vehicleStatus(vehicle.status))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(FleetPalette.vehicleStatus(vehicle.status).opacity(0.12))
-                            .clipShape(Capsule())
+                        StatusPill(
+                            text: vehicle.status.title,
+                            color: FleetPalette.vehicleStatus(vehicle.status),
+                            dotSize: 8
+                        )
                     }
 
                     Divider()

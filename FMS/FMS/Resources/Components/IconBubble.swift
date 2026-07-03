@@ -32,10 +32,6 @@ struct VehicleAssetImage: View {
             .scaledToFill()
             .frame(width: width, height: height)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(FleetPalette.tertiary.opacity(0.60), lineWidth: 1)
-            }
             .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 2)
             .accessibilityHidden(true)
     }

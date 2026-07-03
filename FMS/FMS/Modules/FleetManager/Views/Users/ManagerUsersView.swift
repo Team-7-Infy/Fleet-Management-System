@@ -87,7 +87,8 @@ struct ManagerUsersView: View {
                     FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
                     userList
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.bottom)
             }
         }
         .fleetScreenBackground()
@@ -158,7 +159,7 @@ struct ManagerUsersView: View {
 
     private func isDriverAssigned(_ user: User) -> Bool {
         guard let driver = driverProfile(for: user) else { return false }
-        return tripsViewModel.trips.contains { $0.driverId == driver.id && ($0.status == .pending || $0.status == .accepted) }
+        return tripsViewModel.trips.contains { $0.driverId == driver.id && ($0.status == .scheduled || $0.status == .pending || $0.status == .accepted) }
     }
 
     private func hasActiveWork(_ user: User) -> Bool {
@@ -259,13 +260,11 @@ private struct ManagerUserCard: View {
 
             Spacer(minLength: 8)
 
-            Text(user.isActive ? "ACTIVE" : "INACTIVE")
-                .font(.system(size: 8, weight: .black))
-                .foregroundColor(user.isActive ? FleetPalette.success : FleetPalette.neutral)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background((user.isActive ? FleetPalette.success : FleetPalette.neutral).opacity(0.12))
-                .clipShape(Capsule())
+            StatusPill(
+                text: user.isActive ? "Active" : "Inactive",
+                color: user.isActive ? FleetPalette.success : FleetPalette.neutral,
+                dotSize: 8
+            )
         }
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -413,13 +412,11 @@ struct ManagerUserDetailView: View {
                         .background(FleetPalette.accent.opacity(0.12))
                         .clipShape(Capsule())
 
-                    Text(user.isActive ? "ACTIVE" : "INACTIVE")
-                        .font(.system(size: 9, weight: .black))
-                        .foregroundColor(user.isActive ? FleetPalette.success : FleetPalette.neutral)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background((user.isActive ? FleetPalette.success : FleetPalette.neutral).opacity(0.12))
-                        .clipShape(Capsule())
+                    StatusPill(
+                        text: user.isActive ? "Active" : "Inactive",
+                        color: user.isActive ? FleetPalette.success : FleetPalette.neutral,
+                        dotSize: 8
+                    )
                 }
             }
         }
@@ -541,9 +538,11 @@ struct ManagerUserDetailView: View {
                                     .foregroundStyle(FleetPalette.textPrimary)
                                 
                                 HStack {
-                                    Text(task.status.title.uppercased())
-                                        .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(FleetPalette.maintenanceStatus(task.status))
+                                    StatusPill(
+                                        text: task.status.title,
+                                        color: FleetPalette.maintenanceStatus(task.status),
+                                        dotSize: 8
+                                    )
                                     
                                     Spacer()
                                     

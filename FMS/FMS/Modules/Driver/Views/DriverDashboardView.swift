@@ -23,7 +23,7 @@ struct DriverDashboardView: View {
     @State private var isShowingProfile = false
 
     private var pendingTrips: [Trip] {
-        driverTrips.filter { $0.status == .pending }
+        driverTrips.filter { $0.status == .scheduled || $0.status == .pending }
     }
 
     private var activeTrips: [Trip] {

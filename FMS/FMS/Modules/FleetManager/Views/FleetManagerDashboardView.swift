@@ -37,6 +37,7 @@ struct FleetManagerDashboardView: View {
     @StateObject private var notificationController: ManagerNotificationController
     let onLogout: () -> Void
     private let authService: AuthServiceProtocol
+    private let inventoryService: InventoryServiceProtocol
 
     @State private var selectedTab: ManagerTab = .live
     @State private var selectedUserSegment: ManagerUserSegment = .drivers
@@ -50,6 +51,7 @@ struct FleetManagerDashboardView: View {
     init(services: AppServices, onLogout: @escaping () -> Void) {
         self.onLogout = onLogout
         self.authService = services.authService
+        self.inventoryService = services.inventoryService
         _usersViewModel = StateObject(
             wrappedValue: UserManagementViewModel(
                 service: services.userManagementService,
@@ -79,7 +81,7 @@ struct FleetManagerDashboardView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             liveTab
-                .tabItem { Label("Live", systemImage: "map") }
+                .tabItem { Label("Dashboard", systemImage: "map") }
                 .tag(ManagerTab.live)
 
             usersTab
@@ -96,7 +98,7 @@ struct FleetManagerDashboardView: View {
                 .badge(tripsViewModel.rejectionRequests.count)
 
             maintenanceTab
-                .tabItem { Label("Service", systemImage: "wrench") }
+                .tabItem { Label("Workshop", systemImage: "wrench") }
                 .tag(ManagerTab.maintenance)
         }
         .tint(FleetPalette.accent)
@@ -179,6 +181,7 @@ struct FleetManagerDashboardView: View {
                 viewModel: maintenanceViewModel,
                 vehiclesViewModel: vehiclesViewModel,
                 usersViewModel: usersViewModel,
+                inventoryService: inventoryService,
                 openMaintenanceRequest: {
                     maintenanceVehicleId = nil
                     addSheet = .maintenanceRequest

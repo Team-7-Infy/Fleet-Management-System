@@ -35,6 +35,7 @@ struct ManagerMaintenanceView: View {
     @ObservedObject var viewModel: MaintenanceViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
+    var inventoryService: InventoryServiceProtocol
     @State private var filter: ManagerServiceFilter = .type
     var openMaintenanceRequest: () -> Void
 
@@ -52,6 +53,19 @@ struct ManagerMaintenanceView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Workshop")
+                        .font(.largeTitle.weight(.heavy))
+                        .foregroundStyle(FleetPalette.textPrimary)
+
+                    Spacer()
+
+                    NavigationLink("View Inventory") {
+                        ManagerInventoryView(inventoryService: inventoryService)
+                    }
+                    .font(.subheadline.weight(.semibold))
+                }
+
                 if viewModel.tasks.isEmpty {
                     GlassPanel(hasBorder: false) {
                         ContentUnavailableView(
@@ -64,7 +78,7 @@ struct ManagerMaintenanceView: View {
                     GlassPanel(hasBorder: false) {
                         ContentUnavailableView(
                             "No matching work orders",
-                            systemImage: "line.3.horizontal.decrease.circle",
+                            systemImage: "line.3.horizontal.decrease",
                             description: Text("Change the service filter to see more work orders.")
                         )
                     }
@@ -81,10 +95,8 @@ struct ManagerMaintenanceView: View {
                             } label: {
                                 ManagerWorkOrderCard(
                                     task: task,
-                                    assignee: usersViewModel.personnelUser(for: task.executedBy),
                                     viewModel: viewModel,
-                                    vehiclesViewModel: vehiclesViewModel,
-                                    usersViewModel: usersViewModel
+                                    vehiclesViewModel: vehiclesViewModel
                                 )
                             }
                             .buttonStyle(.plain)
@@ -95,8 +107,7 @@ struct ManagerMaintenanceView: View {
             .padding()
         }
         .fleetScreenBackground()
-        .navigationTitle("Service")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 ServiceFilterMenu(filter: $filter)
@@ -115,7 +126,7 @@ private struct ServiceFilterMenu: View {
     @Binding var filter: ManagerServiceFilter
 
     var body: some View {
-        Menu("Filter", systemImage: "line.3.horizontal.decrease.circle") {
+        Menu("Filter", systemImage: "line.3.horizontal.decrease") {
             Picker("Service status", selection: $filter) {
                 ForEach(ManagerServiceFilter.allCases) { option in
                     Text(option.title).tag(option)
@@ -127,10 +138,8 @@ private struct ServiceFilterMenu: View {
 
 private struct ManagerWorkOrderCard: View {
     var task: MaintenanceTask
-    var assignee: User?
     @ObservedObject var viewModel: MaintenanceViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
-    @ObservedObject var usersViewModel: UserManagementViewModel
 
     private var vehicle: Vehicle? {
         guard let vin = viewModel.vehicles(for: task).first?.vin else { return nil }
@@ -139,26 +148,15 @@ private struct ManagerWorkOrderCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 16) {
-                // Mechanical icon badge on the left
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(task.isUrgent ? FleetPalette.danger.opacity(0.12) : FleetPalette.accent.opacity(0.12))
-                        .frame(width: 54, height: 54)
-                    
-                    Image(systemName: "wrench.and.screwdriver.fill")
-                        .font(.title3.weight(.bold))
-                        .foregroundColor(task.isUrgent ? FleetPalette.danger : FleetPalette.accent)
-                }
-
+            HStack(alignment: .top, spacing: 14) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(task.displayTitle)
                         .font(.headline.weight(.bold))
                         .foregroundStyle(FleetPalette.textPrimary)
-                        .lineLimit(1)
+                        .lineLimit(2)
 
                     if let vehicle {
-                        Text("\(vehicle.licencePlate) • \(vehicle.make) \(vehicle.model)")
+                        Text(vehicle.licencePlate)
                             .font(.subheadline)
                             .foregroundStyle(FleetPalette.textSecondary)
                             .lineLimit(1)
@@ -168,34 +166,20 @@ private struct ManagerWorkOrderCard: View {
                             .foregroundStyle(FleetPalette.textTertiary)
                             .lineLimit(1)
                     }
-
-                    HStack(spacing: 5) {
-                        Image(systemName: "person.circle.fill")
-                            .font(.caption)
-                        Text(assignee?.displayName ?? "Unassigned")
-                            .font(.caption.weight(.semibold))
-                    }
-                    .foregroundStyle(assignee == nil ? FleetPalette.textTertiary : FleetPalette.accent)
-                    .lineLimit(1)
                 }
 
                 Spacer(minLength: 8)
 
                 VStack(alignment: .trailing, spacing: 8) {
-                    Text(task.status.title.uppercased())
-                        .font(.system(size: 8, weight: .black))
-                        .foregroundColor(FleetPalette.maintenanceStatus(task.status))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(FleetPalette.maintenanceStatus(task.status).opacity(0.12))
-                        .clipShape(Capsule())
-
-                    MaintenanceActionMenu(
-                        task: task,
-                        personnel: usersViewModel.maintenancePersonnel,
-                        usersViewModel: usersViewModel,
-                        viewModel: viewModel
+                    StatusPill(
+                        text: task.status.title,
+                        color: FleetPalette.maintenanceStatus(task.status),
+                        dotSize: 8
                     )
+
+                    if task.isUrgent {
+                        UrgentTag()
+                    }
                 }
             }
 
@@ -217,15 +201,140 @@ private struct ManagerWorkOrderCard: View {
                     Text("Cost: ₹\(Int(cost))")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(FleetPalette.success)
-                } else if task.isUrgent {
-                    Text("URGENT")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(FleetPalette.danger)
-                        .clipShape(Capsule())
                 }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(FleetPalette.surface)
+                .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 6)
+        )
+    }
+}
+
+private struct UrgentTag: View {
+    var body: some View {
+        Text("URGENT")
+            .font(.system(size: 8, weight: .bold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(FleetPalette.danger)
+            .clipShape(Capsule())
+            .accessibilityLabel("Urgent")
+    }
+}
+
+private struct ManagerInventoryView: View {
+    var inventoryService: InventoryServiceProtocol
+    @State private var parts: [InventoryPart] = []
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                if isLoading && parts.isEmpty {
+                    ProgressView("Loading inventory...")
+                        .frame(maxWidth: .infinity, minHeight: 220)
+                } else if let errorMessage {
+                    ContentUnavailableView(
+                        "Inventory unavailable",
+                        systemImage: "exclamationmark.triangle",
+                        description: Text(errorMessage)
+                    )
+                    .frame(maxWidth: .infinity, minHeight: 220)
+                } else if parts.isEmpty {
+                    ContentUnavailableView(
+                        "No inventory",
+                        systemImage: "shippingbox",
+                        description: Text("Inventory table has no parts yet.")
+                    )
+                    .frame(maxWidth: .infinity, minHeight: 220)
+                } else {
+                    LazyVStack(spacing: 12) {
+                        ForEach(parts) { part in
+                            InventoryPartRow(part: part)
+                        }
+                    }
+                }
+            }
+            .padding()
+        }
+        .fleetScreenBackground()
+        .navigationTitle("Inventory")
+        .navigationBarTitleDisplayMode(.large)
+        .task {
+            await loadParts()
+        }
+        .refreshable {
+            await loadParts()
+        }
+    }
+
+    private func loadParts() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            parts = try await inventoryService.fetchParts()
+                .sorted { $0.partName.localizedCaseInsensitiveCompare($1.partName) == .orderedAscending }
+            errorMessage = nil
+        } catch is CancellationError {
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+private struct InventoryPartRow: View {
+    var part: InventoryPart
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(part.partName)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(FleetPalette.textPrimary)
+                        .lineLimit(2)
+
+                    Text(part.vehicleType.capitalized)
+                        .font(.subheadline)
+                        .foregroundStyle(FleetPalette.textSecondary)
+                }
+
+                Spacer(minLength: 12)
+
+                Text("Qty \(part.quantity)")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(part.quantity > 5 ? FleetPalette.success : FleetPalette.warning)
+            }
+
+            Divider()
+                .background(FleetPalette.tertiary.opacity(0.5))
+
+            HStack {
+                Text("Part ID")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(FleetPalette.textSecondary)
+                Spacer()
+                Text(part.id.uuidString.prefix(8).uppercased())
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(FleetPalette.textPrimary)
+            }
+
+            HStack {
+                Text("Cost")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(FleetPalette.textSecondary)
+                Spacer()
+                Text("₹\(Int(part.cost))")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(FleetPalette.textPrimary)
             }
         }
         .padding(16)

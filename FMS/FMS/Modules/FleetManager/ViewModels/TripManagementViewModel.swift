@@ -18,7 +18,7 @@ final class TripManagementViewModel: ObservableObject {
     }
 
     var activeTrips: [Trip] {
-        trips.filter { $0.status != .completed && $0.status != .rejected }
+        trips.filter { $0.status != .completed && $0.status != .rejected && $0.status != .cancelled }
     }
 
     var rejectionRequests: [Trip] {
@@ -70,7 +70,7 @@ final class TripManagementViewModel: ObservableObject {
         do {
             try await tripService.updateTripStatus(id: trip.id, status: status)
 
-            if status == .completed || status == .rejected {
+            if status == .completed || status == .rejected || status == .cancelled {
                 try await vehicleService.unassignDriver(vehicleId: trip.vehicleId)
             }
 
@@ -91,12 +91,12 @@ final class TripManagementViewModel: ObservableObject {
 
     func denyRejection(for trip: Trip) async {
         do {
-            try await tripService.updateTripStatus(id: trip.id, status: .pending, rejectionReason: nil)
+            try await tripService.updateTripStatus(id: trip.id, status: .scheduled, rejectionReason: nil)
             if let index = trips.firstIndex(where: { $0.id == trip.id }) {
-                trips[index].status = .pending
+                trips[index].status = .scheduled
                 trips[index].rejectionReason = nil
             }
-            showSuccessMessage("Rejection denied, trip returned to pending.")
+            showSuccessMessage("Rejection denied, trip returned to scheduled.")
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -106,10 +106,12 @@ final class TripManagementViewModel: ObservableObject {
 
     func delete(_ trip: Trip) async {
         do {
-            try await tripService.deleteTrip(id: trip.id)
-            trips.removeAll { $0.id == trip.id }
+            try await tripService.cancelTrip(id: trip.id)
+            if let index = trips.firstIndex(where: { $0.id == trip.id }) {
+                trips[index].status = .cancelled
+            }
             try await vehicleService.unassignDriver(vehicleId: trip.vehicleId)
-            showSuccessMessage("Trip deleted.")
+            showSuccessMessage("Trip cancelled.")
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription

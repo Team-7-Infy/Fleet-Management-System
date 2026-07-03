@@ -9,14 +9,25 @@ import SwiftUI
 struct StatusPill: View {
     var text: String
     var color: Color
+    var dotSize: CGFloat = 10
 
     var body: some View {
-        Text(text)
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
-            .background(color.opacity(0.12), in: Capsule())
-            .foregroundStyle(color)
+        HStack(spacing: 7) {
+            Circle()
+                .fill(color)
+                .frame(width: dotSize, height: dotSize)
+
+            Text(text)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.black)
+                .lineLimit(1)
+        }
+        .padding(.leading, 10)
+        .padding(.trailing, 12)
+        .padding(.vertical, 6)
+        .background(Color("FleetBackground"), in: Capsule())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(text)
     }
 }
 
@@ -30,21 +41,17 @@ struct StatusDot: View {
             Circle()
                 .fill(color)
                 .frame(width: size, height: size)
-                .overlay {
-                    Circle()
-                        .stroke(.white.opacity(0.88), lineWidth: max(1.5, size * 0.12))
-                }
 
             Text(text)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(FleetPalette.textPrimary)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.black)
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
         }
         .padding(.leading, 10)
         .padding(.trailing, 12)
         .padding(.vertical, 7)
-        .background(Color.secondary.opacity(0.09), in: Capsule())
+        .background(Color("FleetBackground"), in: Capsule())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(text)
     }

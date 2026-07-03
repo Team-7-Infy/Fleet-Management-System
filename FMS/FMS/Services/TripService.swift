@@ -5,6 +5,7 @@ import Supabase
 
 final actor TripService: TripServiceProtocol {
     private let supabase: SupabaseServiceProtocol
+    private let timestampFormatter = ISO8601DateFormatter()
 
     init(supabase: SupabaseServiceProtocol) {
         self.supabase = supabase
@@ -57,16 +58,28 @@ final actor TripService: TripServiceProtocol {
             .execute()
     }
 
+    func cancelTrip(id: UUID) async throws {
+        try await updateTripStatus(id: id, status: .cancelled)
+    }
+
     func updateTripStatus(id: UUID, status: TripStatus) async throws {
+        let update: [String: AnyJSON] = [
+            "status": .string(status.rawValue),
+            "updated_at": .string(timestampFormatter.string(from: Date()))
+        ]
+
         try await supabase.client
             .from("trips")
-            .update(["status": status.rawValue])
+            .update(update)
             .eq("tripid", value: id.uuidString)
             .execute()
     }
 
     func updateTripStatus(id: UUID, status: TripStatus, rejectionReason: String?) async throws {
-        var update: [String: AnyJSON] = ["status": .string(status.rawValue)]
+        var update: [String: AnyJSON] = [
+            "status": .string(status.rawValue),
+            "updated_at": .string(timestampFormatter.string(from: Date()))
+        ]
         if let reason = rejectionReason {
             update["rejection_reason"] = .string(reason)
         } else {

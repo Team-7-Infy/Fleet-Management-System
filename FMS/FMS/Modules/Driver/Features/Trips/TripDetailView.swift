@@ -41,7 +41,7 @@ struct TripDetailView: View {
                 Spacer()
                 Text(trip.status.rawValue.uppercased())
                     .font(.system(size: 11, weight: .black))
-                    .foregroundColor(trip.status == .pending ? FleetPalette.warning : FleetPalette.success)
+                    .foregroundColor((trip.status == .scheduled || trip.status == .pending) ? FleetPalette.warning : FleetPalette.success)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(Color.white.opacity(0.2))

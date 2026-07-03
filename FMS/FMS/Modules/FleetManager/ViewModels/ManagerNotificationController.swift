@@ -10,8 +10,6 @@ final class ManagerNotificationController: ObservableObject {
 
     private let service: FleetNotificationServiceProtocol
     private var recipientId: UUID?
-    private var isShowingSampleNotifications = false
-    private let sampleRecipientId = UUID(uuidString: "D130922F-67AB-42F5-AC16-B1D8B0F53101")!
 
     init(service: FleetNotificationServiceProtocol) {
         self.service = service
@@ -46,9 +44,8 @@ final class ManagerNotificationController: ObservableObject {
 
     func load(recipientId: UUID?) async {
         guard let recipientId else {
-            notifications = sampleNotifications(for: sampleRecipientId)
+            notifications = []
             self.recipientId = nil
-            isShowingSampleNotifications = true
             return
         }
 
@@ -58,21 +55,11 @@ final class ManagerNotificationController: ObservableObject {
 
         do {
             let fetchedNotifications = try await service.fetchNotifications(recipientId: recipientId)
-            if fetchedNotifications.isEmpty {
-                notifications = sampleNotifications(for: recipientId)
-                isShowingSampleNotifications = true
-            } else {
-                notifications = fetchedNotifications
-                isShowingSampleNotifications = false
-            }
+            notifications = fetchedNotifications
             errorMessage = nil
         } catch is CancellationError {
             errorMessage = nil
         } catch {
-            if notifications.isEmpty {
-                notifications = sampleNotifications(for: recipientId)
-                isShowingSampleNotifications = true
-            }
             errorMessage = error.localizedDescription
         }
     }
@@ -81,7 +68,6 @@ final class ManagerNotificationController: ObservableObject {
         guard notification.isRead == false else { return }
 
         setLocalReadState(id: notification.id, isRead: true)
-        guard isShowingSampleNotifications == false else { return }
 
         do {
             try await service.markNotificationRead(id: notification.id, isRead: true)
@@ -101,7 +87,7 @@ final class ManagerNotificationController: ObservableObject {
         guard affectedIds.isEmpty == false else { return }
         affectedIds.forEach { setLocalReadState(id: $0, isRead: true) }
 
-        guard let recipientId, isShowingSampleNotifications == false else { return }
+        guard let recipientId else { return }
 
         do {
             try await service.markAllNotificationsRead(recipientId: recipientId, category: category)
@@ -115,15 +101,5 @@ final class ManagerNotificationController: ObservableObject {
     private func setLocalReadState(id: UUID, isRead: Bool) {
         guard let index = notifications.firstIndex(where: { $0.id == id }) else { return }
         notifications[index].isRead = isRead
-    }
-
-    private func sampleNotifications(for recipientId: UUID) -> [FleetNotification] {
-        FleetNotification.sampleNotifications(recipientId: recipientId).map { sample in
-            var notification = sample
-            if let existing = notifications.first(where: { $0.id == sample.id }) {
-                notification.isRead = existing.isRead
-            }
-            return notification
-        }
     }
 }

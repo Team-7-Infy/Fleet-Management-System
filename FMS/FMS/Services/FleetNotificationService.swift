@@ -12,8 +12,7 @@ final actor FleetNotificationService: FleetNotificationServiceProtocol {
         try await supabase.client
             .from("notifications")
             .select()
-            .eq("recipient_userid", value: recipientId.uuidString)
-            .order("createdat", ascending: false)
+            .order("created_at", ascending: false)
             .execute()
             .value
     }
@@ -22,7 +21,7 @@ final actor FleetNotificationService: FleetNotificationServiceProtocol {
         try await supabase.client
             .from("notifications")
             .update(["is_read": isRead])
-            .eq("notificationid", value: id.uuidString)
+            .eq("id", value: id.uuidString)
             .execute()
     }
 
@@ -31,14 +30,14 @@ final actor FleetNotificationService: FleetNotificationServiceProtocol {
             try await supabase.client
                 .from("notifications")
                 .update(["is_read": true])
-                .eq("recipient_userid", value: recipientId.uuidString)
-                .eq("category", value: category.rawValue)
+                .eq("recipient_id", value: recipientId.uuidString)
+                .eq("type", value: category.rawValue)
                 .execute()
         } else {
             try await supabase.client
                 .from("notifications")
                 .update(["is_read": true])
-                .eq("recipient_userid", value: recipientId.uuidString)
+                .eq("recipient_id", value: recipientId.uuidString)
                 .execute()
         }
     }

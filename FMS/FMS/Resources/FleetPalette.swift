@@ -56,6 +56,8 @@ enum FleetPalette {
 
     static func tripStatus(_ status: TripStatus) -> Color {
         switch status {
+        case .scheduled:
+            return warning
         case .pending:
             return warning
         case .accepted:
@@ -68,6 +70,8 @@ enum FleetPalette {
             return inProgress
         case .completed:
             return success
+        case .cancelled:
+            return danger
         }
     }
 

@@ -318,7 +318,7 @@ struct FleetManagerTripForm {
     var endTime: Date?
     var vehicleId: UUID?
     var driverId: UUID?
-    var status: TripStatus = .pending
+    var status: TripStatus = .scheduled
 
     var isValid: Bool {
         startLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
@@ -487,6 +487,8 @@ extension TripStatus: Identifiable {
 
     var title: String {
         switch self {
+        case .scheduled:
+            return "Scheduled"
         case .pending:
             return "Pending"
         case .accepted:
@@ -499,6 +501,8 @@ extension TripStatus: Identifiable {
             return "In Progress"
         case .completed:
             return "Completed"
+        case .cancelled:
+            return "Cancelled"
         }
     }
 }

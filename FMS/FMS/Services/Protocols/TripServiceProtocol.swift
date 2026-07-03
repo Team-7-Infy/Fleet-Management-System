@@ -6,6 +6,7 @@ protocol TripServiceProtocol: AnyObject, Sendable {
     func createTrip(_ trip: Trip) async throws -> Trip
     func updateTrip(_ trip: Trip) async throws -> Trip
     func deleteTrip(id: UUID) async throws
+    func cancelTrip(id: UUID) async throws
     func updateTripStatus(id: UUID, status: TripStatus) async throws
     func updateTripStatus(id: UUID, status: TripStatus, rejectionReason: String?) async throws
 

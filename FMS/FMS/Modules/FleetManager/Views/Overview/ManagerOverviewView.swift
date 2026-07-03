@@ -21,7 +21,7 @@ struct ManagerOverviewView: View {
 
     private var pendingTrips: [Trip] {
         tripsViewModel.trips
-            .filter { $0.status == .pending }
+            .filter { $0.status == .scheduled || $0.status == .pending }
             .sorted { $0.startTime < $1.startTime }
     }
 
@@ -75,7 +75,7 @@ struct ManagerOverviewView: View {
         .refreshable {
             await refresh()
         }
-        .navigationTitle("Live")
+        .navigationTitle("Dashboard")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -341,6 +341,7 @@ private struct ManagerNotificationsView: View {
     @State private var searchText = ""
     @State private var isSelecting = false
     @State private var selectedIds: Set<UUID> = []
+    @State private var selectedNotification: FleetNotification?
 
     private var visibleNotifications: [FleetNotification] {
         controller.notifications(searchText: searchText)
@@ -370,6 +371,12 @@ private struct ManagerNotificationsView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .simultaneousGesture(
+                            LongPressGesture(minimumDuration: 0.45)
+                                .onEnded { _ in
+                                    beginSelection(with: notification)
+                                }
+                        )
                         .listRowSeparatorTint(Color.black.opacity(0.08))
                         .listRowInsets(EdgeInsets(top: 10, leading: 20, bottom: 10, trailing: 14))
                     }
@@ -381,30 +388,52 @@ private struct ManagerNotificationsView: View {
         .navigationTitle(controller.selectedFilter == .all ? "Notifications" : controller.selectedFilter.title)
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search notifications")
+        .navigationDestination(item: $selectedNotification) { notification in
+            ManagerNotificationDetailView(
+                notification: notification,
+                sender: sender(for: notification),
+                imageURL: usersViewModel.user(for: notification.actorUserId)?.avatarImageURL
+            )
+        }
         .safeAreaInset(edge: .bottom) {
             if isSelecting {
                 selectionBar
             }
         }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button(isSelecting ? "Done" : "Edit") {
-                    withAnimation(.snappy) {
-                        isSelecting.toggle()
-                        selectedIds.removeAll()
+            if isSelecting {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Done") {
+                        endSelection()
                     }
+                    .fontWeight(.semibold)
                 }
-                .fontWeight(.semibold)
-                .disabled(controller.notifications.isEmpty)
             }
 
             ToolbarItem(placement: .topBarTrailing) {
                 if isSelecting {
-                    Button("Select All") {
-                        selectedIds = Set(visibleNotifications.map(\.id))
+                    Menu {
+                        Button("Select All", systemImage: "checkmark.circle") {
+                            selectedIds = Set(visibleNotifications.map(\.id))
+                        }
+                        .disabled(visibleNotifications.isEmpty)
+
+                        Button("Deselect All", systemImage: "circle") {
+                            selectedIds.removeAll()
+                        }
+                        .disabled(selectedIds.isEmpty)
+
+                        Divider()
+
+                        Button(selectedIds.isEmpty ? "Read All" : "Read Selected", systemImage: "envelope.open") {
+                            Task {
+                                await markSelectedOrAllRead()
+                            }
+                        }
                     }
-                    .fontWeight(.semibold)
-                    .disabled(visibleNotifications.isEmpty)
+                    label: {
+                        Label("Selection Actions", systemImage: "ellipsis.circle")
+                    }
                 } else {
                     Menu {
                         Picker("Filter", selection: $controller.selectedFilter) {
@@ -421,7 +450,7 @@ private struct ManagerNotificationsView: View {
                             selectedIds.removeAll()
                         }
                     } label: {
-                        Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                        Label("Filter", systemImage: "line.3.horizontal.decrease")
                     }
                     .labelStyle(.iconOnly)
                     .accessibilityLabel("Filter notifications")
@@ -440,9 +469,9 @@ private struct ManagerNotificationsView: View {
         Group {
             if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 ContentUnavailableView(
-                    "No notifications",
-                    systemImage: "bell.slash",
-                    description: Text("Fleet alerts, service updates, and trip requests will appear here.")
+                    controller.errorMessage == nil ? "No notifications" : "Could not load notifications",
+                    systemImage: controller.errorMessage == nil ? "bell.slash" : "exclamationmark.triangle",
+                    description: Text(controller.errorMessage ?? "Fleet alerts, service updates, and trip requests will appear here.")
                 )
             } else {
                 ContentUnavailableView.search
@@ -491,8 +520,24 @@ private struct ManagerNotificationsView: View {
             return
         }
 
+        selectedNotification = notification
         Task {
             await controller.markRead(notification)
+        }
+    }
+
+    private func beginSelection(with notification: FleetNotification) {
+        withAnimation(.snappy) {
+            isSelecting = true
+            selectedNotification = nil
+            selectedIds.insert(notification.id)
+        }
+    }
+
+    private func endSelection() {
+        withAnimation(.snappy) {
+            isSelecting = false
+            selectedIds.removeAll()
         }
     }
 
@@ -506,10 +551,121 @@ private struct ManagerNotificationsView: View {
             }
         }
 
-        withAnimation(.snappy) {
-            selectedIds.removeAll()
-            isSelecting = false
+        endSelection()
+    }
+}
+
+private struct ManagerNotificationDetailView: View {
+    var notification: FleetNotification
+    var sender: String
+    var imageURL: URL?
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                header
+                messageSection
+                contextSection
+            }
+            .padding()
         }
+        .fleetScreenBackground()
+        .navigationTitle(notification.category.title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var header: some View {
+        GlassPanel(hasBorder: false) {
+            HStack(alignment: .top, spacing: 14) {
+                avatar
+
+                VStack(alignment: .leading, spacing: 8) {
+                    StatusPill(
+                        text: notification.category.title,
+                        color: notification.category.tint,
+                        dotSize: 8
+                    )
+
+                    Text(notification.title)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(FleetPalette.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("From \(sender)")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(FleetPalette.textPrimary)
+
+                        Text(ManagerNotificationDateFormatter.detail.string(from: notification.createdAt))
+                            .font(.subheadline)
+                            .foregroundStyle(FleetPalette.textSecondary)
+                    }
+                }
+            }
+        }
+    }
+
+    private var messageSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionTitle("Message")
+
+            GlassPanel(hasBorder: false) {
+                Text(notification.message)
+                    .font(.body)
+                    .foregroundStyle(FleetPalette.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var contextSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionTitle("Regarding")
+
+            GlassPanel(hasBorder: false) {
+                VStack(spacing: 12) {
+                    InfoRow(title: "Category", value: notification.category.title)
+
+                    if let relatedTable = notification.relatedTable {
+                        Divider()
+                        InfoRow(title: "Record", value: relatedTable)
+                    }
+
+                    if let relatedId = notification.relatedId {
+                        Divider()
+                        InfoRow(title: "Reference ID", value: relatedId.uuidString.uppercased())
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var avatar: some View {
+        if let imageURL {
+            AsyncImage(url: imageURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                default:
+                    avatarFallback
+                }
+            }
+            .frame(width: 64, height: 64)
+            .clipShape(Circle())
+        } else {
+            avatarFallback
+        }
+    }
+
+    private var avatarFallback: some View {
+        Image(systemName: notification.category.systemImage)
+            .font(.title2.weight(.semibold))
+            .foregroundStyle(.white)
+            .frame(width: 64, height: 64)
+            .background(notification.category.tint.gradient, in: Circle())
     }
 }
 
@@ -598,6 +754,13 @@ private enum ManagerNotificationDateFormatter {
     static let short: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd/MM/yy"
+        return formatter
+    }()
+
+    static let detail: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
         return formatter
     }()
 }

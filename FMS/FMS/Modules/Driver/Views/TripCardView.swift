@@ -75,7 +75,7 @@ struct TripCardView: View {
     @ViewBuilder
     private var actionButtons: some View {
         switch trip.status {
-        case .pending:
+        case .scheduled, .pending:
             HStack(spacing: 12) {
                 Button(action: onAccept) {
                     Label("Accept", systemImage: "checkmark.circle")
@@ -124,7 +124,7 @@ struct TripCardView: View {
             .padding(12)
             .background(FleetPalette.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-        case .rejected, .completed:
+        case .cancelled, .rejected, .completed:
             EmptyView()
         }
     }
