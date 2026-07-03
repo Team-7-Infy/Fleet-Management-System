@@ -806,11 +806,6 @@ struct ActiveNavigationDetailView: View {
             locationService.requestPermission()
             locationService.startTracking()
             
-            let userLocation = startCoordinate
-            viewModel.startCoordinate = userLocation
-            viewModel.endCoordinate = CLLocationCoordinate2D(latitude: userLocation.latitude + 0.012, longitude: userLocation.longitude + 0.012)
-            viewModel.calculateRoute()
-            
             focusOnDriverAndRoute()
         }
         .onReceive(locationService.$location) { newLocation in
@@ -820,25 +815,7 @@ struct ActiveNavigationDetailView: View {
                 cameraPosition = .userLocation(followsHeading: true, fallback: .automatic)
             }
             
-            let isInitialUpdate = (viewModel.startCoordinate.latitude == 37.7749 && viewModel.startCoordinate.longitude == -122.4194)
-            
-            if isInitialUpdate {
-                viewModel.startCoordinate = newLocation.coordinate
-                viewModel.endCoordinate = CLLocationCoordinate2D(
-                    latitude: newLocation.coordinate.latitude + 0.012,
-                    longitude: newLocation.coordinate.longitude + 0.012
-                )
-                viewModel.calculateRoute()
-                lastCalculatedLocation = newLocation
-            } else if let lastLoc = lastCalculatedLocation {
-                if newLocation.distance(from: lastLoc) > 200 {
-                    viewModel.startCoordinate = newLocation.coordinate
-                    viewModel.calculateRoute()
-                    lastCalculatedLocation = newLocation
-                }
-            } else {
-                lastCalculatedLocation = newLocation
-            }
+            lastCalculatedLocation = newLocation
         }
         .onDisappear {
             locationService.stopMonitoringRoute()

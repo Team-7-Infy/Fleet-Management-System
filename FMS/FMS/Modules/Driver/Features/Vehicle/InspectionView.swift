@@ -13,6 +13,9 @@ struct InspectionView: View {
     @State private var showingAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
+    @State private var showingComplaintRaisedAnimation = false
+    @State private var animationMessage = ""
+    @State private var pulseScale: CGFloat = 1.0
 
     @StateObject private var viewModel = InspectionViewModel()
     @Environment(\.dismiss) var dismiss
@@ -34,7 +37,10 @@ struct InspectionView: View {
     }
 
     private var isSubmitEnabled: Bool {
-        guard viewModel.isComplete else { return false }
+        let hasFailedDefect = viewModel.items.contains { item in
+            item.status == .failed && !item.failDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        guard hasFailedDefect || viewModel.isComplete else { return false }
         
         let trimmedOdo = odometerInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedOdo.isEmpty, Int(trimmedOdo) != nil else { return false }
@@ -251,6 +257,74 @@ struct InspectionView: View {
                 }
                 .background(Color(UIColor.secondarySystemGroupedBackground))
             }
+            
+            if showingComplaintRaisedAnimation {
+                ZStack {
+                    Color.black.opacity(0.85)
+                        .edgesIgnoringSafeArea(.all)
+                    
+                    VStack(spacing: 24) {
+                        Spacer()
+                        
+                        ZStack {
+                            Circle()
+                                .stroke(Color.orange.opacity(0.3), lineWidth: 4)
+                                .scaleEffect(pulseScale)
+                                .opacity(Double(2.0 - pulseScale))
+                                .frame(width: 120, height: 120)
+                                .onAppear {
+                                    withAnimation(.easeOut(duration: 1.5).repeatForever(autoreverses: false)) {
+                                        pulseScale = 2.0
+                                    }
+                                }
+                            
+                            Circle()
+                                .fill(Color.orange.opacity(0.15))
+                                .frame(width: 90, height: 90)
+                            
+                            Image(systemName: "exclamationmark.shield.fill")
+                                .font(.system(size: 44, weight: .bold))
+                                .foregroundColor(.orange)
+                        }
+                        
+                        Text("Complaint Raised")
+                            .font(.system(size: 28, weight: .black, design: .rounded))
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 8)
+                        
+                        Text(animationMessage)
+                            .font(.body)
+                            .foregroundColor(.white.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                            .lineSpacing(4)
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                showingComplaintRaisedAnimation = false
+                            }
+                            dismiss()
+                            onComplete?()
+                        }) {
+                            Text("Done")
+                                .font(.headline.weight(.bold))
+                                .foregroundColor(.black)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.white)
+                                .cornerRadius(16)
+                                .shadow(color: .white.opacity(0.1), radius: 8, y: 4)
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 32)
+                    }
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                .zIndex(100)
+            }
         }
         .toolbar(.hidden, for: .navigationBar)
         .alert(isPresented: $showingAlert) {
@@ -378,9 +452,10 @@ struct InspectionView: View {
                     await MainActor.run {
                         viewModel.isSubmitting = false
                         localStore.markTripInspected(trip.tripId)
-                        alertTitle = "Defects Detected ⚠️"
-                        alertMessage = "Vehicle \(vehicle.licencePlate) has been sent to maintenance. \(failedItems.count) separate work order(s) created. Vehicle \(replacement.licencePlate) has been automatically assigned to your trip."
-                        showingAlert = true
+                        self.animationMessage = "Vehicle \(vehicle.licencePlate) has been sent to maintenance. \(failedItems.count) separate work order(s) created. Vehicle \(replacement.licencePlate) has been automatically assigned to your trip."
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            showingComplaintRaisedAnimation = true
+                        }
                     }
                 } else {
                     // Mark the trip as rejectionPending to notify the manager that driver rejected/needs re-assignment
@@ -388,9 +463,10 @@ struct InspectionView: View {
                     
                     await MainActor.run {
                         viewModel.isSubmitting = false
-                        alertTitle = "Defects Detected ⚠️"
-                        alertMessage = "Vehicle \(vehicle.licencePlate) has been sent to maintenance. \(failedItems.count) separate work order(s) created. No replacement vehicle of type \(vehicle.vehicleType) is currently available. Please contact dispatch."
-                        showingAlert = true
+                        self.animationMessage = "Vehicle \(vehicle.licencePlate) has been sent to maintenance. \(failedItems.count) separate work order(s) created. No replacement vehicle of type \(vehicle.vehicleType) is currently available. Please contact dispatch."
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            showingComplaintRaisedAnimation = true
+                        }
                     }
                 }
             } catch {
