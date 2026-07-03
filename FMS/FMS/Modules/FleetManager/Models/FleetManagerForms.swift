@@ -235,6 +235,10 @@ extension TripStatus: Identifiable {
             return "In Progress"
         case .completed:
             return "Completed"
+        case .scheduled:
+            return "Scheduled"
+        case .cancelled:
+            return "Cancelled"
         }
     }
 }

@@ -5,6 +5,8 @@ struct ManagerOverviewView: View {
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var tripsViewModel: TripManagementViewModel
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
+    @ObservedObject var notificationViewModel: NotificationViewModel
+    @Binding var showingNotifications: Bool
 
     var refresh: () async -> Void
     var currentUserId: UUID?
@@ -60,9 +62,13 @@ struct ManagerOverviewView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .top) {
+                HStack(alignment: .center) {
                     ScreenHeader(title: "Live")
                     Spacer()
+                    NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
+                        showingNotifications = true
+                    }
+                    .padding(.trailing, 8)
                     if let onProfile {
                         profileButton(action: onProfile)
                     }

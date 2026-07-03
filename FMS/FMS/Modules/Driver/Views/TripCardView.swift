@@ -95,7 +95,7 @@ struct TripCardView: View {
                 .tint(FleetPalette.danger)
             }
 
-        case .accepted:
+        case .accepted, .scheduled:
             Button(action: onStart) {
                 Label("Start Trip", systemImage: "play.fill")
                     .frame(maxWidth: .infinity)
@@ -125,7 +125,7 @@ struct TripCardView: View {
             .padding(12)
             .background(FleetPalette.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-        case .rejected, .completed:
+        case .rejected, .completed, .cancelled:
             EmptyView()
         }
     }

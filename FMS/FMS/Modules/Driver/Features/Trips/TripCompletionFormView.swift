@@ -167,6 +167,14 @@ struct TripCompletionFormView: View {
                     }
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
+            .background(
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+            )
             .onChange(of: selectedFuelPhoto) { newItem in
                 Task {
                     if let data = try? await newItem?.loadTransferable(type: Data.self),

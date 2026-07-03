@@ -21,6 +21,12 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     )
     @Published var authorizationStatus: CLAuthorizationStatus?
     @Published var isTracking: Bool = false
+    @Published var waypoints: [RouteWaypoint] = []
+    
+    private var activeTripId: UUID?
+    private var activeVehicleId: UUID?
+    private var tripService: TripServiceProtocol?
+    private var lastAlertTime: Date?
     
     override init() {
         super.init()
@@ -42,6 +48,21 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     func stopTracking() {
         locationManager.stopUpdatingLocation()
         isTracking = false
+        stopMonitoringRoute()
+    }
+    
+    func startMonitoringRoute(tripId: UUID, vehicleId: UUID, waypoints: [RouteWaypoint], service: TripServiceProtocol) {
+        self.activeTripId = tripId
+        self.activeVehicleId = vehicleId
+        self.waypoints = waypoints
+        self.tripService = service
+    }
+    
+    func stopMonitoringRoute() {
+        self.activeTripId = nil
+        self.activeVehicleId = nil
+        self.waypoints = []
+        self.tripService = nil
     }
     
     // MARK: - CLLocationManagerDelegate
@@ -61,6 +82,50 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
             )
         }
-        // In a real app, you would batch and POST these coordinates to your backend here
+        
+        checkRouteDeviation(currentLocation: latestLocation)
+    }
+
+    private func checkRouteDeviation(currentLocation: CLLocation) {
+        guard !waypoints.isEmpty, let tripId = activeTripId, let vehicleId = activeVehicleId, let service = tripService else { return }
+        
+        let isInsideAnyGeofence = waypoints.contains { waypoint in
+            let waypointLoc = CLLocation(latitude: waypoint.latitude, longitude: waypoint.longitude)
+            let distance = currentLocation.distance(from: waypointLoc)
+            return distance <= waypoint.bufferRadius
+        }
+        
+        if !isInsideAnyGeofence {
+            let minDistance = waypoints.map { waypoint in
+                let waypointLoc = CLLocation(latitude: waypoint.latitude, longitude: waypoint.longitude)
+                return currentLocation.distance(from: waypointLoc)
+            }.min() ?? 0.0
+            
+            triggerDeviationAlert(tripId: tripId, vehicleId: vehicleId, distance: minDistance, service: service)
+        }
+    }
+
+    private func triggerDeviationAlert(tripId: UUID, vehicleId: UUID, distance: Double, service: TripServiceProtocol) {
+        if let lastTime = lastAlertTime, Date().timeIntervalSince(lastTime) < 60 {
+            return // Throttle alerts to once per minute
+        }
+        lastAlertTime = Date()
+        
+        Task {
+            do {
+                let alert = DeviationAlert(
+                    id: UUID(),
+                    timestamp: Date(),
+                    distance: distance,
+                    vehicleId: vehicleId,
+                    geofenceId: nil,
+                    tripId: tripId
+                )
+                _ = try await service.createDeviationAlert(alert)
+                print("Successfully reported deviation alert of \(distance) meters.")
+            } catch {
+                print("Failed to report deviation alert: \(error.localizedDescription)")
+            }
+        }
     }
 }

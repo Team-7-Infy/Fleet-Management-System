@@ -8,6 +8,7 @@ struct MaintenanceTask: Identifiable, Codable, Hashable, Sendable {
     var scheduledBy: UUID?
     var executedBy: UUID?
     var status: MaintenanceTaskStatus
+    var photoUrls: [String]? = nil
 
     enum CodingKeys: String, CodingKey {
         case id = "taskid"
@@ -17,5 +18,6 @@ struct MaintenanceTask: Identifiable, Codable, Hashable, Sendable {
         case scheduledBy = "scheduledby"
         case executedBy = "executedby"
         case status
+        case photoUrls = "photourls"
     }
 }

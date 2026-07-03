@@ -53,6 +53,10 @@ enum FleetPalette {
             return primary
         case .completed:
             return success
+        case .scheduled:
+            return secondary
+        case .cancelled:
+            return danger
         }
     }
 

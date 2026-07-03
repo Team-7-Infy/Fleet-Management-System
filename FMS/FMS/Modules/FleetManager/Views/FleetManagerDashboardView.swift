@@ -34,6 +34,7 @@ struct FleetManagerDashboardView: View {
     @StateObject private var vehiclesViewModel: VehicleViewModel
     @StateObject private var tripsViewModel: TripManagementViewModel
     @StateObject private var maintenanceViewModel: MaintenanceViewModel
+    @StateObject private var notificationViewModel: NotificationViewModel
     let onLogout: () -> Void
     private let authService: AuthServiceProtocol
 
@@ -44,6 +45,7 @@ struct FleetManagerDashboardView: View {
     @State private var currentUserId: UUID?
     @State private var isRefreshingAll = false
     @State private var isShowingProfile = false
+    @State private var showingNotifications = false
     @Environment(\.scenePhase) private var scenePhase
 
     init(services: AppServices, onLogout: @escaping () -> Void) {
@@ -70,35 +72,63 @@ struct FleetManagerDashboardView: View {
                 vehicleService: services.vehicleService
             )
         )
+        _notificationViewModel = StateObject(
+            wrappedValue: NotificationViewModel(
+                notificationService: services.notificationService,
+                recipientId: nil,
+                role: .manager
+            )
+        )
     }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            liveTab
-                .tabItem { Label("Live", systemImage: "map") }
-                .tag(ManagerTab.live)
+        ZStack {
+            TabView(selection: $selectedTab) {
+                liveTab
+                    .tabItem { Label("Live", systemImage: "map") }
+                    .tag(ManagerTab.live)
 
-            usersTab
-                .tabItem { Label("Users", systemImage: "person.2") }
-                .tag(ManagerTab.users)
+                usersTab
+                    .tabItem { Label("Users", systemImage: "person.2") }
+                    .tag(ManagerTab.users)
 
-            vehiclesTab
-                .tabItem { Label("Vehicles", systemImage: "car.2") }
-                .tag(ManagerTab.vehicles)
+                vehiclesTab
+                    .tabItem { Label("Vehicles", systemImage: "car.2") }
+                    .tag(ManagerTab.vehicles)
 
-            tripsTab
-                .tabItem { Label("Trips", systemImage: "point.topleft.down.curvedto.point.bottomright.up") }
-                .tag(ManagerTab.trips)
-                .badge(tripsViewModel.rejectionRequests.count)
+                tripsTab
+                    .tabItem { Label("Trips", systemImage: "point.topleft.down.curvedto.point.bottomright.up") }
+                    .tag(ManagerTab.trips)
+                    .badge(tripsViewModel.rejectionRequests.count)
 
-            maintenanceTab
-                .tabItem { Label("Service", systemImage: "wrench") }
-                .tag(ManagerTab.maintenance)
+                maintenanceTab
+                    .tabItem { Label("Service", systemImage: "wrench") }
+                    .tag(ManagerTab.maintenance)
+            }
+            .tint(FleetPalette.primary)
+
+            if notificationViewModel.showBanner, let banner = notificationViewModel.currentBanner {
+                NotificationBannerView(
+                    notification: banner,
+                    onTap: {
+                        notificationViewModel.dismissCurrentBanner()
+                        showingNotifications = true
+                    },
+                    onDismiss: {
+                        notificationViewModel.dismissCurrentBanner()
+                    }
+                )
+                .zIndex(99)
+            }
         }
-        .tint(FleetPalette.primary)
         .task {
             currentUserId = try? await authService.currentSession()?.id
             await refreshAll()
+            await notificationViewModel.loadNotifications()
+            notificationViewModel.subscribeToRealtime()
+        }
+        .onDisappear {
+            notificationViewModel.unsubscribeRealtime()
         }
         .onReceive(Timer.publish(every: 20, on: .main, in: .common).autoconnect()) { _ in
             Task { await refreshAll() }
@@ -120,6 +150,9 @@ struct FleetManagerDashboardView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showingNotifications) {
+            NotificationListView(viewModel: notificationViewModel)
+        }
     }
 
     private var liveTab: some View {
@@ -129,6 +162,8 @@ struct FleetManagerDashboardView: View {
                 vehiclesViewModel: vehiclesViewModel,
                 tripsViewModel: tripsViewModel,
                 maintenanceViewModel: maintenanceViewModel,
+                notificationViewModel: notificationViewModel,
+                showingNotifications: $showingNotifications,
                 refresh: refreshAll,
                 currentUserId: currentUserId,
                 onProfile: { isShowingProfile = true }

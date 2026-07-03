@@ -7,4 +7,6 @@ enum TripStatus: String, Codable, CaseIterable {
     case rejected = "rejected"
     case inProgress = "in_progress"
     case completed = "completed"
+    case scheduled = "scheduled"
+    case cancelled = "cancelled"
 }

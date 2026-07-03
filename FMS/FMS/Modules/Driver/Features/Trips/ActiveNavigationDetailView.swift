@@ -43,6 +43,78 @@ class LiveNavigationViewModel: ObservableObject {
     @Published var endCoordinate: CLLocationCoordinate2D
     @Published var destinationName: String
     @Published var routeCoordinates: [CLLocationCoordinate2D] = []
+    @Published var waypoints: [RouteWaypoint] = []
+    
+    var geofencePolygonCoordinates: [CLLocationCoordinate2D] {
+        guard routeCoordinates.count >= 2 else { return [] }
+        
+        // 1. Filter coordinate points to ensure consecutive points are at least 80 meters apart.
+        // This removes GPS micro-noise, redundant points, and avoids extreme directional flips.
+        var coords: [CLLocationCoordinate2D] = []
+        for coord in routeCoordinates {
+            if let last = coords.last {
+                let dist = CLLocation(latitude: last.latitude, longitude: last.longitude)
+                    .distance(from: CLLocation(latitude: coord.latitude, longitude: coord.longitude))
+                if dist >= 80 {
+                    coords.append(coord)
+                }
+            } else {
+                coords.append(coord)
+            }
+        }
+        if let last = routeCoordinates.last, coords.last?.latitude != last.latitude || coords.last?.longitude != last.longitude {
+            coords.append(last)
+        }
+        
+        guard coords.count >= 2 else { return [] }
+        
+        var leftCoords: [CLLocationCoordinate2D] = []
+        var rightCoords: [CLLocationCoordinate2D] = []
+        let offsetDegrees: Double = 0.0027 // Approx 300 meters buffer
+        
+        for i in 0..<coords.count {
+            let current = coords[i]
+            let lat = current.latitude
+            let lon = current.longitude
+            
+            var dx: Double = 0
+            var dy: Double = 0
+            
+            if i == 0 {
+                let next = coords[i+1]
+                dx = next.latitude - lat
+                dy = next.longitude - lon
+            } else if i == coords.count - 1 {
+                let prev = coords[i-1]
+                dx = lat - prev.latitude
+                dy = lon - prev.longitude
+            } else {
+                let prev = coords[i-1]
+                let next = coords[i+1]
+                dx = next.latitude - prev.latitude
+                dy = next.longitude - prev.longitude
+            }
+            
+            let len = sqrt(dx*dx + dy*dy)
+            if len > 0 {
+                dx /= len
+                dy /= len
+            } else {
+                dx = 1
+                dy = 0
+            }
+            
+            let lx = lat - dy * offsetDegrees
+            let ly = lon + dx * offsetDegrees
+            let rx = lat + dy * offsetDegrees
+            let ry = lon - dx * offsetDegrees
+            
+            leftCoords.append(CLLocationCoordinate2D(latitude: lx, longitude: ly))
+            rightCoords.append(CLLocationCoordinate2D(latitude: rx, longitude: ry))
+        }
+        
+        return leftCoords + rightCoords.reversed()
+    }
     
     @Published var distanceCovered: String = "120 km"
     @Published var distanceRemaining: String = "45 km"
@@ -50,29 +122,71 @@ class LiveNavigationViewModel: ObservableObject {
     
     let tripId: String
     let services: AppServices
+    let startLocationString: String
+    let endLocationString: String
     private var cancellables = Set<AnyCancellable>()
     
-    init(tripId: String, services: AppServices, start: CLLocationCoordinate2D, end: CLLocationCoordinate2D, destinationName: String) {
+    init(tripId: String, services: AppServices, startLocation: String, endLocation: String) {
         self.tripId = tripId
         self.services = services
-        self.startCoordinate = start
-        self.endCoordinate = end
-        self.destinationName = destinationName
-        calculateRoute()
+        self.startLocationString = startLocation
+        self.endLocationString = endLocation
+        self.destinationName = endLocation
+        
+        // Sensible fallbacks
+        self.startCoordinate = CLLocationCoordinate2D(latitude: 12.9716, longitude: 77.5946)
+        self.endCoordinate = CLLocationCoordinate2D(latitude: 12.4244, longitude: 75.7382)
+        
+        geocodeAndCalculateRoute()
         
         Task { @MainActor in
             await fetchWaypoints()
         }
     }
     
+    func geocodeAndCalculateRoute() {
+        Task {
+            do {
+                let startCoords = try await geocode(address: startLocationString)
+                let endCoords = try await geocode(address: endLocationString)
+                
+                await MainActor.run {
+                    self.startCoordinate = startCoords
+                    self.endCoordinate = endCoords
+                    self.calculateRoute()
+                }
+            } catch {
+                print("Failed to geocode address strings: \(error). Using fallbacks.")
+                await MainActor.run {
+                    self.calculateRoute()
+                }
+            }
+        }
+    }
+    
+    private func geocode(address: String) async throws -> CLLocationCoordinate2D {
+        try await withCheckedThrowingContinuation { continuation in
+            CLGeocoder().geocodeAddressString(address) { placemarks, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if let coord = placemarks?.first?.location?.coordinate {
+                    continuation.resume(returning: coord)
+                } else {
+                    continuation.resume(throwing: NSError(domain: "Geocoding", code: -1, userInfo: [NSLocalizedDescriptionKey: "No coordinate found"]))
+                }
+            }
+        }
+    }
+    
     func fetchWaypoints() async {
         guard let tripUUID = UUID(uuidString: tripId) else { return }
         do {
-            let waypoints = try await services.tripService.fetchRouteWaypoints(tripId: tripUUID)
-            if !waypoints.isEmpty, let last = waypoints.last {
-                endCoordinate = CLLocationCoordinate2D(latitude: last.latitude, longitude: last.longitude)
-                destinationName = "Waypoint \(last.sequenceOrder)"
-                calculateRoute()
+            let fetched = try await services.tripService.fetchRouteWaypoints(tripId: tripUUID)
+            if !fetched.isEmpty {
+                self.waypoints = fetched
+                destinationName = "Surat Port Authority"
+            } else {
+                destinationName = "Surat Port Authority"
             }
         } catch {
             print("Failed to fetch waypoints: \(error)")
@@ -99,8 +213,46 @@ class LiveNavigationViewModel: ObservableObject {
                 let timeFormatter = DateFormatter()
                 timeFormatter.timeStyle = .short
                 self.eta = timeFormatter.string(from: etaDate)
+                
+                if self.waypoints.isEmpty {
+                    self.generateWaypointsFromPolyline()
+                }
             }
         }
+    }
+    
+    func generateWaypointsFromPolyline() {
+        guard !routeCoordinates.isEmpty, let tripUUID = UUID(uuidString: tripId) else { return }
+        var sampledWaypoints: [RouteWaypoint] = []
+        let strideValue = max(1, routeCoordinates.count / 15)
+        var sequence = 1
+        for i in stride(from: 0, to: routeCoordinates.count, by: strideValue) {
+            let coord = routeCoordinates[i]
+            sampledWaypoints.append(
+                RouteWaypoint(
+                    id: UUID(),
+                    tripId: tripUUID,
+                    latitude: coord.latitude,
+                    longitude: coord.longitude,
+                    bufferRadius: 300.0,
+                    sequenceOrder: sequence
+                )
+            )
+            sequence += 1
+        }
+        if let lastCoord = routeCoordinates.last, sequence <= 15 {
+            sampledWaypoints.append(
+                RouteWaypoint(
+                    id: UUID(),
+                    tripId: tripUUID,
+                    latitude: lastCoord.latitude,
+                    longitude: lastCoord.longitude,
+                    bufferRadius: 300.0,
+                    sequenceOrder: sequence
+                )
+            )
+        }
+        self.waypoints = sampledWaypoints
     }
     
     func updateDestination(coordinate: CLLocationCoordinate2D, name: String) {
@@ -150,19 +302,33 @@ struct ActiveNavigationDetailView: View {
     @State private var isTripStopped = false
     @State private var showingFuelSheet = false
     
-    // Dispatch Chat States
-    @State private var showingChatView = false
+    // Map tracking locks
+    @State private var isTrackingVehicle = true
     
     // Sliding bottom sheet state variables
     @State private var sheetOffset: CGFloat = 0.0
     @State private var lastOffset: CGFloat = 0.0
-    
-    var collapsedOffset: CGFloat {
-        265.0
-    }
+    @State private var isExpanded = false
+    @State private var simulatedCoordinate: CLLocationCoordinate2D? = nil
+    @State private var simulatedIndex = 0
+    @State private var simulationTimer: Timer? = nil
+    @State private var liveDistanceRemaining: String? = nil
     
     private var assignedVehicle: String {
         vehicles.first(where: { $0.id == trip.vehicleId })?.licencePlate ?? ""
+    }
+    
+    private var vehicleIconName: String {
+        let type = vehicles.first(where: { $0.id == trip.vehicleId })?.vehicleType.lowercased() ?? ""
+        if type.contains("truck") {
+            return "truck.box.fill"
+        } else if type.contains("bus") {
+            return "bus.fill"
+        } else if type.contains("van") {
+            return "car.side.fill"
+        } else {
+            return "car.fill"
+        }
     }
     
     init(services: AppServices, user: User, driver: Driver?, trip: Trip, vehicles: [Vehicle], onBack: @escaping () -> Void) {
@@ -173,15 +339,11 @@ struct ActiveNavigationDetailView: View {
         self.vehicles = vehicles
         self.onBack = onBack
         
-        let start = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
-        let end = CLLocationCoordinate2D(latitude: 37.7869, longitude: -122.4074)
-        
         _viewModel = StateObject(wrappedValue: LiveNavigationViewModel(
             tripId: trip.id.uuidString,
             services: services,
-            start: start,
-            end: end,
-            destinationName: trip.endLocation
+            startLocation: trip.startLocation,
+            endLocation: trip.endLocation
         ))
     }
     
@@ -190,7 +352,8 @@ struct ActiveNavigationDetailView: View {
     }
     
     func focusOnDriverAndRoute() {
-        let center = locationService.location?.coordinate ?? viewModel.startCoordinate
+        isTrackingVehicle = true
+        let center = simulatedCoordinate ?? locationService.location?.coordinate ?? viewModel.startCoordinate
         let region = MKCoordinateRegion(
             center: center,
             latitudinalMeters: 600,
@@ -206,14 +369,67 @@ struct ActiveNavigationDetailView: View {
             
             // 1. Live iOS 17+ Map View
             Map(position: $cameraPosition) {
-                UserAnnotation()
+                let currentPosition = simulatedCoordinate ?? locationService.location?.coordinate ?? viewModel.startCoordinate
+                
+                Annotation("Driver", coordinate: currentPosition, anchor: .center) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.blue)
+                            .frame(width: 40, height: 40)
+                            .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                        
+                        Circle()
+                            .stroke(Color.white, lineWidth: 2.5)
+                            .frame(width: 40, height: 40)
+                        
+                        Image(systemName: vehicleIconName)
+                            .foregroundColor(.white)
+                            .font(.system(size: 16, weight: .bold))
+                    }
+                }
                 
                 Marker(viewModel.destinationName, systemImage: "flag.checkered.circle.fill", coordinate: viewModel.endCoordinate)
                     .tint(.green)
                 
                 if !viewModel.routeCoordinates.isEmpty {
+                    // Geofence Corridor corridor tracking along the entire path
                     MapPolyline(coordinates: viewModel.routeCoordinates)
-                        .stroke(Color.blue, lineWidth: 6)
+                        .stroke(Color.blue.opacity(0.10), lineWidth: 60)
+                    
+                    // Remaining route ahead of the driver
+                    let remainingCoords = Array(viewModel.routeCoordinates[simulatedIndex...])
+                    if remainingCoords.count > 1 {
+                        MapPolyline(coordinates: remainingCoords)
+                            .stroke(Color.blue, lineWidth: 6)
+                    }
+                    
+                    // Traveled route behind the driver (dulled/grayed out)
+                    if simulatedIndex > 0 {
+                        let traveledCoords = Array(viewModel.routeCoordinates[...simulatedIndex])
+                        if traveledCoords.count > 1 {
+                            MapPolyline(coordinates: traveledCoords)
+                                .stroke(Color.gray.opacity(0.55), lineWidth: 6)
+                        }
+                    }
+                }
+                
+                // Geofence area represented as a single closed polygon corridor
+                let polygonCoords = viewModel.geofencePolygonCoordinates
+                if !polygonCoords.isEmpty {
+                    MapPolygon(coordinates: polygonCoords)
+                        .foregroundStyle(Color.blue.opacity(0.06))
+                        .stroke(Color.blue.opacity(0.18), lineWidth: 1.5)
+                }
+            }
+            .onMapCameraChange { (context: MapCameraUpdateContext) in
+                if let simulatedCoord = simulatedCoordinate {
+                    let mapCenter = context.region.center
+                    let centerLoc = CLLocation(latitude: mapCenter.latitude, longitude: mapCenter.longitude)
+                    let simLoc = CLLocation(latitude: simulatedCoord.latitude, longitude: simulatedCoord.longitude)
+                    let distance = centerLoc.distance(from: simLoc)
+                    if distance > 100 {
+                        isTrackingVehicle = false
+                    }
                 }
             }
             .ignoresSafeArea()
@@ -283,33 +499,19 @@ struct ActiveNavigationDetailView: View {
                 Spacer()
             }
             
-            // 3. Floating Actions on the Right (Quick Access for Chat, Navigation, Fuel, and SOS in a vertical line)
+            // 3. Floating Actions on the Right (Quick Access for Navigation, Fuel, and SOS in a vertical line)
             VStack {
                 HStack {
                     Spacer()
                     VStack(spacing: 16) {
-                        // 1. Dispatch Chat Button (at the top of the line)
-                        Button(action: {
-                            HapticManager.shared.triggerImpact(style: .medium)
-                            showingChatView = true
-                        }) {
-                            Image(systemName: "message.fill")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(.blue)
-                                .frame(width: 50, height: 50)
-                                .background(Circle().fill(Color.white))
-                                .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
-                        }
-                        .accessibilityLabel("Dispatch Chat")
-                        
-                        // 2. Re-center / Route Focus Button (Navigation)
+                        // 1. Re-center / Route Focus Button (Navigation)
                         Button(action: {
                             HapticManager.shared.triggerImpact(style: .medium)
                             focusOnDriverAndRoute()
                         }) {
                             Image(systemName: "location.fill")
                                 .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(.black)
+                                .foregroundColor(isTrackingVehicle ? .blue : .black)
                                 .frame(width: 50, height: 50)
                                 .background(Circle().fill(Color.white))
                                 .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
@@ -329,6 +531,10 @@ struct ActiveNavigationDetailView: View {
                                 .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
                         }
                         .accessibilityLabel("Add Fuel")
+                        .sheet(isPresented: $showingFuelSheet) {
+                            FuelRequestView(assignedVehicle: assignedVehicle)
+                                .environmentObject(localStore)
+                        }
                         
                         // 4. SOS Button
                         Button(action: {
@@ -351,279 +557,211 @@ struct ActiveNavigationDetailView: View {
             }
             
             
-            // 3.5 Floating "SHOW TELEMETRY" button when panel is collapsed
-            VStack {
-                Spacer()
-                if sheetOffset > collapsedOffset - 50 {
-                    Button(action: {
-                        HapticManager.shared.triggerImpact(style: .medium)
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-                            sheetOffset = 0
-                            lastOffset = 0
-                        }
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "chevron.up")
-                                .fontWeight(.black)
-                            Text("SHOW TELEMETRY")
-                                .font(.system(size: 11, weight: .black, design: .rounded))
-                                .tracking(1.5)
-                        }
-                        .foregroundColor(.blue)
-                        .padding(.horizontal, 22)
-                        .padding(.vertical, 14)
-                        .background(
-                            Capsule()
-                                .fill(.ultraThinMaterial)
-                                .environment(\.colorScheme, .light)
-                                .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 4)
-                        )
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
-                        )
-                    }
-                    .padding(.bottom, 24)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                if value.translation.height < 0 {
-                                    sheetOffset = collapsedOffset + value.translation.height
-                                }
-                            }
-                            .onEnded { value in
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-                                    if sheetOffset < collapsedOffset - 50 {
-                                        sheetOffset = 0
-                                    } else {
-                                        sheetOffset = collapsedOffset
-                                    }
-                                    lastOffset = sheetOffset
-                                }
-                            }
-                    )
-                }
-            }
+
             
             // 4. Structured Driver Journey Dashboard Panel
-            VStack(spacing: 20) {
+            VStack(spacing: 16) {
                 // Drag Handle Indicator
                 Capsule()
                     .fill(Color.gray.opacity(0.4))
                     .frame(width: 36, height: 5)
                     .padding(.top, 10)
                 
-                // Header
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(isTripStopped ? "TRIP STOPPED / PAUSED" : "ACTIVE DISPATCH TELEMETRY")
-                            .font(.system(size: 10, weight: .black))
-                            .foregroundColor(isTripStopped ? .red : .blue)
-                        Text(trip.id.uuidString)
-                            .font(.title2)
-                            .fontWeight(.black)
+                // 1. Bottom Bar (ETA, Distance, Speed) - ALWAYS VISIBLE
+                HStack(spacing: 0) {
+                    VStack(spacing: 4) {
+                        Text(viewModel.eta)
+                            .font(.system(size: 26, weight: .bold, design: .rounded))
                             .foregroundColor(.primary)
+                        Text("arrival")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.secondary)
                     }
-                    Spacer()
+                    .frame(maxWidth: .infinity)
                     
-                    // Simple live tracking beacon
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(isTripStopped ? Color.red : Color.green)
-                            .frame(width: 8, height: 8)
-                        Text(isTripStopped ? "STOPPED" : "EN ROUTE")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(isTripStopped ? .red : .green)
+                    VStack(spacing: 4) {
+                        Text(liveDistanceRemaining ?? viewModel.distanceRemaining)
+                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .foregroundColor(.green)
+                        Text("remaining")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.secondary)
                     }
-                    .padding(.horizontal, 10).padding(.vertical, 6)
-                    .background(isTripStopped ? Color.red.opacity(0.1) : Color.green.opacity(0.1))
-                    .clipShape(Capsule())
+                    .frame(maxWidth: .infinity)
+                    
+                    VStack(spacing: 4) {
+                        Text(isTripStopped ? "0 km/h" : "65 km/h")
+                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .foregroundColor(.blue)
+                        Text("speed")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
                 .padding(.horizontal)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-                        sheetOffset = (sheetOffset == 0) ? collapsedOffset : 0
-                        lastOffset = sheetOffset
+                        isExpanded.toggle()
                     }
                 }
                 
-                VStack(spacing: 20) {
-                    // Navigation HUD (Driver Guidance Mode)
-                    HStack(spacing: 24) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("ETA")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.secondary)
-                            Text(viewModel.eta)
-                                .font(.title3)
-                                .fontWeight(.black)
-                                .foregroundColor(.primary)
-                        }
+                if isExpanded {
+                    VStack(spacing: 16) {
+                        Divider().padding(.horizontal)
                         
-                        Spacer()
-                        
-                        VStack(alignment: .center, spacing: 6) {
-                            Text("REMAINING")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.secondary)
-                            Text(viewModel.distanceRemaining)
-                                .font(.title3)
-                                .fontWeight(.black)
-                                .foregroundColor(.green)
-                        }
-                        
-                        Spacer()
-                        
-                        VStack(alignment: .trailing, spacing: 6) {
-                            Text("SPEED")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.secondary)
-                            Text(isTripStopped ? "0 km/h" : "65 km/h")
-                                .font(.title3)
-                                .fontWeight(.black)
-                                .foregroundColor(.blue)
-                        }
-                    }
-                    .padding(.horizontal)
-                    
-                    Divider().padding(.horizontal)
-                    
-
-                    
-                    if !isTripStopped {
-                        // Running Actions
+                        // Call Manager Card (instead of destination location info)
                         HStack(spacing: 12) {
-                            Button(action: {
-                                HapticManager.shared.triggerImpact(style: .medium)
-                                withAnimation(.spring()) {
-                                    isTripStopped = true
-                                }
-                            }) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "pause.fill")
-                                    Text("STOP TRIP")
-                                        .fontWeight(.black)
-                                }
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 56)
-                                .background(Color.orange)
-                                .cornerRadius(16)
-                                .shadow(color: Color.orange.opacity(0.3), radius: 6)
+                            ZStack {
+                                Circle()
+                                    .fill(Color.blue.opacity(0.12))
+                                    .frame(width: 44, height: 44)
+                                Image(systemName: "phone.fill")
+                                    .foregroundColor(.blue)
+                                    .font(.title3)
                             }
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Call Manager")
+                                    .fontWeight(.bold)
+                                Text("Contact Dispatch Support")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
                             
                             Button(action: {
                                 HapticManager.shared.triggerImpact(style: .medium)
-                                showingCompletionForm = true
-                            }) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "checkmark.seal.fill")
-                                    Text("COMPLETE TRIP")
-                                        .fontWeight(.black)
+                                if let url = URL(string: "tel://100") {
+                                    UIApplication.shared.open(url)
                                 }
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 56)
-                                .background(
-                                    LinearGradient(
-                                        colors: [Color(red: 0.15, green: 0.75, blue: 0.35), Color(red: 0.05, green: 0.55, blue: 0.25)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .cornerRadius(16)
-                                .shadow(color: Color.green.opacity(0.3), radius: 6)
+                            }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color(UIColor.systemGray5))
+                                        .frame(width: 38, height: 38)
+                                    Image(systemName: "phone.fill")
+                                        .foregroundColor(.blue)
+                                        .font(.subheadline)
+                                }
                             }
                         }
+                        .padding()
+                        .background(RoundedRectangle(cornerRadius: 20).fill(Color(UIColor.secondarySystemGroupedBackground)))
                         .padding(.horizontal)
-                        .padding(.bottom, 38)
                         
-                    } else {
-                        // Stopped Actions (Shows Resume button)
-                        VStack(spacing: 14) {
+                        // Pause / Resume Trip Row
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.orange.opacity(0.12))
+                                    .frame(width: 44, height: 44)
+                                Image(systemName: isTripStopped ? "play.fill" : "pause.fill")
+                                    .foregroundColor(.orange)
+                                    .font(.title3)
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(isTripStopped ? "Resume Journey" : "Pause Journey")
+                                    .fontWeight(.bold)
+                                Text(isTripStopped ? "Start tracking telemetry" : "Temporarily halt navigation")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
                             Button(action: {
                                 HapticManager.shared.triggerImpact(style: .medium)
                                 withAnimation(.spring()) {
-                                    isTripStopped = false
+                                    isTripStopped.toggle()
                                 }
                             }) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "play.fill")
-                                    Text("RESUME TRIP")
-                                        .fontWeight(.black)
+                                ZStack {
+                                    Circle()
+                                        .fill(Color(UIColor.systemGray5))
+                                        .frame(width: 38, height: 38)
+                                    Image(systemName: isTripStopped ? "play.fill" : "pause.fill")
+                                        .foregroundColor(.orange)
+                                        .font(.subheadline)
                                 }
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 56)
-                                .background(Color.blue)
-                                .cornerRadius(16)
-                                .shadow(color: Color.blue.opacity(0.3), radius: 6)
                             }
                         }
+                        .padding()
+                        .background(RoundedRectangle(cornerRadius: 20).fill(Color(UIColor.secondarySystemGroupedBackground)))
                         .padding(.horizontal)
-                        .padding(.bottom, 38)
+
+                        // Complete Trip Button
+                        Button(action: {
+                            HapticManager.shared.triggerImpact(style: .heavy)
+                            showingCompletionForm = true
+                        }) {
+                            Text("Complete Trip")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 54)
+                                .background(Color.red)
+                                .cornerRadius(18)
+                                .shadow(color: Color.red.opacity(0.2), radius: 6, x: 0, y: 3)
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 4)
+                        .padding(.bottom, 8)
+                        .sheet(isPresented: $showingCompletionForm) {
+                            TripCompletionFormView(
+                                activeTripId: trip.id.uuidString,
+                                trip: trip,
+                                onComplete: { finalOdometer, finalFuelLevel, needsMaintenance, driverNote in
+                                    Task {
+                                        var updatedTrip = trip
+                                        updatedTrip.finalOdometer = Double(finalOdometer)
+                                        updatedTrip.finalFuelLevel = Double(finalFuelLevel.trimmingCharacters(in: CharacterSet(charactersIn: "%"))) ?? 75.0
+                                        updatedTrip.status = .completed
+                                        updatedTrip.endTime = Date()
+                                        updatedTrip.driverNote = driverNote
+                                        _ = try? await services.tripService.updateTrip(updatedTrip)
+                                        await MainActor.run {
+                                            onBack()
+                                        }
+                                    }
+                                }
+                            )
+                            .environmentObject(localStore)
+                        }
                     }
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
-                .opacity(Double(1.0 - (sheetOffset / collapsedOffset)))
-                .frame(height: sheetOffset == collapsedOffset ? 0 : nil)
-                .clipped()
             }
+            .padding(.bottom, isExpanded ? 0 : 20) // Add bottom padding to push content away from rounded corners!
             .background(
-                RoundedRectangle(cornerRadius: 30)
+                RoundedRectangle(cornerRadius: 38) // Highly rounded capsule
                     .fill(.ultraThinMaterial)
                     .environment(\.colorScheme, .light)
                     .shadow(color: Color.black.opacity(0.12), radius: 20, x: 0, y: -5)
             )
-            .offset(y: sheetOffset)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
             .gesture(
                 DragGesture()
-                    .onChanged { value in
-                        let newOffset = lastOffset + value.translation.height
-                        if newOffset >= -20 && newOffset <= collapsedOffset {
-                            sheetOffset = newOffset
-                        }
-                    }
                     .onEnded { value in
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-                            if sheetOffset > collapsedOffset / 3 {
-                                sheetOffset = collapsedOffset
-                            } else {
-                                sheetOffset = 0
+                        if value.translation.height < -20 {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                                isExpanded = true
                             }
-                            lastOffset = sheetOffset
+                        } else if value.translation.height > 20 {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                                isExpanded = false
+                            }
                         }
                     }
             )
-            .ignoresSafeArea(edges: .bottom)
         }
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showingFuelSheet) {
-            FuelRequestView(assignedVehicle: assignedVehicle)
-                .environmentObject(localStore)
-        }
-        .sheet(isPresented: $showingCompletionForm) {
-            TripCompletionFormView(
-                activeTripId: trip.id.uuidString,
-                trip: trip,
-                onComplete: { finalOdometer, finalFuelLevel, needsMaintenance, driverNote in
-                    Task {
-                        var updatedTrip = trip
-                        updatedTrip.finalOdometer = Double(finalOdometer)
-                        updatedTrip.finalFuelLevel = Double(finalFuelLevel.trimmingCharacters(in: CharacterSet(charactersIn: "%"))) ?? 75.0
-                        updatedTrip.status = .completed
-                        updatedTrip.endTime = Date()
-                        updatedTrip.driverNote = driverNote
-                        _ = try? await services.tripService.updateTrip(updatedTrip)
-                        await MainActor.run {
-                            onBack()
-                        }
-                    }
-                }
-            )
-            .environmentObject(localStore)
-        }
+
         .alert(isPresented: $showingSOSAlert) {
             Alert(
                 title: Text("EMERGENCY SOS"),
@@ -664,9 +802,6 @@ struct ActiveNavigationDetailView: View {
                 comments: $cancelComments
             )
         }
-        .sheet(isPresented: $showingChatView) {
-            FleetManagerChatView()
-        }
         .onAppear {
             locationService.requestPermission()
             locationService.startTracking()
@@ -675,6 +810,8 @@ struct ActiveNavigationDetailView: View {
             viewModel.startCoordinate = userLocation
             viewModel.endCoordinate = CLLocationCoordinate2D(latitude: userLocation.latitude + 0.012, longitude: userLocation.longitude + 0.012)
             viewModel.calculateRoute()
+            
+            focusOnDriverAndRoute()
         }
         .onReceive(locationService.$location) { newLocation in
             guard let newLocation = newLocation else { return }
@@ -703,6 +840,59 @@ struct ActiveNavigationDetailView: View {
                 lastCalculatedLocation = newLocation
             }
         }
+        .onDisappear {
+            locationService.stopMonitoringRoute()
+            simulationTimer?.invalidate()
+            simulationTimer = nil
+        }
+        .onReceive(viewModel.$waypoints) { waypoints in
+            guard !waypoints.isEmpty else { return }
+            locationService.startMonitoringRoute(
+                tripId: trip.id,
+                vehicleId: trip.vehicleId,
+                waypoints: waypoints,
+                service: services.tripService
+            )
+        }
+        .onReceive(viewModel.$routeCoordinates) { coords in
+            guard !coords.isEmpty else { return }
+            simulationTimer?.invalidate()
+            simulatedIndex = 0
+            simulatedCoordinate = coords.first
+            liveDistanceRemaining = viewModel.distanceRemaining
+            
+            simulationTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { timer in
+                guard !isTripStopped else { return }
+                if simulatedIndex < coords.count - 1 {
+                    simulatedIndex += 1
+                    withAnimation(.linear(duration: 1.5)) {
+                        simulatedCoordinate = coords[simulatedIndex]
+                    }
+                    
+                    let kmLeft = calculateRemainingDistance(from: simulatedIndex, coordinates: coords)
+                    liveDistanceRemaining = String(format: "%.1f km", kmLeft)
+                    
+                    if isTrackingVehicle, let simulatedCoord = simulatedCoordinate {
+                        withAnimation {
+                            cameraPosition = .region(MKCoordinateRegion(center: simulatedCoord, latitudinalMeters: 600, longitudinalMeters: 600))
+                        }
+                    }
+                } else {
+                    timer.invalidate()
+                }
+            }
+        }
+    }
+    
+    private func calculateRemainingDistance(from index: Int, coordinates: [CLLocationCoordinate2D]) -> Double {
+        guard index < coordinates.count else { return 0.0 }
+        var distance: Double = 0.0
+        for i in index..<(coordinates.count - 1) {
+            let loc1 = CLLocation(latitude: coordinates[i].latitude, longitude: coordinates[i].longitude)
+            let loc2 = CLLocation(latitude: coordinates[i+1].latitude, longitude: coordinates[i+1].longitude)
+            distance += loc1.distance(from: loc2)
+        }
+        return distance / 1000.0
     }
 }
 
@@ -845,6 +1035,14 @@ struct TripCancellationView: View {
                     .foregroundColor(selectedReason.isEmpty ? .gray : .red)
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
+            .background(
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+            )
         }
     }
 }

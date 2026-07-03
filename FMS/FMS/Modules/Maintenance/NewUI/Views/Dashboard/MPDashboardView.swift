@@ -3,50 +3,79 @@ import SwiftUI
 
 struct MPDashboardView: View {
     @StateObject private var viewModel: MPDashboardViewModel
+    @ObservedObject private var notificationViewModel: NotificationViewModel
     @ObservedObject private var navigation: TabNavigationState
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var isShowingProfile = false
+    @State private var showingNotifications = false
     @State private var workOrderToStart: WorkOrder.ID?
     private let dependencies: AppDependencyContainer
     private let onLogout: () -> Void
 
-    init(dependencies: AppDependencyContainer, navigation: TabNavigationState, onLogout: @escaping () -> Void = {}) {
+    init(dependencies: AppDependencyContainer, notificationViewModel: NotificationViewModel, navigation: TabNavigationState, onLogout: @escaping () -> Void = {}) {
         _viewModel = StateObject(wrappedValue: MPDashboardViewModel(dependencies: dependencies))
+        self.notificationViewModel = notificationViewModel
         self.dependencies = dependencies
         self.navigation = navigation
         self.onLogout = onLogout
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: AppSpacing.xLarge) {
-                header
-                
-                if viewModel.state.isLoading {
-                    LoadingView(title: "Loading dashboard")
-                } else {
-                    progressSection
-                    servicesSection
-                    activitySection
+        ZStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: AppSpacing.xLarge) {
+                    header
+                    
+                    if viewModel.state.isLoading {
+                        LoadingView(title: "Loading dashboard")
+                    } else {
+                        progressSection
+                        servicesSection
+                        activitySection
+                    }
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, AppSpacing.large)
+                .padding(.bottom, 60)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, AppSpacing.large)
-            .padding(.bottom, 60)
+            .background(AppColor.background.ignoresSafeArea())
+
+            if notificationViewModel.showBanner, let banner = notificationViewModel.currentBanner {
+                NotificationBannerView(
+                    notification: banner,
+                    onTap: {
+                        notificationViewModel.dismissCurrentBanner()
+                        showingNotifications = true
+                    },
+                    onDismiss: {
+                        notificationViewModel.dismissCurrentBanner()
+                    }
+                )
+                .zIndex(99)
+            }
         }
-        .background(AppColor.background.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar) // Hide navigation bar to match design
         .sheet(isPresented: $isShowingProfile) {
             MPProfileView(dependencies: dependencies, onLogout: onLogout)
         }
-        .onAppear {
-            Task {
-                await viewModel.load()
+        .sheet(isPresented: $showingNotifications) {
+            NotificationListView(viewModel: notificationViewModel)
+        }
+        .task {
+            await viewModel.load()
+            if let personnelId = viewModel.user?.personnelId {
+                notificationViewModel.setRecipientId(personnelId)
             }
+            await notificationViewModel.loadNotifications()
+            notificationViewModel.subscribeToRealtime()
+        }
+        .onDisappear {
+            notificationViewModel.unsubscribeRealtime()
         }
         .refreshable {
             await viewModel.load(isRefresh: true)
+            await notificationViewModel.loadNotifications()
         }
         .onReceive(Timer.publish(every: 20, on: .main, in: .common).autoconnect()) { _ in
             Task {
@@ -94,6 +123,10 @@ struct MPDashboardView: View {
             Spacer()
 
             HStack(spacing: AppSpacing.medium) {
+                NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
+                    showingNotifications = true
+                }
+
                 Button {
                     isShowingProfile = true
                 } label: {
@@ -419,6 +452,13 @@ struct MaintenanceTimelineItem {
 
 #Preview {
     NavigationStack {
-        MPDashboardView(dependencies: .mock(), navigation: TabNavigationState())
+        MPDashboardView(
+            dependencies: .mock(),
+            notificationViewModel: NotificationViewModel(
+                notificationService: NotificationService(supabase: SupabaseService()),
+                recipientId: nil
+            ),
+            navigation: TabNavigationState()
+        )
     }
 }

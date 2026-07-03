@@ -9,6 +9,7 @@ final class AppServices {
     let maintenanceService: MaintenanceService
     let inventoryService: InventoryService
     let userManagementService: UserManagementService
+    let notificationService: NotificationService
 
     init() {
         let supabase = SupabaseService()
@@ -19,6 +20,7 @@ final class AppServices {
         maintenanceService = MaintenanceService(supabase: supabase)
         inventoryService = InventoryService(supabase: supabase)
         userManagementService = UserManagementService(supabase: supabase)
+        notificationService = NotificationService(supabase: supabase)
     }
 }
 
@@ -68,7 +70,7 @@ struct AppRouter: View {
             FleetManagerDashboardView(services: services, onLogout: logout)
 
         case .maintenancePersonnel:
-            MaintenanceTabRouter(onLogout: logout, supabaseClient: services.supabase.client)
+            MaintenanceTabRouter(services: services, onLogout: logout)
 
         case .driver(let user):
             DriverDashboardView(services: services, user: user, onLogout: logout)

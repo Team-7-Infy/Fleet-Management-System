@@ -13,13 +13,15 @@ struct InspectionFlowView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var localStore: LocalDataStore
 
+    let services: AppServices
     let isPresentedModally: Bool
     let preselectedTripId: String?
     let trips: [Trip]
     let vehicles: [Vehicle]
     let activeTripId: String?
 
-    init(isPresentedModally: Bool = false, preselectedTripId: String? = nil, trips: [Trip] = [], vehicles: [Vehicle] = [], activeTripId: String? = nil) {
+    init(services: AppServices, isPresentedModally: Bool = false, preselectedTripId: String? = nil, trips: [Trip] = [], vehicles: [Vehicle] = [], activeTripId: String? = nil) {
+        self.services = services
         self.isPresentedModally = isPresentedModally
         self.preselectedTripId = preselectedTripId
         self.trips = trips
@@ -51,7 +53,7 @@ struct InspectionFlowView: View {
     }
 
     var body: some View {
-        InspectionView(trip: allottedTrip, isPresentedModally: isPresentedModally, vehicleNumber: allottedTrip.vehicleNumber) {
+        InspectionView(services: services, trip: allottedTrip, isPresentedModally: isPresentedModally, vehicleNumber: allottedTrip.vehicleNumber) {
             dismiss()
         }
         .environmentObject(localStore)

@@ -11,6 +11,7 @@ struct DashboardView: View {
     var onRefreshData: (() async -> Void)? = nil
 
     @StateObject private var viewModel: DashboardViewModel
+    @StateObject private var notificationViewModel: NotificationViewModel
     @EnvironmentObject var locationService: LocationManager
     @EnvironmentObject var localStore: LocalDataStore
 
@@ -23,6 +24,13 @@ struct DashboardView: View {
         self.vehicles = vehicles
         self.onRefreshData = onRefreshData
         self._viewModel = StateObject(wrappedValue: DashboardViewModel(services: services, driver: driver, user: user))
+        self._notificationViewModel = StateObject(
+            wrappedValue: NotificationViewModel(
+                notificationService: services.notificationService,
+                recipientId: driver?.id,
+                role: .driver
+            )
+        )
     }
 
     // MARK: - Navigation States
@@ -33,6 +41,7 @@ struct DashboardView: View {
     @State private var showingInspectionSheet = false
     @State private var showingActiveNavigation = false
     @State private var showingTripDetailsSheet = false
+    @State private var showingNotifications = false
 
     var body: some View {
         // 1. Live Trip (if available)
@@ -40,7 +49,7 @@ struct DashboardView: View {
 
         // 2. All Scheduled Trips
         let allScheduled = trips.filter {
-            $0.status == .accepted || $0.status == .pending
+            $0.status == .accepted || $0.status == .pending || $0.status == .scheduled
         }.sorted { $0.startTime < $1.startTime }
 
         // The nearest Scheduled Trip (top card if no Live Trip exists)
@@ -66,9 +75,13 @@ struct DashboardView: View {
         // Top 3 remaining scheduled trips for the main dashboard list
         let displayedScheduled = Array(remainingScheduled.prefix(3))
 
-        // History trips (Completed, Rejected)
+        // History trips (Completed, Rejected, Cancelled) sorted by completion time (latest first)
         let historyTrips = trips.filter {
-            $0.status == .completed || $0.status == .rejected
+            $0.status == .completed || $0.status == .rejected || $0.status == .cancelled
+        }.sorted { t1, t2 in
+            let end1 = t1.endTime ?? t1.startTime
+            let end2 = t2.endTime ?? t2.startTime
+            return end1 > end2
         }
 
         // Top 3 history trips for the main dashboard list
@@ -82,7 +95,13 @@ struct DashboardView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
 
-                        HomeHeaderView(showingProfile: $showingProfile, firstName: user.fName, lastName: user.lName)
+                        HomeHeaderView(
+                            showingProfile: $showingProfile,
+                            notificationViewModel: notificationViewModel,
+                            showingNotifications: $showingNotifications,
+                            firstName: user.fName,
+                            lastName: user.lName
+                        )
 
                         // --- 1. Active Trip Section (Highest Priority) ---
                         if let active = liveTrip {
@@ -121,8 +140,15 @@ struct DashboardView: View {
                                     },
                                     onStartTrip: {
                                         Task {
-                                            try? await services.tripService.updateTripStatus(id: nearest.id, status: .inProgress)
-                                            await onRefreshData?()
+                                            do {
+                                                try await services.tripService.updateTripStatus(id: nearest.id, status: .inProgress)
+                                                await onRefreshData?()
+                                                await MainActor.run {
+                                                    showingActiveNavigation = true
+                                                }
+                                            } catch {
+                                                print("Failed to start trip: \(error)")
+                                            }
                                         }
                                     }
                                 )
@@ -234,6 +260,20 @@ struct DashboardView: View {
                     .padding(.top, 10)
                     .padding(.bottom, 40)
                 }
+
+                if notificationViewModel.showBanner, let banner = notificationViewModel.currentBanner {
+                    NotificationBannerView(
+                        notification: banner,
+                        onTap: {
+                            notificationViewModel.dismissCurrentBanner()
+                            showingNotifications = true
+                        },
+                        onDismiss: {
+                            notificationViewModel.dismissCurrentBanner()
+                        }
+                    )
+                    .zIndex(99)
+                }
             }
             .refreshable {
                 await viewModel.fetchDashboardData()
@@ -242,6 +282,20 @@ struct DashboardView: View {
             .toolbar(.hidden, for: .navigationBar)
             .task {
                 await viewModel.fetchDashboardData()
+                await notificationViewModel.loadNotifications()
+                notificationViewModel.subscribeToRealtime()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ReloadTrips"))) { _ in
+                Task {
+                    await viewModel.fetchDashboardData()
+                    await onRefreshData?()
+                }
+            }
+            .onDisappear {
+                notificationViewModel.unsubscribeRealtime()
+            }
+            .sheet(isPresented: $showingNotifications) {
+                NotificationListView(viewModel: notificationViewModel)
             }
             .onChange(of: showingActiveNavigation) { _, newValue in
                 if !newValue {
@@ -288,6 +342,7 @@ struct DashboardView: View {
             .sheet(isPresented: $showingInspectionSheet) {
                 NavigationStack {
                     InspectionFlowView(
+                        services: services,
                         isPresentedModally: true,
                         preselectedTripId: selectedTripToStart,
                         trips: trips,
@@ -304,7 +359,12 @@ struct DashboardView: View {
                         driver: driver,
                         trip: activeTrip,
                         vehicles: vehicles,
-                        onBack: { showingActiveNavigation = false }
+                        onBack: { 
+                            showingActiveNavigation = false
+                            Task {
+                                await onRefreshData?()
+                            }
+                        }
                     )
                     .environmentObject(localStore)
                     .environmentObject(locationService)
@@ -345,6 +405,8 @@ struct DashboardView: View {
 
 struct HomeHeaderView: View {
     @Binding var showingProfile: Bool
+    @ObservedObject var notificationViewModel: NotificationViewModel
+    @Binding var showingNotifications: Bool
     let firstName: String
     let lastName: String
 
@@ -362,6 +424,11 @@ struct HomeHeaderView: View {
                 .accessibilityAddTraits(.isHeader)
 
             Spacer()
+
+            NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
+                showingNotifications = true
+            }
+            .padding(.trailing, 8)
 
             Button(action: {
                 HapticManager.shared.triggerImpact(style: .medium)
@@ -426,9 +493,9 @@ struct ActiveRouteCard: View {
                             .fill(Color.white.opacity(0.3))
                             .frame(width: 1, height: 20)
 
-                        VStack(alignment: .leading, spacing: 1) {
+                        HStack(spacing: 4) {
                             Text("ETA")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(.white.opacity(0.7))
                             Text(eta)
                                 .font(.system(size: 12, weight: .black))
@@ -446,44 +513,54 @@ struct ActiveRouteCard: View {
                 }
 
                 // Route visualization (Start to End)
-                HStack(alignment: .top, spacing: 14) {
-                    VStack(spacing: 4) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("START LOCATION")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white.opacity(0.7))
+                        .padding(.leading, 26)
+                        .padding(.bottom, 4)
+                    
+                    HStack(alignment: .top, spacing: 14) {
                         Circle()
                             .fill(Color.white)
                             .frame(width: 8, height: 8)
-
+                            .padding(.top, 5)
+                            .frame(width: 12)
+                        
+                        Text(startLocation)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    
+                    HStack(alignment: .top, spacing: 14) {
                         Rectangle()
                             .fill(LinearGradient(colors: [.white, .white.opacity(0.25)], startPoint: .top, endPoint: .bottom))
-                            .frame(width: 2, height: 36)
-
+                            .frame(width: 2)
+                            .frame(width: 12)
+                        
+                        Spacer().frame(height: 16)
+                    }
+                    .frame(height: 24)
+                    
+                    Text("END LOCATION")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white.opacity(0.7))
+                        .padding(.leading, 26)
+                        .padding(.bottom, 4)
+                    
+                    HStack(alignment: .top, spacing: 14) {
                         Circle()
                             .stroke(Color.white, lineWidth: 2)
                             .background(Circle().fill(Color.clear))
                             .frame(width: 8, height: 8)
-                    }
-                    .padding(.top, 5)
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("START LOCATION")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.white.opacity(0.7))
-                            Text(startLocation)
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.white)
-                        }
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("END LOCATION")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.white.opacity(0.7))
-                            Text(endLocation)
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.white)
-                        }
+                            .padding(.top, 5)
+                            .frame(width: 12)
+                        
+                        Text(endLocation)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
                     }
                 }
-                .padding(.vertical, 4)
 
                 // Progress Bar with merged distance covered and left labels below it
                 VStack(spacing: 8) {
@@ -689,12 +766,27 @@ struct PendingRequestCard: View {
         return f.string(from: endTime)
     }
 
+    private var formattedStartTime: String {
+        let f = DateFormatter()
+        f.dateFormat = "d MMM, h:mm a"
+        return f.string(from: trip.startTime)
+    }
+
+    private var formattedEndTime: String {
+        guard let endTime = trip.endTime else {
+            return "N/A"
+        }
+        let f = DateFormatter()
+        f.dateFormat = "d MMM, h:mm a"
+        return f.string(from: endTime)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 14) {
                     // Header: ID and Vehicle
                     HStack {
-                        Text(trip.id.uuidString.prefix(7).uppercased())
+                        Text(trip.id.shortIdentifier)
                             .font(.system(size: 16, weight: .black, design: .rounded))
                             .foregroundColor(.blue)
                         Spacer()
@@ -715,28 +807,36 @@ struct PendingRequestCard: View {
                     }
 
                     // Route Info (Start to End Locations)
-                    HStack(alignment: .top, spacing: 12) {
-                        VStack(spacing: 4) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        // Origin header
+                        Text("ORIGIN")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 24)
+                            .padding(.bottom, 4)
+                        
+                        // Origin Address Row
+                        HStack(alignment: .top, spacing: 12) {
                             Circle()
                                 .fill(Color.green)
                                 .frame(width: 8, height: 8)
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(width: 2, height: 40)
-                            Image(systemName: "flag.fill")
-                                .foregroundColor(.red)
-                                .font(.system(size: 8))
-                        }
-                        .padding(.top, 4)
-
-                        VStack(alignment: .leading, spacing: 8) {
+                                .padding(.top, 5)
+                                .frame(width: 12)
+                            
                             Text(trip.startLocation)
                                 .font(.subheadline)
                                 .fontWeight(.bold)
                                 .foregroundColor(.primary)
                                 .multilineTextAlignment(.leading)
-
-                            // Intermediate Distance
+                        }
+                        
+                        // Connector line & distance
+                        HStack(alignment: .top, spacing: 12) {
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.3))
+                                .frame(width: 2)
+                                .frame(width: 12)
+                            
                             HStack(spacing: 4) {
                                 Image(systemName: "road.lanes")
                                     .font(.system(size: 9))
@@ -745,8 +845,25 @@ struct PendingRequestCard: View {
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundColor(.purple)
                             }
-                            .padding(.vertical, 2)
-
+                            .padding(.vertical, 4)
+                        }
+                        .frame(height: 24)
+                        
+                        // Destination header
+                        Text("DESTINATION")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 24)
+                            .padding(.bottom, 4)
+                        
+                        // Destination Address Row
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: "flag.fill")
+                                .foregroundColor(.red)
+                                .font(.system(size: 8))
+                                .padding(.top, 5)
+                                .frame(width: 12)
+                            
                             Text(trip.endLocation)
                                 .font(.subheadline)
                                 .fontWeight(.bold)
@@ -761,7 +878,7 @@ struct PendingRequestCard: View {
                             Text("START DATE & TIME")
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.secondary)
-                            Text("30 Jun, 08:30 AM")
+                            Text(formattedStartTime)
                                 .font(.subheadline)
                                 .fontWeight(.bold)
                                 .foregroundColor(.primary)
@@ -773,7 +890,7 @@ struct PendingRequestCard: View {
                             Text("END DATE & TIME")
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.secondary)
-                            Text("30 Jun, \(displayEta)")
+                            Text(formattedEndTime)
                                 .font(.subheadline)
                                 .fontWeight(.bold)
                                 .foregroundColor(.primary)
@@ -1397,7 +1514,7 @@ struct ActiveTripDetailView: View {
                                     ZStack(alignment: .leading) {
                                         Capsule().fill(Color(UIColor.systemGroupedBackground)).frame(height: 8)
                                         Capsule().fill(Color.blue).frame(width: geometry.size.width * progress, height: 8)
-                                            .shadow(color: .blue.opacity(0.3), radius: 4, x: 0, y: 0)
+                                            .shadow(color: Color.blue.opacity(0.3), radius: 4, x: 0, y: 0)
                                     }
                                 }
                                 .frame(height: 8)
@@ -1526,46 +1643,57 @@ struct UpcomingLiveTripCard: View {
             }
 
             // Route Detail
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Origin header
+                Text("ORIGIN")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(Color(red: 0.65, green: 0.75, blue: 0.9))
+                    .padding(.leading, 28)
+                    .padding(.bottom, 4)
+                
                 HStack(alignment: .top, spacing: 14) {
-                    VStack(spacing: 4) {
-                        Circle()
-                            .stroke(Color.white, lineWidth: 2)
-                            .frame(width: 10, height: 10)
-
-                        Rectangle()
-                            .fill(Color.white.opacity(0.4))
-                            .frame(width: 2, height: 28)
-
-                        Circle()
-                            .fill(Color.orange)
-                            .frame(width: 10, height: 10)
-                    }
-                    .padding(.top, 4)
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("ORIGIN")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(Color(red: 0.65, green: 0.75, blue: 0.9))
-                            Text(trip.startLocation)
-                                .font(.body)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
-                        }
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("DESTINATION")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(Color(red: 0.65, green: 0.75, blue: 0.9))
-                            Text(trip.endLocation)
-                                .font(.body)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
-                        }
-                    }
+                    Circle()
+                        .stroke(Color.white, lineWidth: 2)
+                        .frame(width: 10, height: 10)
+                        .padding(.top, 5)
+                        .frame(width: 14)
+                    
+                    Text(trip.startLocation)
+                        .font(.body)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
                 }
-
+                
+                HStack(alignment: .top, spacing: 14) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.4))
+                        .frame(width: 2)
+                        .frame(width: 14)
+                    
+                    Spacer().frame(height: 12)
+                }
+                .frame(height: 20)
+                
+                // Destination header
+                Text("DESTINATION")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(Color(red: 0.65, green: 0.75, blue: 0.9))
+                    .padding(.leading, 28)
+                    .padding(.bottom, 4)
+                
+                HStack(alignment: .top, spacing: 14) {
+                    Circle()
+                        .fill(Color.orange)
+                        .frame(width: 10, height: 10)
+                        .padding(.top, 5)
+                        .frame(width: 14)
+                    
+                    Text(trip.endLocation)
+                        .font(.body)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                }
+            }
                 Divider()
                     .background(Color.white.opacity(0.15))
                     .padding(.vertical, 4)
@@ -1584,7 +1712,6 @@ struct UpcomingLiveTripCard: View {
                         .fontWeight(.semibold)
                         .foregroundColor(Color(red: 0.65, green: 0.75, blue: 0.9))
                 }
-            }
 
             // Interactive button with gating check
             if activeTripExists {

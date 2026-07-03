@@ -1,12 +1,18 @@
 import SwiftUI
 import PhotosUI
+import Supabase
 
 struct InspectionView: View {
+    let services: AppServices
     let trip: InspectionTrip
     let isPresentedModally: Bool
     let vehicleNumber: String
     var onBack: (() -> Void)? = nil
     var onComplete: (() -> Void)? = nil
+
+    @State private var showingAlert = false
+    @State private var alertTitle = ""
+    @State private var alertMessage = ""
 
     @StateObject private var viewModel = InspectionViewModel()
     @Environment(\.dismiss) var dismiss
@@ -14,7 +20,6 @@ struct InspectionView: View {
 
     @State private var odometerInput: String = ""
     @State private var fuelInput: String = ""
-    @State private var selectedFuelPhoto: PhotosPickerItem? = nil
 
     private var currentOdometer: Int {
         let seed = trip.tripId.filter { "0123456789".contains($0) }
@@ -43,7 +48,11 @@ struct InspectionView: View {
 
     var body: some View {
         ZStack {
-            Color(.systemGroupedBackground).edgesIgnoringSafeArea(.all)
+            Color(.systemGroupedBackground)
+                .edgesIgnoringSafeArea(.all)
+                .onTapGesture {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                }
 
             VStack(spacing: 0) {
                 // Gradient Header extending under safe area
@@ -169,16 +178,6 @@ struct InspectionView: View {
                                             .background(Color(.systemGray6))
                                             .cornerRadius(8)
                                         
-                                        PhotosPicker(selection: $selectedFuelPhoto, matching: .images) {
-                                            Image(systemName: "camera.viewfinder")
-                                                .font(.system(size: 16, weight: .bold))
-                                                .foregroundColor(.blue)
-                                                .frame(width: 32, height: 32)
-                                                .background(Color.blue.opacity(0.08))
-                                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                        }
-                                        .accessibilityLabel("Scan Fuel Gauge")
-                                        
                                         Text("%")
                                             .font(.subheadline)
                                             .foregroundColor(.secondary)
@@ -217,6 +216,14 @@ struct InspectionView: View {
                     }
                     .padding()
                 }
+                .scrollDismissesKeyboard(.interactively)
+                .background(
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        }
+                )
 
                 // 3. Submit Area (Sticks to bottom)
                 VStack {
@@ -246,22 +253,15 @@ struct InspectionView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
-        .onChange(of: selectedFuelPhoto) { newItem in
-            Task {
-                if let data = try? await newItem?.loadTransferable(type: Data.self),
-                   let uiImage = UIImage(data: data) {
-                    OCRService.extractFuelLevel(from: uiImage) { level in
-                        DispatchQueue.main.async {
-                            if let level = level {
-                                fuelInput = String(level)
-                                HapticManager.shared.triggerImpact(style: .medium)
-                            } else {
-                                HapticManager.shared.triggerNotification(type: .warning)
-                            }
-                        }
-                    }
+        .alert(isPresented: $showingAlert) {
+            Alert(
+                title: Text(alertTitle),
+                message: Text(alertMessage),
+                dismissButton: .default(Text("OK")) {
+                    dismiss()
+                    onComplete?()
                 }
-            }
+            )
         }
     }
 
@@ -278,18 +278,130 @@ struct InspectionView: View {
 
     private func submitInspection() {
         viewModel.isSubmitting = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            viewModel.isSubmitting = false
-            localStore.markTripInspected(trip.tripId)
-            
-            // Save readings to UserDefaults under trip ID
-            if let odoVal = Int(odometerInput), let fuelVal = Int(fuelInput) {
-                UserDefaults.standard.set(odoVal, forKey: "trip_\(trip.tripId)_pre_odo")
-                UserDefaults.standard.set(fuelVal, forKey: "trip_\(trip.tripId)_pre_fuel")
-            }
+        
+        let failedItems = viewModel.items.filter { $0.status == .failed }
+        
+        // Save readings to UserDefaults under trip ID
+        if let odoVal = Int(odometerInput), let fuelVal = Int(fuelInput) {
+            UserDefaults.standard.set(odoVal, forKey: "trip_\(trip.tripId)_pre_odo")
+            UserDefaults.standard.set(fuelVal, forKey: "trip_\(trip.tripId)_pre_fuel")
+        }
 
-            dismiss()
-            onComplete?()
+        guard !failedItems.isEmpty else {
+            // No defects found, proceed normally
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                viewModel.isSubmitting = false
+                localStore.markTripInspected(trip.tripId)
+                dismiss()
+                onComplete?()
+            }
+            return
+        }
+        
+        // Defects found! Handle work order and auto-reassign vehicle
+        Task {
+            do {
+                guard let tripUuid = UUID(uuidString: trip.tripId) else {
+                    throw NSError(domain: "FMS", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid Trip ID"])
+                }
+                
+                // 1. Fetch current trip and vehicle
+                let tripModel = try await services.tripService.fetchTrip(id: tripUuid)
+                let vehicle = try await services.vehicleService.fetchVehicle(id: tripModel.vehicleId)
+                
+                // 2. Loop over each failed item and create a separate work order (maintenance task) in DB
+                for item in failedItems {
+                    var photoUrls: [String] = []
+                    
+                    // Upload photo to Supabase storage if taken
+                    if let image = item.failImage,
+                       let imageData = image.jpegData(compressionQuality: 0.8) {
+                        let photoId = UUID()
+                        let storage = services.supabase.client.storage.from("maintenance")
+                        let pathName = "\(photoId.uuidString).jpg"
+                        
+                        do {
+                            try await storage.upload(path: pathName, file: imageData, options: FileOptions(contentType: "image/jpeg"))
+                            if let publicUrl = try? storage.getPublicURL(path: pathName).absoluteString {
+                                photoUrls.append(publicUrl)
+                            }
+                        } catch {
+                            print("Failed to upload defect image for \(item.name): \(error)")
+                        }
+                    }
+                    
+                    let description = "Pre-trip inspection failed for \(item.name) on vehicle \(vehicle.licencePlate) (VIN: \(vehicle.id.uuidString)). Odometer: \(odometerInput) km, Fuel: \(fuelInput)%. Details: \(item.failDescription)"
+                    
+                    let maintenanceTask = MaintenanceTask(
+                        id: UUID(),
+                        description: description,
+                        scheduledDate: DateOnly(wrappedValue: Date()),
+                        isUrgent: true,
+                        scheduledBy: nil,
+                        executedBy: nil,
+                        status: .scheduled,
+                        photoUrls: photoUrls.isEmpty ? nil : photoUrls
+                    )
+                    
+                    _ = try await services.maintenanceService.createTask(maintenanceTask)
+                    
+                    // Link vehicle to the task in DB
+                    let taskVehicle = TaskVehicle(taskId: maintenanceTask.id, vin: vehicle.id)
+                    try await services.maintenanceService.addTaskVehicle(taskVehicle)
+                }
+                
+                // 3. Update the vehicle status to .maintenance in DB
+                var updatedVehicle = vehicle
+                updatedVehicle.status = .maintenance
+                _ = try await services.vehicleService.updateVehicle(updatedVehicle)
+                
+                // 4. Scan for an available active vehicle of the same type
+                let allVehicles = try await services.vehicleService.fetchVehicles()
+                let allTrips = try await services.tripService.fetchTrips()
+                let busyVehicleIds = Set(allTrips.filter {
+                    $0.status == .inProgress || $0.status == .accepted || $0.status == .scheduled || $0.status == .pending || $0.status == .rejectionPending
+                }.map { $0.vehicleId })
+                
+                let replacementVehicle = allVehicles.first { v in
+                    v.status == .active &&
+                    v.vehicleType == vehicle.vehicleType &&
+                    v.id != vehicle.id &&
+                    !busyVehicleIds.contains(v.id)
+                }
+                
+                if let replacement = replacementVehicle {
+                    // Update trip to use the replacement vehicle in DB
+                    var updatedTrip = tripModel
+                    updatedTrip.vehicleId = replacement.id
+                    _ = try await services.tripService.updateTrip(updatedTrip)
+                    
+                    await MainActor.run {
+                        viewModel.isSubmitting = false
+                        localStore.markTripInspected(trip.tripId)
+                        alertTitle = "Defects Detected ⚠️"
+                        alertMessage = "Vehicle \(vehicle.licencePlate) has been sent to maintenance. \(failedItems.count) separate work order(s) created. Vehicle \(replacement.licencePlate) has been automatically assigned to your trip."
+                        showingAlert = true
+                    }
+                } else {
+                    // Mark the trip as rejectionPending to notify the manager that driver rejected/needs re-assignment
+                    try await services.tripService.updateTripStatus(id: tripModel.id, status: .rejectionPending, rejectionReason: "Pre-trip inspection failed. No replacement vehicle of type \(vehicle.vehicleType) available.")
+                    
+                    await MainActor.run {
+                        viewModel.isSubmitting = false
+                        alertTitle = "Defects Detected ⚠️"
+                        alertMessage = "Vehicle \(vehicle.licencePlate) has been sent to maintenance. \(failedItems.count) separate work order(s) created. No replacement vehicle of type \(vehicle.vehicleType) is currently available. Please contact dispatch."
+                        showingAlert = true
+                    }
+                }
+            } catch {
+                print("Failed to execute pre-trip defect workflow: \(error)")
+                await MainActor.run {
+                    viewModel.isSubmitting = false
+                    alertTitle = "Error"
+                    alertMessage = "Failed to process inspection report. Please check your network and try again."
+                    showingAlert = true
+                }
+            }
         }
     }
 }
@@ -303,6 +415,7 @@ struct InspectionRow: View {
     @State private var failDescription: String = ""
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var selectedImage: UIImage? = nil
+    @State private var showingCamera = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -368,7 +481,7 @@ struct InspectionRow: View {
                             .foregroundColor(.secondary)
 
                         HStack(spacing: 16) {
-                            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                            Button(action: { showingCamera = true }) {
                                 if let image = selectedImage {
                                     Image(uiImage: image)
                                         .resizable()
@@ -381,7 +494,7 @@ struct InspectionRow: View {
                                         Image(systemName: "camera.fill")
                                             .font(.system(size: 20))
                                             .foregroundColor(.blue)
-                                        Text("Add Photo")
+                                        Text("Take Photo")
                                             .font(.system(size: 10, weight: .bold))
                                             .foregroundColor(.blue)
                                     }
@@ -394,16 +507,14 @@ struct InspectionRow: View {
                                     )
                                 }
                             }
-                            .onChange(of: selectedPhotoItem) { newItem in
-                                Task {
-                                    if let data = try? await newItem?.loadTransferable(type: Data.self),
-                                       let uiImage = UIImage(data: data) {
-                                        await MainActor.run {
-                                            self.selectedImage = uiImage
-                                            onDetailsChange(failDescription, uiImage)
-                                        }
+                            .sheet(isPresented: $showingCamera) {
+                                CameraPicker(selectedImage: Binding(
+                                    get: { selectedImage },
+                                    set: { newImage in
+                                        selectedImage = newImage
+                                        onDetailsChange(failDescription, newImage)
                                     }
-                                }
+                                ))
                             }
 
                             if selectedImage != nil {
@@ -462,6 +573,48 @@ struct InspectionRow: View {
         .onAppear {
             failDescription = item.failDescription
             selectedImage = item.failImage
+        }
+    }
+}
+
+// MARK: - Camera Picker Representable
+struct CameraPicker: UIViewControllerRepresentable {
+    @Environment(\.dismiss) var dismiss
+    @Binding var selectedImage: UIImage?
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            picker.sourceType = .camera
+        } else {
+            picker.sourceType = .photoLibrary
+        }
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: CameraPicker
+
+        init(_ parent: CameraPicker) {
+            self.parent = parent
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                parent.selectedImage = image
+            }
+            parent.dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
         }
     }
 }

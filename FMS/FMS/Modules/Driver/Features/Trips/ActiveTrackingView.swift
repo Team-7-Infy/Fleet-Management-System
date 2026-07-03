@@ -90,7 +90,7 @@ struct ActiveTrackingView: View {
                         }
 
                         // Past Trips Section (Completed, Delivered, or Cancelled) - max 3 by default, expandable via chevron
-                        let pastTrips = trips.filter { $0.status == .completed || $0.status == .rejected }
+                        let pastTrips = trips.filter { $0.status == .completed || $0.status == .rejected || $0.status == .cancelled }
                         let displayedPastTrips = isPastTripsExpanded ? pastTrips : Array(pastTrips.prefix(3))
 
                         VStack(alignment: .leading, spacing: 12) {
@@ -132,7 +132,7 @@ struct ActiveTrackingView: View {
                                                         .font(.subheadline)
                                                         .fontWeight(.bold)
                                                         .foregroundColor(.secondary)
-                                                    Text("Trip: \(trip.id.uuidString.prefix(8).uppercased())")
+                                                    Text("Trip: \(trip.id.shortIdentifier)")
                                                         .font(.caption)
                                                         .foregroundColor(.secondary.opacity(0.7))
                                                 }
@@ -226,7 +226,7 @@ private struct UpcomingTripCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text(trip.id.uuidString.prefix(8).uppercased())
+                Text(trip.id.shortIdentifier)
                     .font(.system(size: 16, weight: .black, design: .rounded))
                     .foregroundColor(.blue)
                 Spacer()
@@ -239,27 +239,36 @@ private struct UpcomingTripCard: View {
                     .clipShape(Capsule())
             }
 
-            HStack(alignment: .top, spacing: 12) {
-                VStack(spacing: 4) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Origin header
+                Text("ORIGIN")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 24)
+                    .padding(.bottom, 4)
+                
+                // Origin Address Row
+                HStack(alignment: .top, spacing: 12) {
                     Circle()
                         .fill(Color.green)
                         .frame(width: 8, height: 8)
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.3))
-                        .frame(width: 2, height: 40)
-                    Image(systemName: "flag.fill")
-                        .foregroundColor(.red)
-                        .font(.system(size: 8))
-                }
-                .padding(.top, 4)
-
-                VStack(alignment: .leading, spacing: 8) {
+                        .padding(.top, 5)
+                        .frame(width: 12)
+                    
                     Text(trip.startLocation)
                         .font(.subheadline)
                         .fontWeight(.bold)
                         .foregroundColor(.primary)
                         .multilineTextAlignment(.leading)
-
+                }
+                
+                // Route connector line & distance
+                HStack(alignment: .top, spacing: 12) {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: 2)
+                        .frame(width: 12)
+                    
                     HStack(spacing: 4) {
                         Image(systemName: "road.lanes")
                             .font(.system(size: 9))
@@ -268,7 +277,25 @@ private struct UpcomingTripCard: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-
+                    .padding(.vertical, 4)
+                }
+                .frame(height: 24)
+                
+                // Destination header
+                Text("DESTINATION")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 24)
+                    .padding(.bottom, 4)
+                
+                // Destination Address Row
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "flag.fill")
+                        .foregroundColor(.red)
+                        .font(.system(size: 8))
+                        .padding(.top, 5)
+                        .frame(width: 12)
+                    
                     Text(trip.endLocation)
                         .font(.subheadline)
                         .fontWeight(.bold)

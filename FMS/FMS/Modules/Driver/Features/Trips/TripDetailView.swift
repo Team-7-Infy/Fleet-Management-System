@@ -25,7 +25,7 @@ struct TripDetailView: View {
                         // Clean Inline Title Header
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
-                                Text(trip.id.uuidString.prefix(8).uppercased())
+                                Text(trip.id.shortIdentifier)
                                     .font(.system(size: 32, weight: .black, design: .rounded))
                                     .foregroundColor(.primary)
 
@@ -62,42 +62,58 @@ struct TripDetailView: View {
 
                             Divider()
 
-                            HStack(alignment: .top, spacing: 16) {
-                                VStack(spacing: 0) {
+                            VStack(alignment: .leading, spacing: 0) {
+                                // Start Location Header
+                                Text("START LOCATION")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.secondary)
+                                    .padding(.leading, 30)
+                                    .padding(.bottom, 4)
+                                
+                                // Start Location Address
+                                HStack(alignment: .top, spacing: 16) {
                                     Circle()
                                         .fill(Color.green)
                                         .frame(width: 10, height: 10)
-
+                                        .padding(.top, 5)
+                                        .frame(width: 14)
+                                    
+                                    Text(trip.startLocation)
+                                        .font(.body)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.primary)
+                                }
+                                
+                                // Connector
+                                HStack(alignment: .top, spacing: 16) {
                                     Rectangle()
                                         .fill(Color.gray.opacity(0.3))
-                                        .frame(width: 2, height: 44)
-
+                                        .frame(width: 2)
+                                        .frame(width: 14)
+                                    
+                                    Spacer().frame(height: 16)
+                                }
+                                .frame(height: 24)
+                                
+                                // End Location Header
+                                Text("END LOCATION")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.secondary)
+                                    .padding(.leading, 30)
+                                    .padding(.bottom, 4)
+                                
+                                // End Location Address
+                                HStack(alignment: .top, spacing: 16) {
                                     Image(systemName: "flag.fill")
                                         .foregroundColor(.red)
                                         .font(.system(size: 10))
-                                }
-                                .padding(.top, 4)
-
-                                VStack(alignment: .leading, spacing: 18) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("START LOCATION")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundColor(.secondary)
-                                        Text(trip.startLocation)
-                                            .font(.body)
-                                            .fontWeight(.bold)
-                                            .foregroundColor(.primary)
-                                    }
-
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("END LOCATION")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundColor(.secondary)
-                                        Text(trip.endLocation)
-                                            .font(.body)
-                                            .fontWeight(.bold)
-                                            .foregroundColor(.primary)
-                                    }
+                                        .padding(.top, 5)
+                                        .frame(width: 14)
+                                    
+                                    Text(trip.endLocation)
+                                        .font(.body)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.primary)
                                 }
                             }
                         }
@@ -272,7 +288,7 @@ struct CompletedTripDetailView: View {
             // Clean Inline Title Header
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text(trip.id.uuidString.prefix(8).uppercased())
+                    Text(trip.id.shortIdentifier)
                         .font(.system(size: 32, weight: .black, design: .rounded))
                         .foregroundColor(.primary)
 
@@ -309,29 +325,23 @@ struct CompletedTripDetailView: View {
 
                 Divider()
 
-                HStack(alignment: .top, spacing: 16) {
-                    // Vertical timeline node line
-                    VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Start Location Header
+                    Text("START LOCATION")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 30)
+                        .padding(.bottom, 4)
+                    
+                    // Start Location Address
+                    HStack(alignment: .top, spacing: 16) {
                         Circle()
                             .fill(Color.green)
                             .frame(width: 10, height: 10)
-
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.3))
-                            .frame(width: 2, height: 44)
-
-                        Image(systemName: "flag.fill")
-                            .foregroundColor(.red)
-                            .font(.system(size: 10))
-                    }
-                    .padding(.top, 4)
-
-                    VStack(alignment: .leading, spacing: 18) {
-                        // Start Location
+                            .padding(.top, 5)
+                            .frame(width: 14)
+                        
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("START LOCATION")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.secondary)
                             Text(trip.startLocation)
                                 .font(.body)
                                 .fontWeight(.bold)
@@ -340,12 +350,35 @@ struct CompletedTripDetailView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
-
-                        // End Location
+                    }
+                    
+                    // Route connector
+                    HStack(alignment: .top, spacing: 16) {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(width: 2)
+                            .frame(width: 14)
+                        
+                        Spacer().frame(height: 16)
+                    }
+                    .frame(height: 24)
+                    
+                    // End Location Header
+                    Text("STOP LOCATION (DESTINATION)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 30)
+                        .padding(.bottom, 4)
+                    
+                    // End Location Address
+                    HStack(alignment: .top, spacing: 16) {
+                        Image(systemName: "flag.fill")
+                            .foregroundColor(.red)
+                            .font(.system(size: 10))
+                            .padding(.top, 5)
+                            .frame(width: 14)
+                        
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("STOP LOCATION (DESTINATION)")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.secondary)
                             Text(trip.endLocation)
                                 .font(.body)
                                 .fontWeight(.bold)

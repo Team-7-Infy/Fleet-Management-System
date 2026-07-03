@@ -11,6 +11,7 @@ struct DriverDashboardView: View {
     @State private var vehicles: [Vehicle] = []
     @State private var driver: Driver?
     @State private var isLoading = true
+    @State private var realtimeTask: Task<Void, Never>? = nil
 
     var body: some View {
         Group {
@@ -37,7 +38,45 @@ struct DriverDashboardView: View {
                         onLogout: onLogout
                     )
                 }
+                .onAppear {
+                    if let driverId = driver?.id {
+                        startRealtimeTrips(for: driverId)
+                    }
+                }
+                .onDisappear {
+                    realtimeTask?.cancel()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ReloadTrips"))) { _ in
+                    if let driverId = driver?.id {
+                        Task {
+                            await reloadTripsAndVehicles(for: driverId)
+                        }
+                    }
+                }
             }
+        }
+    }
+
+    private func startRealtimeTrips(for driverId: UUID) {
+        realtimeTask?.cancel()
+        realtimeTask = Task {
+            let stream = services.tripService.subscribeToTrips(forDriverId: driverId)
+            for await _ in stream {
+                await reloadTripsAndVehicles(for: driverId)
+            }
+        }
+    }
+
+    private func reloadTripsAndVehicles(for driverId: UUID) async {
+        do {
+            let fetchedTrips = try await services.tripService.fetchTrips(forDriverId: driverId)
+            let fetchedVehicles = try await services.vehicleService.fetchVehicles()
+            await MainActor.run {
+                self.trips = fetchedTrips
+                self.vehicles = fetchedVehicles
+            }
+        } catch {
+            print("Failed to reload realtime trips/vehicles: \(error)")
         }
     }
 
@@ -51,7 +90,7 @@ struct DriverDashboardView: View {
             }
 
             async let fetchedTrips = services.tripService.fetchTrips(forDriverId: matchedDriver.id)
-            async let fetchedVehicles = services.vehicleService.fetchVehicles(forDriverId: matchedDriver.id)
+            async let fetchedVehicles = services.vehicleService.fetchVehicles()
 
             let (t, v) = try await (fetchedTrips, fetchedVehicles)
 
@@ -60,6 +99,7 @@ struct DriverDashboardView: View {
                 vehicles = v
                 driver = matchedDriver
                 isLoading = false
+                startRealtimeTrips(for: matchedDriver.id)
             }
         } catch {
             await MainActor.run {
