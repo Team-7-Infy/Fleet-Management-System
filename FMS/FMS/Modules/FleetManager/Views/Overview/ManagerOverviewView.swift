@@ -11,6 +11,7 @@ struct ManagerOverviewView: View {
     var currentUserId: UUID?
     var onProfile: (() -> Void)?
     @State private var isShowingNotifications = false
+    @State private var selectedActiveTripID: UUID?
 
     private var activeTrips: [Trip] {
         tripsViewModel.trips
@@ -61,7 +62,7 @@ struct ManagerOverviewView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 12) {
                 activeTripsHeaderCard
                 tripMetricsRow
                 fleetStatusSection
@@ -81,9 +82,10 @@ struct ManagerOverviewView: View {
                 Button {
                     isShowingNotifications = true
                 } label: {
-                    NotificationToolbarIcon(count: notificationController.unreadCount)
+                    NotificationToolbarIcon()
                 }
                 .accessibilityLabel("Notifications")
+                .badge(notificationController.unreadCount)
 
                 if let onProfile {
                     Button(action: onProfile) {
@@ -107,19 +109,41 @@ struct ManagerOverviewView: View {
             if activeTrips.isEmpty {
                 FleetStatusOverviewGradientCard()
             } else {
-                TabView {
-                    ForEach(activeTrips) { trip in
-                        ActiveTripGradientCard(
-                            trip: trip,
-                            tripsViewModel: tripsViewModel,
-                            vehiclesViewModel: vehiclesViewModel,
-                            usersViewModel: usersViewModel
-                        )
+                VStack(spacing: 10) {
+                    TabView(selection: activeTripSelection) {
+                        ForEach(activeTrips) { trip in
+                            ActiveTripGradientCard(
+                                trip: trip,
+                                tripsViewModel: tripsViewModel,
+                                vehiclesViewModel: vehiclesViewModel,
+                                usersViewModel: usersViewModel
+                            )
+                            .tag(Optional(trip.id))
+                        }
                     }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(height: 276)
+
+                    ActiveTripPageIndicator(
+                        activeTripIDs: activeTrips.map(\.id),
+                        selectedTripID: activeTripSelection.wrappedValue
+                    )
+                    .frame(maxWidth: .infinity)
                 }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
-                .frame(height: 310)
             }
+        }
+    }
+
+    private var activeTripSelection: Binding<UUID?> {
+        Binding {
+            if let selectedActiveTripID,
+               activeTrips.contains(where: { $0.id == selectedActiveTripID }) {
+                return selectedActiveTripID
+            }
+
+            return activeTrips.first?.id
+        } set: { newValue in
+            selectedActiveTripID = newValue
         }
     }
     
@@ -253,24 +277,10 @@ struct ManagerOverviewView: View {
 }
 
 private struct NotificationToolbarIcon: View {
-    var count: Int
-
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Image(systemName: count > 0 ? "bell.badge.fill" : "bell")
-                .font(.title3.weight(.semibold))
-                .symbolRenderingMode(.hierarchical)
-
-            if count > 0 {
-                Text(count > 99 ? "99+" : "\(count)")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 4)
-                    .frame(minWidth: 16, minHeight: 16)
-                    .background(FleetPalette.danger, in: Capsule())
-                    .offset(x: 7, y: -7)
-            }
-        }
+        Image(systemName: "bell.fill")
+            .font(.title3.weight(.semibold))
+            .symbolRenderingMode(.hierarchical)
         .frame(width: 30, height: 30)
     }
 }
@@ -302,6 +312,24 @@ private struct ProfileToolbarIcon: View {
             .font(.title2.weight(.semibold))
             .symbolRenderingMode(.hierarchical)
             .frame(width: 30, height: 30)
+    }
+}
+
+private struct ActiveTripPageIndicator: View {
+    let activeTripIDs: [UUID]
+    let selectedTripID: UUID?
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(activeTripIDs, id: \.self) { tripID in
+                Circle()
+                    .fill(tripID == selectedTripID ? FleetPalette.accent : FleetPalette.secondary)
+                    .frame(width: 8, height: 8)
+                    .opacity(tripID == selectedTripID ? 1 : 0.55)
+            }
+        }
+        .padding(.top, 2)
+        .accessibilityHidden(true)
     }
 }
 
