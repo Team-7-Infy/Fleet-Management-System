@@ -9,6 +9,7 @@ struct MaintenanceTask: Identifiable, Codable, Hashable, Sendable {
     var executedBy: UUID?
     var status: MaintenanceTaskStatus
     var photoUrls: [String]? = nil
+    var elapsedTime: Int = 0
 
     enum CodingKeys: String, CodingKey {
         case id = "taskid"
@@ -19,5 +20,6 @@ struct MaintenanceTask: Identifiable, Codable, Hashable, Sendable {
         case executedBy = "executedby"
         case status
         case photoUrls = "photourls"
+        case elapsedTime = "elapsed_time"
     }
 }

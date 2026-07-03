@@ -27,7 +27,8 @@ struct DashboardView: View {
         self._notificationViewModel = StateObject(
             wrappedValue: NotificationViewModel(
                 notificationService: services.notificationService,
-                recipientId: driver?.id,
+                recipientId: user.id,
+                driverId: driver?.id,
                 role: .driver
             )
         )

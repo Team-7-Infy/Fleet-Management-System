@@ -14,6 +14,7 @@ enum NotificationRecipientRole {
 final class NotificationViewModel: ObservableObject {
     private let notificationService: NotificationServiceProtocol
     private var recipientId: UUID?
+    private var driverId: UUID?
     private var realtimeTask: Task<Void, Never>?
     private var tripsRealtimeTask: Task<Void, Never>?
     let role: NotificationRecipientRole
@@ -26,15 +27,17 @@ final class NotificationViewModel: ObservableObject {
     private var bannerQueue: [AppNotification] = []
     private var isProcessingQueue = false
 
-    init(notificationService: NotificationServiceProtocol, recipientId: UUID?, role: NotificationRecipientRole = .driver) {
+    init(notificationService: NotificationServiceProtocol, recipientId: UUID?, driverId: UUID? = nil, role: NotificationRecipientRole = .driver) {
         self.notificationService = notificationService
         self.recipientId = recipientId
+        self.driverId = driverId
         self.role = role
     }
 
-    func setRecipientId(_ id: UUID?) {
-        guard self.recipientId != id else { return }
+    func setRecipientId(_ id: UUID?, driverId: UUID? = nil) {
+        guard self.recipientId != id || self.driverId != driverId else { return }
         self.recipientId = id
+        self.driverId = driverId
         if realtimeTask != nil {
             subscribeToRealtime()
         }
@@ -51,7 +54,11 @@ final class NotificationViewModel: ObservableObject {
             let maintenanceTypes = ["work_order_request", "low_stock", "maintenance", "work_order"]
             return maintenanceTypes.contains(notification.type.lowercased())
         case .manager:
-            return true
+            if let recId = notification.recipientId, recId != recipientId {
+                return false
+            }
+            let excludedTypes = ["trip_assignment", "vehicle_assigned", "work_order_assigned", "work_order_assigned_urgent", "maintenance"]
+            return !excludedTypes.contains(notification.type.lowercased())
         }
     }
 
@@ -108,10 +115,10 @@ final class NotificationViewModel: ObservableObject {
             }
         }
 
-        if role == .driver, let driverId = recipientId {
+        if role == .driver, let dId = driverId {
             tripsRealtimeTask?.cancel()
             tripsRealtimeTask = Task {
-                let stream = notificationService.subscribeToTripsRealtime(forDriverId: driverId)
+                let stream = notificationService.subscribeToTripsRealtime(forDriverId: dId)
                 for await trip in stream {
                     // Always reload dashboard for any realtime update
                     NotificationCenter.default.post(name: NSNotification.Name("ReloadTrips"), object: nil)
