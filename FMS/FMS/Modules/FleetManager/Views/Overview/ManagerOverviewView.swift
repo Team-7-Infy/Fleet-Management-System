@@ -93,14 +93,12 @@ struct ManagerOverviewView: View {
                 }
             }
         }
-        .sheet(isPresented: $isShowingNotifications) {
-            NavigationStack {
-                ManagerNotificationsView(
-                    controller: notificationController,
-                    usersViewModel: usersViewModel,
-                    recipientId: currentUserId
-                )
-            }
+        .navigationDestination(isPresented: $isShowingNotifications) {
+            ManagerNotificationsView(
+                controller: notificationController,
+                usersViewModel: usersViewModel,
+                recipientId: currentUserId
+            )
         }
     }
 
@@ -623,7 +621,6 @@ struct FleetStatusOverviewGradientCard: View {
             )
         )
         .cornerRadius(24)
-        .shadow(color: Color(hex: 0x007AFF).opacity(0.25), radius: 15, x: 0, y: 8)
     }
 }
 
@@ -762,7 +759,6 @@ struct ActiveTripGradientCard: View {
             )
         )
         .cornerRadius(24)
-        .shadow(color: Color(hex: 0x007AFF).opacity(0.25), radius: 15, x: 0, y: 8)
     }
     
     private func getTripProgress(for trip: Trip) -> Double {

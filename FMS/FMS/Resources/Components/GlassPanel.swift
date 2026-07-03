@@ -27,11 +27,5 @@ struct GlassPanel<Content: View>: View {
                         .stroke(FleetPalette.tertiary.opacity(0.55), lineWidth: 1)
                 }
             }
-            .shadow(
-                color: hasBorder ? FleetPalette.accent.opacity(0.10) : Color.black.opacity(0.03),
-                radius: hasBorder ? 16 : 15,
-                x: 0,
-                y: hasBorder ? 9 : 5
-            )
     }
 }

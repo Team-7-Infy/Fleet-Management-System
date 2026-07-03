@@ -276,15 +276,6 @@ private struct ManagerTripCard: View {
         "TRP-" + String(trip.id.uuidString.prefix(5)).uppercased()
     }
 
-    private var mockDistanceText: String {
-        let hashVal = abs((trip.startLocation + trip.endLocation).hashValue)
-        let distanceKm = 100 + (hashVal % 1400)
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        let formattedDistance = formatter.string(from: NSNumber(value: distanceKm)) ?? "\(distanceKm)"
-        return "\(formattedDistance) km"
-    }
-
     private var tripDateFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd MMM, hh:mm a"
@@ -301,8 +292,8 @@ private struct ManagerTripCard: View {
                         .foregroundStyle(FleetPalette.accent)
                     
                     Text(trip.status.title.uppercased())
-                        .font(.system(size: 8, weight: .black))
-                        .foregroundColor(FleetPalette.tripStatus(trip.status))
+                        .font(.caption.weight(.heavy))
+                        .foregroundStyle(FleetPalette.tripStatus(trip.status))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(FleetPalette.tripStatus(trip.status).opacity(0.12))
@@ -314,11 +305,11 @@ private struct ManagerTripCard: View {
                 if let vehicle {
                     HStack(spacing: 6) {
                         Image(systemName: "truck.box.fill")
-                            .font(.system(size: 10))
+                            .font(.caption)
                         Text(vehicle.licencePlate)
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.caption.weight(.bold))
                     }
-                    .foregroundColor(FleetPalette.accent)
+                    .foregroundStyle(FleetPalette.accent)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(FleetPalette.accent.opacity(0.08))
@@ -348,19 +339,19 @@ private struct ManagerTripCard: View {
                     
                     HStack(spacing: 4) {
                         Image(systemName: "road.lanes")
-                            .font(.system(size: 10))
-                        Text(mockDistanceText)
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.caption)
+                        Text("Distance not recorded")
+                            .font(.caption.weight(.semibold))
                     }
-                    .foregroundStyle(Color(hex: 0xD81B60)) // pink/magenta
+                    .foregroundStyle(FleetPalette.textSecondary)
                     .padding(.leading, 6)
                 }
                 
                 // Destination
                 HStack(spacing: 12) {
                     Image(systemName: "flag.fill")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.red)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(FleetPalette.danger)
                         .frame(width: 8, height: 8)
                     Text(trip.endLocation)
                         .font(.body.weight(.bold))
@@ -375,11 +366,11 @@ private struct ManagerTripCard: View {
                 // Column 1
                 VStack(alignment: .leading, spacing: 4) {
                     Text("START DATE & TIME")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.caption.weight(.bold))
                         .foregroundStyle(FleetPalette.textSecondary)
                     
                     Text(tripDateFormatter.string(from: trip.startTime))
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.subheadline.weight(.bold))
                         .foregroundStyle(FleetPalette.textPrimary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -387,11 +378,11 @@ private struct ManagerTripCard: View {
                 // Column 2
                 VStack(alignment: .leading, spacing: 4) {
                     Text("END DATE & TIME")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.caption.weight(.bold))
                         .foregroundStyle(FleetPalette.textSecondary)
                     
                     Text(trip.endTime.map { tripDateFormatter.string(from: $0) } ?? "TBD")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.subheadline.weight(.bold))
                         .foregroundStyle(FleetPalette.textPrimary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -407,9 +398,9 @@ private struct ManagerTripCard: View {
                     if let driver {
                         HStack(spacing: 6) {
                             Image(systemName: "person.fill")
-                                .font(.system(size: 11))
+                                .font(.caption)
                             Text(driver.displayName)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.caption.weight(.medium))
                         }
                         .foregroundStyle(FleetPalette.textSecondary)
                         .lineLimit(1)
@@ -420,9 +411,9 @@ private struct ManagerTripCard: View {
                     if let vehicle {
                         HStack(spacing: 6) {
                             Image(systemName: "car.fill")
-                                .font(.system(size: 11))
+                                .font(.caption)
                             Text("\(String(vehicle.year)) \(vehicle.make) \(vehicle.model)")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.caption.weight(.medium))
                         }
                         .foregroundStyle(FleetPalette.textSecondary)
                         .lineLimit(1)
@@ -1100,6 +1091,5 @@ private struct RejectionRequestCard: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(FleetPalette.danger.opacity(0.3), lineWidth: 1)
         }
-        .shadow(color: FleetPalette.accent.opacity(0.10), radius: 16, x: 0, y: 9)
     }
 }
