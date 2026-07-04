@@ -16,6 +16,7 @@ struct InspectionView: View {
     @State private var showingComplaintRaisedAnimation = false
     @State private var animationMessage = ""
     @State private var pulseScale: CGFloat = 1.0
+    @State private var replacementVehicle: Vehicle? = nil
 
     @StateObject private var viewModel = InspectionViewModel()
     @Environment(\.dismiss) var dismiss
@@ -260,66 +261,102 @@ struct InspectionView: View {
             
             if showingComplaintRaisedAnimation {
                 ZStack {
-                    Color.black.opacity(0.85)
+                    Color.black.opacity(0.4)
                         .edgesIgnoringSafeArea(.all)
                     
-                    VStack(spacing: 24) {
+                    VStack {
                         Spacer()
                         
-                        ZStack {
-                            Circle()
-                                .stroke(Color.orange.opacity(0.3), lineWidth: 4)
-                                .scaleEffect(pulseScale)
-                                .opacity(Double(2.0 - pulseScale))
-                                .frame(width: 120, height: 120)
-                                .onAppear {
-                                    withAnimation(.easeOut(duration: 1.5).repeatForever(autoreverses: false)) {
-                                        pulseScale = 2.0
+                        VStack(spacing: 20) {
+                            Image(systemName: "wrench.and.screwdriver.fill")
+                                .font(.system(size: 36))
+                                .foregroundColor(.blue)
+                                .padding(.top, 12)
+                            
+                            Text("Vehicle Scheduled for Inspection")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.primary)
+                                .multilineTextAlignment(.center)
+                            
+                            Divider()
+                            
+                            if let replacement = replacementVehicle {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("Next Assigned Vehicle")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.secondary)
+                                        .padding(.bottom, 4)
+                                    
+                                    HStack {
+                                        Text("Licence Plate")
+                                            .font(.footnote)
+                                            .foregroundColor(.secondary)
+                                        Spacer()
+                                        Text(replacement.licencePlate)
+                                            .font(.footnote)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.primary)
+                                    }
+                                    
+                                    HStack {
+                                        Text("Make / Model")
+                                            .font(.footnote)
+                                            .foregroundColor(.secondary)
+                                        Spacer()
+                                        Text("\(replacement.make) \(replacement.model)")
+                                            .font(.footnote)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+                                    }
+                                    
+                                    HStack {
+                                        Text("Type")
+                                            .font(.footnote)
+                                            .foregroundColor(.secondary)
+                                        Spacer()
+                                        Text(replacement.vehicleType.capitalized)
+                                            .font(.footnote)
+                                            .foregroundColor(.primary)
                                     }
                                 }
+                                .padding()
+                                .background(Color(UIColor.secondarySystemGroupedBackground))
+                                .cornerRadius(12)
+                            } else {
+                                Text("No replacement vehicle currently available. Please contact dispatch.")
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.vertical, 8)
+                            }
                             
-                            Circle()
-                                .fill(Color.orange.opacity(0.15))
-                                .frame(width: 90, height: 90)
-                            
-                            Image(systemName: "exclamationmark.shield.fill")
-                                .font(.system(size: 44, weight: .bold))
-                                .foregroundColor(.orange)
-                        }
-                        
-                        Text("Complaint Raised")
-                            .font(.system(size: 28, weight: .black, design: .rounded))
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
+                            Button(action: {
+                                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                    showingComplaintRaisedAnimation = false
+                                }
+                                dismiss()
+                                onComplete?()
+                            }) {
+                                Text("Done")
+                                    .font(.subheadline)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Color.blue)
+                                    .cornerRadius(12)
+                            }
                             .padding(.top, 8)
-                        
-                        Text(animationMessage)
-                            .font(.body)
-                            .foregroundColor(.white.opacity(0.8))
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 32)
-                            .lineSpacing(4)
+                        }
+                        .padding(24)
+                        .background(Color(UIColor.systemBackground))
+                        .cornerRadius(20)
+                        .shadow(color: Color.black.opacity(0.15), radius: 15, x: 0, y: 10)
+                        .padding(.horizontal, 36)
                         
                         Spacer()
-                        
-                        Button(action: {
-                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                                showingComplaintRaisedAnimation = false
-                            }
-                            dismiss()
-                            onComplete?()
-                        }) {
-                            Text("Done")
-                                .font(.headline.weight(.bold))
-                                .foregroundColor(.black)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.white)
-                                .cornerRadius(16)
-                                .shadow(color: .white.opacity(0.1), radius: 8, y: 4)
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 32)
                     }
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
@@ -459,6 +496,7 @@ struct InspectionView: View {
                     await MainActor.run {
                         viewModel.isSubmitting = false
                         localStore.markTripInspected(trip.tripId)
+                        self.replacementVehicle = replacement
                         self.animationMessage = "Vehicle \(vehicle.licencePlate) has been sent to maintenance. \(failedItems.count) separate work order(s) created. Vehicle \(replacement.licencePlate) has been automatically assigned to your trip."
                         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                             showingComplaintRaisedAnimation = true
@@ -470,6 +508,7 @@ struct InspectionView: View {
                     
                     await MainActor.run {
                         viewModel.isSubmitting = false
+                        self.replacementVehicle = nil
                         self.animationMessage = "Vehicle \(vehicle.licencePlate) has been sent to maintenance. \(failedItems.count) separate work order(s) created. No replacement vehicle of type \(vehicle.vehicleType) is currently available. Please contact dispatch."
                         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                             showingComplaintRaisedAnimation = true
