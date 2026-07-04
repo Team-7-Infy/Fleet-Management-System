@@ -135,7 +135,7 @@ struct InspectionView: View {
                             .padding(.bottom, 4)
                             
                             // Odometer Input Field
-                            VStack(alignment: .leading, spacing: 6) {
+                            VStack(alignment: .leading, spacing: 8) {
                                 HStack {
                                     Image(systemName: "speedometer")
                                         .foregroundColor(.secondary)
@@ -143,30 +143,26 @@ struct InspectionView: View {
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
                                         .foregroundColor(.primary)
-                                    Spacer()
-                                    HStack(spacing: 4) {
-                                        TextField("e.g. \(currentOdometer)", text: $odometerInput)
-                                            .keyboardType(.numberPad)
-                                            .multilineTextAlignment(.trailing)
-                                            .font(.subheadline)
-                                            .frame(width: 120)
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 6)
-                                            .background(Color(.systemGray6))
-                                            .cornerRadius(8)
-                                        Text("km")
-                                            .font(.subheadline)
-                                            .foregroundColor(.secondary)
-                                            .lineLimit(1)
-                                            .fixedSize()
-                                    }
+                                }
+                                
+                                HStack(spacing: 6) {
+                                    TextField("e.g. \(currentOdometer)", text: $odometerInput)
+                                        .keyboardType(.numberPad)
+                                        .font(.subheadline)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(Color(.systemGray6))
+                                        .cornerRadius(8)
+                                    Text("km")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
                                 }
                             }
                             
                             Divider()
                             
                             // Fuel Level Input Field
-                            VStack(alignment: .leading, spacing: 6) {
+                            VStack(alignment: .leading, spacing: 8) {
                                 HStack {
                                     Image(systemName: "fuelpump.fill")
                                         .foregroundColor(.secondary)
@@ -174,24 +170,20 @@ struct InspectionView: View {
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
                                         .foregroundColor(.primary)
-                                    Spacer()
-                                    HStack(spacing: 8) {
-                                        TextField("e.g. \(currentFuelLevel)", text: $fuelInput)
-                                            .keyboardType(.numberPad)
-                                            .multilineTextAlignment(.trailing)
-                                            .font(.subheadline)
-                                            .frame(width: 90)
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 6)
-                                            .background(Color(.systemGray6))
-                                            .cornerRadius(8)
-                                        
-                                        Text("%")
-                                            .font(.subheadline)
-                                            .foregroundColor(.secondary)
-                                            .lineLimit(1)
-                                            .fixedSize()
-                                    }
+                                }
+                                
+                                HStack(spacing: 8) {
+                                    TextField("e.g. \(currentFuelLevel)", text: $fuelInput)
+                                        .keyboardType(.numberPad)
+                                        .font(.subheadline)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(Color(.systemGray6))
+                                        .cornerRadius(8)
+                                    
+                                    Text("%")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
                                 }
                                 
                                 // Show a warning if fuel level is invalid

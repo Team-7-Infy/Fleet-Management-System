@@ -44,6 +44,14 @@ struct DashboardView: View {
     @State private var activeTripForNavigation: Trip? = nil
     @State private var showingTripDetailsSheet = false
     @State private var showingNotifications = false
+    
+    // Post-Trip Inspection & Success States
+    @State private var showingPostTripInspection = false
+    @State private var selectedTripForPostInspection: Trip? = nil
+    @State private var showingTripSuccess = false
+    @State private var successDistance: Double = 0.0
+    @State private var successDuration: Int = 0
+    @State private var completedTripForSuccess: Trip? = nil
 
     var body: some View {
         // 1. Live Trip (if available)
@@ -105,9 +113,26 @@ struct DashboardView: View {
                             lastName: user.lName
                         )
 
-                        // --- 1. Active Trip Section (Highest Priority) ---
+                        // --- 1. Active/Post-Trip Section (Highest Priority) ---
                         ZStack {
-                            if let active = liveTrip {
+                            if let pendingPostTripId = localStore.pendingPostTripInspectionTripId,
+                               let matchingTrip = trips.first(where: { $0.id.uuidString == pendingPostTripId }) {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    SectionHeader(title: "Post-Trip Inspection Required")
+                                    PostTripInspectionCard(
+                                        trip: matchingTrip,
+                                        vehicles: vehicles,
+                                        onPerformInspection: {
+                                            selectedTripForPostInspection = matchingTrip
+                                            showingPostTripInspection = true
+                                        }
+                                    )
+                                }
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                                    removal: .move(edge: .leading).combined(with: .opacity)
+                                ))
+                            } else if let active = liveTrip {
                                 VStack(alignment: .leading, spacing: 10) {
                                     SectionHeader(title: "Active Trip")
                                     ActiveRouteCard(
@@ -276,6 +301,22 @@ struct DashboardView: View {
                     .padding(.bottom, 40)
                 }
 
+                if showingTripSuccess, let successTrip = completedTripForSuccess {
+                    TripCompletionSuccessView(
+                        trip: successTrip,
+                        distance: successDistance,
+                        durationMinutes: successDuration,
+                        onDismiss: {
+                            withAnimation(.spring()) {
+                                showingTripSuccess = false
+                            }
+                            completedTripForSuccess = nil
+                        }
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(200)
+                }
+
                 if notificationViewModel.showBanner, let banner = notificationViewModel.currentBanner {
                     NotificationBannerView(
                         notification: banner,
@@ -362,7 +403,7 @@ struct DashboardView: View {
                     )
                 }
             }
-            .sheet(isPresented: $showingInspectionSheet) {
+            .fullScreenCover(isPresented: $showingInspectionSheet) {
                 NavigationStack {
                     InspectionFlowView(
                         services: services,
@@ -372,6 +413,31 @@ struct DashboardView: View {
                         vehicles: vehicles,
                         activeTripId: viewModel.activeTripId
                     )
+                }
+            }
+            .fullScreenCover(isPresented: $showingPostTripInspection) {
+                if let tripToInspect = selectedTripForPostInspection {
+                    EndTripView(
+                        trip: tripToInspect,
+                        services: services,
+                        onComplete: { finalOdometer, notes in
+                            localStore.pendingPostTripInspectionTripId = nil
+                            
+                            // Calculate metrics
+                            let startOdo = Double(UserDefaults.standard.integer(forKey: "trip_\(tripToInspect.id.uuidString)_pre_odo"))
+                            let finalOdo = Double(finalOdometer) ?? (startOdo > 0 ? startOdo + 12.4 : 124000.0)
+                            let startOdoVal = startOdo > 0 ? startOdo : (finalOdo - 12.4)
+                            
+                            self.successDistance = max(1.2, finalOdo - startOdoVal)
+                            self.successDuration = max(15, Int(Date().timeIntervalSince(tripToInspect.startTime)) / 60)
+                            self.completedTripForSuccess = tripToInspect
+                            
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                self.showingTripSuccess = true
+                            }
+                        }
+                    )
+                    .environmentObject(localStore)
                 }
             }
             .fullScreenCover(isPresented: $showingActiveNavigation) {
@@ -1901,5 +1967,60 @@ extension View {
         } else {
             self
         }
+    }
+}
+
+struct PostTripInspectionCard: View {
+    let trip: Trip
+    let vehicles: [Vehicle]
+    let onPerformInspection: () -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("PENDING POST-TRIP INSPECTION")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.orange)
+                        .tracking(1.0)
+                    
+                    let plate = vehicles.first(where: { $0.id == trip.vehicleId })?.licencePlate ?? "Unknown"
+                    Text("Vehicle: \(plate)")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                }
+                Spacer()
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.orange)
+                    .font(.title2)
+            }
+            
+            HStack(spacing: 8) {
+                Image(systemName: "number")
+                    .foregroundColor(.secondary)
+                Text("Trip ID: \(trip.id.shortIdentifier)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            Button(action: onPerformInspection) {
+                HStack {
+                    Text("Perform Post-Trip Inspection")
+                        .fontWeight(.bold)
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.orange)
+                .cornerRadius(12)
+            }
+        }
+        .padding(20)
+        .background(Color(UIColor.secondarySystemGroupedBackground))
+        .cornerRadius(20)
+        .shadow(color: Color.black.opacity(0.04), radius: 10, y: 5)
     }
 }

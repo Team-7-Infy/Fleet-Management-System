@@ -8,6 +8,11 @@ final class LocalDataStore: ObservableObject {
     @Published var incidents: [Incident] = []
     @Published var inspectedVehicles: Set<String> = []
     @Published var isNavigationActive = false
+    @Published var pendingPostTripInspectionTripId: String? = UserDefaults.standard.string(forKey: "pending_post_trip_inspection_id") {
+        didSet {
+            UserDefaults.standard.set(pendingPostTripInspectionTripId, forKey: "pending_post_trip_inspection_id")
+        }
+    }
 
     private let fuelKey = "local_fuel_history"
     private let incidentKey = "local_incidents"

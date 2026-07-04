@@ -702,7 +702,8 @@ struct ActiveNavigationDetailView: View {
                         // Complete Trip Button
                         Button(action: {
                             HapticManager.shared.triggerImpact(style: .heavy)
-                            showingPostTripInspection = true
+                            localStore.pendingPostTripInspectionTripId = trip.id.uuidString
+                            onBack()
                         }) {
                             Text("Complete Trip")
                                 .font(.headline)
@@ -749,30 +750,6 @@ struct ActiveNavigationDetailView: View {
                                     }
                                 }
                             )
-                            .environmentObject(localStore)
-                        }
-                        .sheet(isPresented: $showingPostTripInspection, onDismiss: {
-                            if postTripInspectionSubmitted {
-                                postTripInspectionSubmitted = false
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                                    showingCompletionForm = true
-                                }
-                            }
-                        }) {
-                            NavigationStack {
-                                InspectionFlowView(
-                                    services: services,
-                                    isPresentedModally: true,
-                                    preselectedTripId: trip.id.uuidString,
-                                    trips: [trip],
-                                    vehicles: vehicles,
-                                    activeTripId: trip.id.uuidString,
-                                    isPostTrip: true,
-                                    onComplete: {
-                                        postTripInspectionSubmitted = true
-                                    }
-                                )
-                            }
                             .environmentObject(localStore)
                         }
                     }
