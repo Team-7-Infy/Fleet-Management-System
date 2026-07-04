@@ -1,5 +1,4 @@
 import SwiftUI
-import Charts
 
 struct ReportsHubView: View {
     @StateObject private var viewModel: ReportsViewModel
@@ -26,57 +25,24 @@ struct ReportsHubView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                ScreenHeader(title: "Reports & Analytics", subtitle: "Fleet performance overview")
+            VStack(alignment: .leading, spacing: 24) {
+                vehicleHealthSectionSeparator
                 PeriodFilterPicker(selectedPeriod: $viewModel.selectedPeriod)
-                    .padding(.horizontal, 4)
-                summaryRow
-                tripReportCard
-                maintenanceReportCard
-                fleetUtilizationCard
-                driverPerformanceCard
-                vehicleHealthCard
+                tripSection
+                expenditureSection
+                fleetUtilizationSection
             }
-            .padding(.horizontal)
-            .padding(.bottom, 24)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 32)
         }
         .fleetScreenBackground()
-        .navigationTitle("Reports")
+        .navigationTitle("Reports and Analytics")
         .navigationBarTitleDisplayMode(.inline)
-    }
-
-    // MARK: - Summary Bar
-
-    private var summaryRow: some View {
-        HStack(spacing: 8) {
-            summaryBadge(value: "\(viewModel.totalFilteredTrips)", label: "Trips", color: FleetPalette.accent)
-            summaryBadge(value: "\(viewModel.totalFilteredCompletedTrips)", label: "Completed", color: FleetPalette.success)
-            summaryBadge(value: viewModel.filteredTripCostTotal.formatted(.currency(code: "INR")), label: "Trip Cost", color: FleetPalette.warning)
-            summaryBadge(value: viewModel.maintenanceCostTotal.formatted(.currency(code: "INR")), label: "Maint.", color: FleetPalette.danger)
-        }
-    }
-
-    private func summaryBadge(value: String, label: String, color: Color) -> some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.system(size: 15, weight: .heavy, design: .rounded))
-                .foregroundStyle(color)
-            Text(label)
-                .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(FleetPalette.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(FleetPalette.tertiary.opacity(0.12), lineWidth: 1)
-        }
     }
 
     // MARK: - Trip Report
 
-    private var tripReportCard: some View {
+    private var tripSection: some View {
         NavigationLink {
             TripReportDetailView(
                 tripsViewModel: viewModel,
@@ -84,93 +50,88 @@ struct ReportsHubView: View {
                 usersViewModel: usersViewModel
             )
         } label: {
-            ReportCategoryCard(title: "Trip Report", systemImage: "point.topleft.down.curvedto.point.bottomright.up", tint: FleetPalette.accent) {
-                VStack(spacing: 12) {
-                    tripChart
-                    HStack(spacing: 0) {
-                        statItem(value: "\(viewModel.totalFilteredTrips)", label: "Total Trips")
-                        Divider().frame(height: 30)
-                        statItem(value: viewModel.totalFilteredCompletedTrips > 0 ? "\(Int(viewModel.completionRate * 100))%" : "0%", label: "Completion")
-                        Divider().frame(height: 30)
-                        statItem(value: viewModel.filteredTripCostTotal.formatted(.currency(code: "INR")), label: "Total Cost")
+            FitnessCategoryCard {
+                VStack(alignment: .leading, spacing: 4) {
+                    FitnessMetricHeader(
+                        label: "Trips",
+                        value: "\(viewModel.totalFilteredTrips)",
+                        subtitle: "Trips in selected period"
+                    )
+
+                    if let change = viewModel.tripPercentChange {
+                        HStack(spacing: 4) {
+                            Image(systemName: change >= 0 ? "arrow.up.right" : "arrow.down.right")
+                                .font(.caption.weight(.bold))
+                            Text("\(abs(change), specifier: "%.0f")% from last month")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .foregroundStyle(change >= 0 ? FleetPalette.success : FleetPalette.danger)
                     }
                 }
+
+                let data = viewModel.filteredTripsByMonth
+
+                if data.allSatisfy({ $0.count == 0 }) {
+                    ContentUnavailableView(
+                        "No Trips",
+                        systemImage: "point.topleft.down.curvedto.point.bottomright.up",
+                        description: Text("No trip data for this period.")
+                    )
+                    .frame(height: 140)
+                } else {
+                    FitnessMonthlyBarChart(data: data, color: FleetPalette.accent)
+                }
+
+                navigationPill(destination: TripReportDetailView(
+                    tripsViewModel: viewModel,
+                    vehiclesViewModel: vehiclesViewModel,
+                    usersViewModel: usersViewModel
+                ))
             }
         }
         .buttonStyle(.plain)
     }
 
-    @ViewBuilder
-    private var tripChart: some View {
-        let data = viewModel.filteredTripsByWeek
-        if data.isEmpty {
-            emptyChart("No trip data for this period")
-        } else {
-            Chart(data, id: \.weekStart) { item in
-                BarMark(
-                    x: .value("Week", item.weekStart, unit: .weekOfYear),
-                    y: .value("Trips", item.count)
-                )
-                .foregroundStyle(FleetPalette.accent.gradient)
-            }
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .month)) { _ in
-                    AxisValueLabel(format: .dateTime.month(.abbreviated))
-                }
-            }
-            .chartYAxis { AxisMarks { AxisValueLabel() } }
-            .frame(height: 140)
-        }
-    }
+    // MARK: - Expenditure
 
-    // MARK: - Maintenance Report
-
-    private var maintenanceReportCard: some View {
+    private var expenditureSection: some View {
         NavigationLink {
-            MaintenanceReportDetailView(
+            ExpenditureDetailView(
                 reportsViewModel: viewModel,
-                maintenanceViewModel: maintenanceViewModel,
-                usersViewModel: usersViewModel
+                maintenanceViewModel: maintenanceViewModel
             )
         } label: {
-            ReportCategoryCard(title: "Maintenance Report", systemImage: "wrench.and.screwdriver", tint: FleetPalette.warning) {
-                VStack(spacing: 12) {
-                    maintenanceCostChart
-                    HStack(spacing: 0) {
-                        statItem(value: "\(viewModel.filteredCompletedTasks.count)", label: "Completed")
-                        Divider().frame(height: 30)
-                        statItem(value: viewModel.maintenanceCostTotal.formatted(.currency(code: "INR")), label: "Total Cost")
-                        Divider().frame(height: 30)
-                        statItem(value: viewModel.maintenanceLabourTotal.formatted(.currency(code: "INR")), label: "Labour")
-                    }
+            FitnessCategoryCard {
+                FitnessMetricHeader(
+                    label: "Expenditure",
+                    value: viewModel.totalExpenditure.formatted(.currency(code: "INR")),
+                    subtitle: "Total cost in selected period"
+                )
+
+                let slices = viewModel.expenditureSlices
+                if slices.allSatisfy({ $0.amount == 0 }) {
+                    ContentUnavailableView(
+                        "No Expenditure",
+                        systemImage: "indianrupeesign",
+                        description: Text("No cost data for this period.")
+                    )
+                    .frame(height: 140)
+                } else {
+                    FitnessPieChart(slices: slices)
                 }
+
+                navigationPill(destination: ExpenditureDetailView(
+                    reportsViewModel: viewModel,
+                    maintenanceViewModel: maintenanceViewModel
+                ))
             }
         }
         .buttonStyle(.plain)
-    }
-
-    @ViewBuilder
-    private var maintenanceCostChart: some View {
-        let completed = viewModel.filteredCompletedTasks.prefix(10)
-        if completed.isEmpty {
-            emptyChart("No completed work orders")
-        } else {
-            Chart(completed, id: \.id) { task in
-                BarMark(
-                    x: .value("Task", task.displayTitle),
-                    y: .value("Cost", task.totalCost ?? 0)
-                )
-                .foregroundStyle(FleetPalette.warning.gradient)
-            }
-            .chartXAxis { AxisMarks { AxisValueLabel(orientation: .vertical) } }
-            .chartYAxis { AxisMarks { AxisValueLabel() } }
-            .frame(height: 140)
-        }
     }
 
     // MARK: - Fleet Utilization
 
-    private var fleetUtilizationCard: some View {
+    private var fleetUtilizationSection: some View {
         NavigationLink {
             FleetUtilizationDetailView(
                 reportsViewModel: viewModel,
@@ -178,162 +139,119 @@ struct ReportsHubView: View {
                 usersViewModel: usersViewModel
             )
         } label: {
-            ReportCategoryCard(title: "Fleet Utilization", systemImage: "car.2.fill", tint: FleetPalette.success) {
-                VStack(spacing: 12) {
-                    utilizationChart
-                    HStack(spacing: 0) {
-                        let activeV = vehiclesViewModel.activeVehicles.count
-                        let maintV = vehiclesViewModel.maintenanceVehicles.count
-                        statItem(value: "\(vehiclesViewModel.vehicles.count)", label: "Total Vehicles")
-                        Divider().frame(height: 30)
-                        statItem(value: "\(activeV)", label: "Active")
-                        Divider().frame(height: 30)
-                        statItem(value: "\(maintV)", label: "In Maint.")
-                    }
+            FitnessCategoryCard {
+                FitnessMetricHeader(
+                    label: "Fleet Utilization",
+                    value: "\(Int(viewModel.utilizationPercentCurrentMonth.rounded()))%",
+                    subtitle: "\(viewModel.vehiclesUsedThisPeriod) of \(viewModel.totalVehiclesCount) vehicles used this month"
+                )
+
+                let data = viewModel.fleetUtilizationByMonth
+
+                if data.allSatisfy({ $0.vehiclesUsed == 0 }) {
+                    ContentUnavailableView(
+                        "No Utilization Data",
+                        systemImage: "car.2.fill",
+                        description: Text("No vehicle usage data for this period.")
+                    )
+                    .frame(height: 140)
+                } else {
+                    FitnessLineChart(
+                        data: data,
+                        totalVehicles: viewModel.totalVehiclesCount,
+                        color: FleetPalette.success
+                    )
                 }
+
+                navigationPill(destination: FleetUtilizationDetailView(
+                    reportsViewModel: viewModel,
+                    vehiclesViewModel: vehiclesViewModel,
+                    usersViewModel: usersViewModel
+                ))
             }
         }
         .buttonStyle(.plain)
     }
 
-    @ViewBuilder
-    private var utilizationChart: some View {
-        let data = viewModel.vehicleUtilization.prefix(5)
-        if data.isEmpty {
-            emptyChart("No vehicle usage data")
-        } else {
-            Chart(data, id: \.vehicle.id) { item in
-                BarMark(
-                    x: .value("Vehicle", item.vehicle.licencePlate),
-                    y: .value("Trips", item.tripCount)
-                )
-                .foregroundStyle(FleetPalette.success.gradient)
-            }
-            .chartXAxis { AxisMarks { AxisValueLabel() } }
-            .chartYAxis { AxisMarks { AxisValueLabel() } }
-            .frame(height: 140)
+    // MARK: - Vehicle Health (static — unaffected by period filter)
+
+    private var vehicleHealthSectionSeparator: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("FLEET STATUS")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.tertiary)
+                .padding(.top, 8)
+            vehicleHealthSection
         }
     }
 
-    // MARK: - Driver Performance
+    // MARK: - Vehicle Health (aggregated from driver + vehicle scores)
 
-    private var driverPerformanceCard: some View {
-        NavigationLink {
-            DriverPerformanceDetailView(
-                reportsViewModel: viewModel,
-                usersViewModel: usersViewModel
-            )
-        } label: {
-            ReportCategoryCard(title: "Driver Performance", systemImage: "person.2.fill", tint: FleetPalette.tertiary) {
+    private var vehicleHealthSection: some View {
+        let score = viewModel.fleetHealthScore
+        let color = viewModel.fleetHealthColor
+        let label = viewModel.fleetHealthLabel
+
+        return FitnessCategoryCard {
+            VStack(spacing: 20) {
                 VStack(spacing: 12) {
-                    driverChart
-                    HStack(spacing: 0) {
-                        statItem(value: "\(viewModel.driverPerformance.count)", label: "Active Drivers")
-                        Divider().frame(height: 30)
-                        statItem(value: "\(viewModel.totalFilteredTrips)", label: "Trips Assigned")
-                        Divider().frame(height: 30)
-                        statItem(value: "\(viewModel.averageDriverScore)", label: "Avg Score")
+                    ZStack {
+                        Circle()
+                            .stroke(color.opacity(0.2), lineWidth: 8)
+                            .frame(width: 120, height: 120)
+                        Circle()
+                            .trim(from: 0, to: CGFloat(score) / 100)
+                            .stroke(color.gradient, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                            .frame(width: 120, height: 120)
+                            .rotationEffect(.degrees(-90))
+                        Text("\(score)")
+                            .font(.system(size: 36, weight: .heavy, design: .rounded).monospacedDigit())
+                            .foregroundStyle(color)
                     }
+
+                    Text(label)
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(color)
+                    Text("Aggregate of vehicle health and driver scores")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(maxWidth: .infinity)
+
+                if score <= 90 {
+                    NavigationLink {
+                        VehicleHealthDetailView(
+                            reportsViewModel: viewModel,
+                            vehiclesViewModel: vehiclesViewModel,
+                            maintenanceViewModel: maintenanceViewModel
+                        )
+                    } label: {
+                        Text("Optimize")
+                            .font(.subheadline.bold())
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(color.gradient, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .frame(minHeight: 44)
                 }
             }
         }
-        .buttonStyle(.plain)
-    }
-
-    @ViewBuilder
-    private var driverChart: some View {
-        let data = viewModel.driverPerformance.prefix(5)
-        if data.isEmpty {
-            emptyChart("No driver trip data")
-        } else {
-            Chart(data, id: \.driver.id) { item in
-                BarMark(
-                    x: .value("Driver", item.user?.displayName ?? "Driver"),
-                    y: .value("Trips", item.tripCount)
-                )
-                .foregroundStyle(FleetPalette.tertiary.gradient)
-            }
-            .chartXAxis { AxisMarks { AxisValueLabel() } }
-            .chartYAxis { AxisMarks { AxisValueLabel() } }
-            .frame(height: 140)
-        }
-    }
-
-    // MARK: - Vehicle Health
-
-    private var vehicleHealthCard: some View {
-        NavigationLink {
-            VehicleHealthDetailView(
-                reportsViewModel: viewModel,
-                vehiclesViewModel: vehiclesViewModel,
-                maintenanceViewModel: maintenanceViewModel
-            )
-        } label: {
-            ReportCategoryCard(title: "Vehicle Health", systemImage: "heart.fill", tint: FleetPalette.danger) {
-                VStack(spacing: 12) {
-                    healthChart
-                    HStack(spacing: 0) {
-                        let avg = viewModel.vehicleHealthScores.map(\.score).reduce(0, +) / max(viewModel.vehicleHealthScores.count, 1)
-                        statItem(value: "\(avg)", label: "Avg Score")
-                        Divider().frame(height: 30)
-                        let critical = viewModel.vehicleHealthScores.filter { $0.score < 50 }.count
-                        statItem(value: "\(critical)", label: "Needs Attention")
-                        Divider().frame(height: 30)
-                        statItem(value: "\(viewModel.vehicleHealthScores.count)", label: "Total Vehicles")
-                    }
-                }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    @ViewBuilder
-    private var healthChart: some View {
-        let data = viewModel.vehicleHealthScores.prefix(8)
-        if data.isEmpty {
-            emptyChart("No vehicle data")
-        } else {
-            Chart(data, id: \.vehicle.id) { item in
-                BarMark(
-                    x: .value("Vehicle", item.vehicle.licencePlate),
-                    y: .value("Score", item.score)
-                )
-                .foregroundStyle(by: .value("Score", scoreBand(item.score)))
-            }
-            .chartForegroundStyleScale([
-                "Good": FleetPalette.success,
-                "Fair": FleetPalette.warning,
-                "Poor": FleetPalette.danger
-            ])
-            .chartXAxis { AxisMarks { AxisValueLabel() } }
-            .chartYAxis { AxisMarks { AxisValueLabel() } }
-            .frame(height: 140)
-        }
-    }
-
-    private func scoreBand(_ score: Int) -> String {
-        score >= 70 ? "Good" : score >= 40 ? "Fair" : "Poor"
     }
 
     // MARK: - Helpers
 
-    private func statItem(value: String, label: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(FleetPalette.textPrimary)
-            Text(label)
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(FleetPalette.textSecondary)
+    private func navigationPill<Destination: View>(destination: Destination) -> some View {
+        NavigationLink(destination: destination) {
+            Text("View All Metrics")
+                .font(.subheadline.bold())
+                .foregroundStyle(FleetPalette.accent)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(FleetPalette.tertiary.opacity(0.12), in: Capsule())
         }
-        .frame(maxWidth: .infinity)
-    }
-
-    private func emptyChart(_ message: String) -> some View {
-        Text(message)
-            .font(.caption)
-            .foregroundStyle(FleetPalette.textSecondary)
-            .frame(maxWidth: .infinity)
-            .frame(height: 100)
+        .buttonStyle(.plain)
+        .frame(minHeight: 44)
     }
 }

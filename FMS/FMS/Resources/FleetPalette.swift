@@ -24,6 +24,7 @@ enum FleetPalette {
     static let warning = Color(hex: 0xFFD746)
     static let danger = Color(hex: 0xDB5243)
     static let neutral = Color.gray
+    static let miscellaneous = Color.orange
 
     static let twoColumnGrid = [
         GridItem(.flexible(), spacing: 12),

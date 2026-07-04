@@ -13,49 +13,8 @@ struct ManagerOverviewView: View {
     var onShowReportsHub: (() -> Void)?
     @State private var isShowingNotifications = false
     @State private var selectedActiveTripID: UUID?
-    @StateObject private var reportsViewModel: ReportsViewModel
-
-    init(
-        usersViewModel: UserManagementViewModel,
-        vehiclesViewModel: VehicleViewModel,
-        tripsViewModel: TripManagementViewModel,
-        maintenanceViewModel: MaintenanceViewModel,
-        notificationController: ManagerNotificationController,
-        refresh: @escaping () async -> Void,
-        currentUserId: UUID?,
-        onProfile: (() -> Void)?,
-        onShowReportsHub: (() -> Void)?
-    ) {
-        self.usersViewModel = usersViewModel
-        self.vehiclesViewModel = vehiclesViewModel
-        self.tripsViewModel = tripsViewModel
-        self.maintenanceViewModel = maintenanceViewModel
-        self.notificationController = notificationController
-        self.refresh = refresh
-        self.currentUserId = currentUserId
-        self.onProfile = onProfile
-        self.onShowReportsHub = onShowReportsHub
-        _reportsViewModel = StateObject(wrappedValue: ReportsViewModel(
-            tripsViewModel: tripsViewModel,
-            vehiclesViewModel: vehiclesViewModel,
-            maintenanceViewModel: maintenanceViewModel,
-            usersViewModel: usersViewModel
-        ))
-    }
 
     private var activeTrips: [Trip] {
-        tripsViewModel.trips
-            .filter { $0.status == .accepted || $0.status == .inProgress }
-            .sorted { $0.startTime < $1.startTime }
-    }
-
-    private var pendingTrips: [Trip] {
-        tripsViewModel.trips
-            .filter { $0.status == .scheduled || $0.status == .pending }
-            .sorted { $0.startTime < $1.startTime }
-    }
-
-    private var completedTrips: [Trip] {
         tripsViewModel.trips
             .filter { $0.status == .accepted || $0.status == .inProgress }
             .sorted { $0.startTime < $1.startTime }
@@ -96,7 +55,7 @@ struct ManagerOverviewView: View {
                 activeTripsHeaderCard
                 fleetStatusSection
                 maintenanceSection
-                reportsSection
+                ReportsNavRow(action: onShowReportsHub)
             }
             .padding()
             .padding(.bottom, 10)
@@ -177,98 +136,6 @@ struct ManagerOverviewView: View {
         }
     }
     
-    private var reportsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                DashboardSectionTitle("Reports & Analytics")
-                Spacer()
-                Button {
-                    onShowReportsHub?()
-                } label: {
-                    HStack(spacing: 4) {
-                        Text("View All")
-                            .font(.caption.weight(.bold))
-                        Image(systemName: "chevron.right")
-                            .font(.caption2.weight(.bold))
-                    }
-                    .foregroundStyle(FleetPalette.accent)
-                }
-            }
-            .padding(.horizontal, 2)
-
-            VStack(spacing: 10) {
-                NavigationLink {
-                    ReportsHubView(
-                        tripsViewModel: tripsViewModel,
-                        vehiclesViewModel: vehiclesViewModel,
-                        maintenanceViewModel: maintenanceViewModel,
-                        usersViewModel: usersViewModel
-                    )
-                } label: {
-                    ReportSummaryCard(
-                        title: "Trips Performance",
-                        primaryValue: "\(reportsViewModel.tripsThisMonthCount)",
-                        primaryLabel: "Trips this month",
-                        secondaryValue: "\(Int(reportsViewModel.completionRate * 100))%",
-                        secondaryLabel: "Completion",
-                        tint: FleetPalette.accent,
-                        trendValue: reportTrendText(reportsViewModel.tripCountChangePercent),
-                        trendIsPositive: reportsViewModel.tripCountChangePercent >= 0
-                    )
-                }
-                .buttonStyle(.plain)
-
-                NavigationLink {
-                    ReportsHubView(
-                        tripsViewModel: tripsViewModel,
-                        vehiclesViewModel: vehiclesViewModel,
-                        maintenanceViewModel: maintenanceViewModel,
-                        usersViewModel: usersViewModel
-                    )
-                } label: {
-                    ReportSummaryCard(
-                        title: "Fleet Health",
-                        primaryValue: "\(reportsViewModel.fleetHealthScore)",
-                        primaryLabel: "Avg health score",
-                        secondaryValue: "\(reportsViewModel.overdueMaintenanceCount)",
-                        secondaryLabel: "Overdue maintenance",
-                        tint: FleetPalette.success,
-                        trendValue: nil,
-                        trendIsPositive: nil
-                    )
-                }
-                .buttonStyle(.plain)
-
-                NavigationLink {
-                    ReportsHubView(
-                        tripsViewModel: tripsViewModel,
-                        vehiclesViewModel: vehiclesViewModel,
-                        maintenanceViewModel: maintenanceViewModel,
-                        usersViewModel: usersViewModel
-                    )
-                } label: {
-                    ReportSummaryCard(
-                        title: "Expenditure",
-                        primaryValue: reportsViewModel.currentMonthTotalExpenditure.formatted(.currency(code: "INR")),
-                        primaryLabel: "Total this month",
-                        secondaryValue: "\(reportsViewModel.openTasksCount) / \(reportsViewModel.urgentTasksCount)",
-                        secondaryLabel: "Open / Urgent tasks",
-                        tint: FleetPalette.warning,
-                        trendValue: nil,
-                        trendIsPositive: nil
-                    )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private func reportTrendText(_ percent: Double) -> String {
-        let absVal = abs(percent)
-        if absVal < 1 { return "Same as last month" }
-        return "\(percent > 0 ? "+" : "")\(Int(absVal))% vs last month"
-    }
-
     private var fleetStatusSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Fleet Status")
@@ -1069,51 +936,6 @@ struct ActiveTripGradientCard: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "hh:mm a"
         return formatter.string(from: date)
-    }
-}
-
-struct FMSMetricWidget: View {
-    let title: String
-    let value: String
-    let subtitle: String
-    let progress: Double
-    let color: Color
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title.uppercased())
-                .font(.caption2.weight(.bold))
-                .foregroundColor(.secondary)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value)
-                    .font(.system(size: 26, weight: .heavy, design: .rounded))
-                    .foregroundColor(color)
-                Text(subtitle)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.secondary)
-            }
-            
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.black.opacity(0.05))
-                        .frame(height: 6)
-                    Capsule()
-                        .fill(color)
-                        .frame(width: geometry.size.width * min(max(progress, 0.05), 1.0), height: 6)
-                }
-            }
-            .frame(height: 6)
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(FleetPalette.tertiary.opacity(0.15), lineWidth: 1)
-        }
-        .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
     }
 }
 

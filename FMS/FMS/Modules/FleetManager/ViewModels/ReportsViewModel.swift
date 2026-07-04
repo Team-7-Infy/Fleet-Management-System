@@ -1,7 +1,8 @@
 import Foundation
 import Combine
+import SwiftUI
 
-enum PeriodPreset: String, CaseIterable, Identifiable, Sendable {
+enum PeriodPreset: String, CaseIterable, Identifiable, Hashable, Sendable {
     case oneMonth = "1M"
     case threeMonths = "3M"
     case sixMonths = "6M"
@@ -92,16 +93,6 @@ final class ReportsViewModel: ObservableObject {
         return (Double(tripsThisMonthCount) - Double(lastMonthCount)) / Double(lastMonthCount) * 100
     }
 
-    var fleetHealthScore: Int {
-        let vehicles = vehiclesViewModel.vehicles
-        guard vehicles.isEmpty == false else { return 0 }
-        let activeRatio = Double(vehicles.filter { $0.status == .active }.count) / Double(vehicles.count)
-        let overdueCount = maintenanceViewModel.tasks.filter { $0.status != .completed }.count
-        let overduePenalty = min(Double(overdueCount) * 5, 30)
-        let score = (activeRatio * 80) - overduePenalty + 20
-        return max(0, min(100, Int(score.rounded())))
-    }
-
     var overdueMaintenanceCount: Int {
         maintenanceViewModel.tasks.filter { $0.status != .completed }.count
     }
@@ -147,8 +138,123 @@ final class ReportsViewModel: ObservableObject {
     var totalFilteredTrips: Int { filteredTrips.count }
     var totalFilteredCompletedTrips: Int { filteredCompletedTrips.count }
 
+    var filteredTripFuelTotal: Double {
+        filteredTrips.reduce(0) { $0 + ($1.fuelCost ?? 0) }
+    }
+
+    var filteredTripMiscTotal: Double {
+        filteredTrips.reduce(0) { $0 + ($1.miscellaneousCost ?? 0) }
+    }
+
     var filteredTripCostTotal: Double {
         filteredTrips.reduce(0) { $0 + $1.totalCost }
+    }
+
+    // MARK: - Trip Percent Change (same-period comparison)
+
+    var tripPercentChange: Double? {
+        let now = Date()
+        let calendar = Calendar.current
+
+        let currentMonthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
+        let daysElapsed = max(calendar.dateComponents([.day], from: currentMonthStart, to: now).day! + 1, 1)
+
+        let nextMonthStart = calendar.date(byAdding: .month, value: 1, to: currentMonthStart)!
+        let tripsThisMonth = tripsViewModel.trips.filter {
+            $0.startTime >= currentMonthStart && $0.startTime < nextMonthStart
+        }.count
+
+        let prevPeriodStart = calendar.date(byAdding: .day, value: -daysElapsed, to: currentMonthStart)!
+        let tripsPrevSamePeriod = tripsViewModel.trips.filter {
+            $0.startTime >= prevPeriodStart && $0.startTime < currentMonthStart
+        }.count
+
+        guard tripsPrevSamePeriod > 0 else { return nil }
+
+        return (Double(tripsThisMonth) - Double(tripsPrevSamePeriod)) / Double(tripsPrevSamePeriod) * 100
+    }
+
+    // MARK: - Monthly Trip Data (all months in range, even 0)
+
+    var filteredTripsByMonth: [TripMonthData] {
+        let calendar = Calendar.current
+        let range = periodRange
+        var result: [TripMonthData] = []
+
+        var monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: range.lowerBound))!
+        let endMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: range.upperBound))!
+        let endMonthStart = calendar.date(byAdding: .month, value: 1, to: endMonth)!
+
+        while monthStart < endMonthStart {
+            let nextMonth = calendar.date(byAdding: .month, value: 1, to: monthStart)!
+            let count = tripsViewModel.trips.filter {
+                $0.startTime >= monthStart && $0.startTime < nextMonth
+            }.count
+            result.append(TripMonthData(monthStart: monthStart, count: count))
+            monthStart = nextMonth
+        }
+
+        return result
+    }
+
+    // MARK: - Expenditure Breakdown
+
+    var expenditureSlices: [ExpenditureSlice] {
+        [
+            ExpenditureSlice(label: "Labour", amount: maintenanceLabourTotal, color: FleetPalette.accent),
+            ExpenditureSlice(label: "Parts", amount: maintenancePartsTotal, color: FleetPalette.warning),
+            ExpenditureSlice(label: "Fuel", amount: filteredTripFuelTotal, color: FleetPalette.success),
+            ExpenditureSlice(label: "Misc", amount: filteredTripMiscTotal, color: FleetPalette.miscellaneous)
+        ]
+    }
+
+    var totalExpenditure: Double {
+        maintenanceLabourTotal + maintenancePartsTotal + filteredTripFuelTotal + filteredTripMiscTotal
+    }
+
+    // MARK: - Fleet Utilization (Percentage + Monthly Line)
+
+    var totalVehiclesCount: Int {
+        vehiclesViewModel.vehicles.count
+    }
+
+    var vehiclesUsedThisPeriod: Int {
+        Set(filteredTrips.map(\.vehicleId)).count
+    }
+
+    var utilizationPercentCurrentMonth: Double {
+        let calendar = Calendar.current
+        let now = Date()
+        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
+        let nextMonth = calendar.date(byAdding: .month, value: 1, to: monthStart)!
+        let tripsThisMonth = tripsViewModel.trips.filter {
+            $0.startTime >= monthStart && $0.startTime < nextMonth
+        }
+        let used = Set(tripsThisMonth.map(\.vehicleId)).count
+        guard totalVehiclesCount > 0 else { return 0 }
+        return Double(used) / Double(totalVehiclesCount) * 100
+    }
+
+    var fleetUtilizationByMonth: [FleetUtilizationMonthData] {
+        let calendar = Calendar.current
+        let range = periodRange
+        var result: [FleetUtilizationMonthData] = []
+
+        var monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: range.lowerBound))!
+        let endMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: range.upperBound))!
+        let endMonthStart = calendar.date(byAdding: .month, value: 1, to: endMonth)!
+
+        while monthStart < endMonthStart {
+            let nextMonth = calendar.date(byAdding: .month, value: 1, to: monthStart)!
+            let tripsInMonth = tripsViewModel.trips.filter {
+                $0.startTime >= monthStart && $0.startTime < nextMonth
+            }
+            let used = Set(tripsInMonth.map(\.vehicleId)).count
+            result.append(FleetUtilizationMonthData(monthStart: monthStart, vehiclesUsed: used))
+            monthStart = nextMonth
+        }
+
+        return result
     }
 
     var filteredTripsByWeek: [(weekStart: Date, count: Int)] {
@@ -264,6 +370,46 @@ final class ReportsViewModel: ObservableObject {
         }
         guard scores.isEmpty == false else { return 0 }
         return scores.reduce(0, +) / scores.count
+    }
+
+    // MARK: - Aggregated Fleet Health
+
+    var averageVehicleHealth: Int {
+        let scores = vehicleHealthScores.map(\.score)
+        guard scores.isEmpty == false else { return 0 }
+        return scores.reduce(0, +) / scores.count
+    }
+
+    var fleetHealthScore: Int {
+        let driverAvg = averageDriverScore
+        let vehicleAvg = averageVehicleHealth
+        guard driverAvg + vehicleAvg > 0 else { return 0 }
+        return (driverAvg + vehicleAvg) / 2
+    }
+
+    var fleetHealthLabel: String {
+        switch fleetHealthScore {
+        case 91...100: return "Great"
+        case 76...90: return "Good"
+        case 51...75: return "Okay"
+        default: return "Bad"
+        }
+    }
+
+    var fleetHealthColor: Color {
+        switch fleetHealthScore {
+        case 91...100: return FleetPalette.success
+        case 76...90: return FleetPalette.accent
+        case 51...75: return FleetPalette.warning
+        default: return FleetPalette.danger
+        }
+    }
+
+    var vehiclesNeedingMaintenance: [Vehicle] {
+        vehicleHealthScores
+            .filter { $0.score < 70 }
+            .sorted { $0.score < $1.score }
+            .map(\.vehicle)
     }
 
     var vehicleHealthScores: [(vehicle: Vehicle, score: Int)] {
