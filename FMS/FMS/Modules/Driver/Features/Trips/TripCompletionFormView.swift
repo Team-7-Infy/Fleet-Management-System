@@ -192,6 +192,16 @@ struct TripCompletionFormView: View {
                     }
                 }
             }
+            .onAppear {
+                let postOdo = UserDefaults.standard.integer(forKey: "trip_\(trip.id.uuidString)_post_odo")
+                if postOdo > 0 {
+                    finalOdometer = "\(postOdo)"
+                }
+                let postFuel = UserDefaults.standard.integer(forKey: "trip_\(trip.id.uuidString)_post_fuel")
+                if postFuel > 0 {
+                    finalFuelLevel = Double(postFuel)
+                }
+            }
         }
     }
 

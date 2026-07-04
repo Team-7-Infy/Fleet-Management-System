@@ -291,6 +291,8 @@ struct ActiveNavigationDetailView: View {
     // End Trip Flow States
     @State private var showingEndConfirmation = false
     @State private var showingCompletionForm = false
+    @State private var showingPostTripInspection = false
+    @State private var postTripInspectionSubmitted = false
     @State private var showingTripSuccess = false
     @State private var finalDistance: Double = 0.0
     @State private var finalDuration: Int = 0
@@ -700,7 +702,7 @@ struct ActiveNavigationDetailView: View {
                         // Complete Trip Button
                         Button(action: {
                             HapticManager.shared.triggerImpact(style: .heavy)
-                            showingCompletionForm = true
+                            showingPostTripInspection = true
                         }) {
                             Text("Complete Trip")
                                 .font(.headline)
@@ -749,6 +751,30 @@ struct ActiveNavigationDetailView: View {
                             )
                             .environmentObject(localStore)
                         }
+                        .sheet(isPresented: $showingPostTripInspection, onDismiss: {
+                            if postTripInspectionSubmitted {
+                                postTripInspectionSubmitted = false
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                    showingCompletionForm = true
+                                }
+                            }
+                        }) {
+                            NavigationStack {
+                                InspectionFlowView(
+                                    services: services,
+                                    isPresentedModally: true,
+                                    preselectedTripId: trip.id.uuidString,
+                                    trips: [trip],
+                                    vehicles: vehicles,
+                                    activeTripId: trip.id.uuidString,
+                                    isPostTrip: true,
+                                    onComplete: {
+                                        postTripInspectionSubmitted = true
+                                    }
+                                )
+                            }
+                            .environmentObject(localStore)
+                        }
                     }
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
@@ -782,7 +808,6 @@ struct ActiveNavigationDetailView: View {
                     trip: trip,
                     distance: finalDistance,
                     durationMinutes: finalDuration,
-                    earnings: finalEarnings,
                     onDismiss: {
                         showingTripSuccess = false
                         onBack()

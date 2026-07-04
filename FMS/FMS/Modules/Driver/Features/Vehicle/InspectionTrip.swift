@@ -19,14 +19,18 @@ struct InspectionFlowView: View {
     let trips: [Trip]
     let vehicles: [Vehicle]
     let activeTripId: String?
+    let isPostTrip: Bool
+    var onComplete: (() -> Void)? = nil
 
-    init(services: AppServices, isPresentedModally: Bool = false, preselectedTripId: String? = nil, trips: [Trip] = [], vehicles: [Vehicle] = [], activeTripId: String? = nil) {
+    init(services: AppServices, isPresentedModally: Bool = false, preselectedTripId: String? = nil, trips: [Trip] = [], vehicles: [Vehicle] = [], activeTripId: String? = nil, isPostTrip: Bool = false, onComplete: (() -> Void)? = nil) {
         self.services = services
         self.isPresentedModally = isPresentedModally
         self.preselectedTripId = preselectedTripId
         self.trips = trips
         self.vehicles = vehicles
         self.activeTripId = activeTripId
+        self.isPostTrip = isPostTrip
+        self.onComplete = onComplete
     }
 
     var inspectionTrips: [InspectionTrip] {
@@ -53,9 +57,20 @@ struct InspectionFlowView: View {
     }
 
     var body: some View {
-        InspectionView(services: services, trip: allottedTrip, isPresentedModally: isPresentedModally, vehicleNumber: allottedTrip.vehicleNumber) {
-            dismiss()
-        }
+        InspectionView(
+            services: services,
+            trip: allottedTrip,
+            isPresentedModally: isPresentedModally,
+            vehicleNumber: allottedTrip.vehicleNumber,
+            onBack: {
+                dismiss()
+            },
+            onComplete: {
+                dismiss()
+                onComplete?()
+            },
+            isPostTrip: isPostTrip
+        )
         .environmentObject(localStore)
     }
 }

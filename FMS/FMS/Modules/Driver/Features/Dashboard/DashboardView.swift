@@ -41,6 +41,7 @@ struct DashboardView: View {
     @State private var selectedTripToStart: String? = nil
     @State private var showingInspectionSheet = false
     @State private var showingActiveNavigation = false
+    @State private var activeTripForNavigation: Trip? = nil
     @State private var showingTripDetailsSheet = false
     @State private var showingNotifications = false
 
@@ -120,6 +121,7 @@ struct DashboardView: View {
                                         onCardTap: { showingTripDetailsSheet = true },
                                         onNavigationTap: {
                                             localStore.isNavigationActive = true
+                                            activeTripForNavigation = active
                                             showingActiveNavigation = true
                                         },
                                         onFuelTap: { showingFuelSheet = true },
@@ -149,6 +151,7 @@ struct DashboardView: View {
                                                     try await services.tripService.updateTripStatus(id: nearest.id, status: .inProgress)
                                                     await onRefreshData?()
                                                     await MainActor.run {
+                                                        activeTripForNavigation = nearest
                                                         showingActiveNavigation = true
                                                     }
                                                 } catch {
@@ -296,6 +299,14 @@ struct DashboardView: View {
                 await viewModel.fetchDashboardData()
                 await notificationViewModel.loadNotifications()
                 notificationViewModel.subscribeToRealtime()
+                if let live = trips.first(where: { $0.status == .inProgress }) {
+                    activeTripForNavigation = live
+                }
+            }
+            .onChange(of: trips) { _, newTrips in
+                if let live = newTrips.first(where: { $0.status == .inProgress }), activeTripForNavigation == nil {
+                    activeTripForNavigation = live
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ReloadTrips"))) { _ in
                 Task {
@@ -364,7 +375,7 @@ struct DashboardView: View {
                 }
             }
             .fullScreenCover(isPresented: $showingActiveNavigation) {
-                if let activeTrip = liveTrip {
+                if let activeTrip = activeTripForNavigation {
                     ActiveNavigationDetailView(
                         services: services,
                         user: user,
@@ -373,6 +384,7 @@ struct DashboardView: View {
                         vehicles: vehicles,
                         onBack: { 
                             showingActiveNavigation = false
+                            activeTripForNavigation = nil
                             Task {
                                 await onRefreshData?()
                             }

@@ -66,7 +66,6 @@ struct TripCompletionSuccessView: View {
     let trip: Trip
     let distance: Double
     let durationMinutes: Int
-    let earnings: Double
     let onDismiss: () -> Void
     
     @State private var animateItems = false
@@ -95,21 +94,8 @@ struct TripCompletionSuccessView: View {
                     }
                     .padding(.top, 40)
                     
-                    // Main Earnings Card
+                    // Main Journey Card
                     VStack(spacing: 20) {
-                        HStack {
-                            Text("Total Earnings")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text(String(format: "$%.2f", earnings))
-                                .font(.system(size: 38, weight: .black, design: .rounded))
-                                .foregroundColor(.green)
-                        }
-                        
-                        Divider()
-                        
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("DISTANCE")
@@ -146,62 +132,6 @@ struct TripCompletionSuccessView: View {
                     .background(Color(UIColor.systemBackground))
                     .cornerRadius(24)
                     .shadow(color: Color.black.opacity(0.04), radius: 10, y: 5)
-                    .offset(y: animateItems ? 0 : 50)
-                    .opacity(animateItems ? 1 : 0)
-                    
-                    // 5.0 Rating Pill
-                    HStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.green.opacity(0.15))
-                                .frame(width: 44, height: 44)
-                            Image(systemName: "star.fill")
-                                .foregroundColor(.green)
-                                .font(.system(size: 20))
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("5.0 Rating")
-                                .font(.subheadline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.primary)
-                            Text("Perfect Trip")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                    }
-                    .padding()
-                    .background(Color.green.opacity(0.06))
-                    .cornerRadius(18)
-                    .offset(y: animateItems ? 0 : 50)
-                    .opacity(animateItems ? 1 : 0)
-                    
-                    // High Demand Pill
-                    HStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.blue.opacity(0.15))
-                                .frame(width: 44, height: 44)
-                            Image(systemName: "bolt.fill")
-                                .foregroundColor(.blue)
-                                .font(.system(size: 20))
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("High Demand")
-                                .font(.subheadline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.primary)
-                            Text("+$2.00 Surge Included")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                    }
-                    .padding()
-                    .background(Color.blue.opacity(0.06))
-                    .cornerRadius(18)
                     .offset(y: animateItems ? 0 : 50)
                     .opacity(animateItems ? 1 : 0)
                     

@@ -9,6 +9,7 @@ struct InspectionView: View {
     let vehicleNumber: String
     var onBack: (() -> Void)? = nil
     var onComplete: (() -> Void)? = nil
+    var isPostTrip: Bool = false
 
     @State private var showingAlert = false
     @State private var alertTitle = ""
@@ -66,7 +67,7 @@ struct InspectionView: View {
                 VStack(spacing: 16) {
                     // Top Bar: Centered title and Close button
                     ZStack {
-                        Text("Inspection")
+                        Text(isPostTrip ? "Post-Trip Inspection" : "Inspection")
                             .font(.headline)
                             .fontWeight(.bold)
                             .foregroundColor(.white)
@@ -94,7 +95,7 @@ struct InspectionView: View {
                             .foregroundColor(.white)
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Daily Safety Inspection")
+                            Text(isPostTrip ? "Post-Trip Safety Inspection" : "Daily Safety Inspection")
                                 .font(.headline)
                                 .fontWeight(.bold)
                                 .foregroundColor(.white)
@@ -394,15 +395,18 @@ struct InspectionView: View {
         
         // Save readings to UserDefaults under trip ID
         if let odoVal = Int(odometerInput), let fuelVal = Int(fuelInput) {
-            UserDefaults.standard.set(odoVal, forKey: "trip_\(trip.tripId)_pre_odo")
-            UserDefaults.standard.set(fuelVal, forKey: "trip_\(trip.tripId)_pre_fuel")
+            let keyPrefix = isPostTrip ? "post" : "pre"
+            UserDefaults.standard.set(odoVal, forKey: "trip_\(trip.tripId)_\(keyPrefix)_odo")
+            UserDefaults.standard.set(fuelVal, forKey: "trip_\(trip.tripId)_\(keyPrefix)_fuel")
         }
 
         guard !failedItems.isEmpty else {
             // No defects found, proceed normally
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 viewModel.isSubmitting = false
-                localStore.markTripInspected(trip.tripId)
+                if !isPostTrip {
+                    localStore.markTripInspected(trip.tripId)
+                }
                 dismiss()
                 onComplete?()
             }
@@ -441,7 +445,8 @@ struct InspectionView: View {
                         }
                     }
                     
-                    let description = "Pre-trip inspection failed for \(item.name) on vehicle \(vehicle.licencePlate) (VIN: \(vehicle.id.uuidString)). Odometer: \(odometerInput) km, Fuel: \(fuelInput)%. Details: \(item.failDescription)"
+                    let prefix = isPostTrip ? "Post-trip" : "Pre-trip"
+                    let description = "\(prefix) inspection failed for \(item.name) on vehicle \(vehicle.licencePlate) (VIN: \(vehicle.id.uuidString)). Odometer: \(odometerInput) km, Fuel: \(fuelInput)%. Details: \(item.failDescription)"
                     
                     let maintenanceTask = MaintenanceTask(
                         id: UUID(),
