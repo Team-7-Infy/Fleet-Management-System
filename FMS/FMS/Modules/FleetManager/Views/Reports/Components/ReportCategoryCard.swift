@@ -12,11 +12,11 @@ struct ReportCategoryCard<Content: View>: View {
                 HStack(spacing: 12) {
                     IconBubble(systemImage: systemImage, tint: tint)
                     Text(title)
-                        .font(.headline.weight(.bold))
+                        .font(.headline).bold()
                         .foregroundStyle(FleetPalette.textPrimary)
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.caption.weight(.bold))
+                        .font(.caption).bold()
                         .foregroundStyle(FleetPalette.textSecondary)
                 }
 

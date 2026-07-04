@@ -1,5 +1,4 @@
 import SwiftUI
-import Charts
 
 struct FleetUtilizationDetailView: View {
     @ObservedObject var reportsViewModel: ReportsViewModel
@@ -11,7 +10,6 @@ struct FleetUtilizationDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                ScreenHeader(title: "Fleet Utilization", subtitle: "Vehicle and driver usage")
                 PeriodFilterPicker(selectedPeriod: $localPeriod)
                     .padding(.horizontal, 4)
                     .onChange(of: localPeriod) { _, new in
@@ -19,7 +17,6 @@ struct FleetUtilizationDetailView: View {
                     }
 
                 fleetSummaryGrid
-                vehicleUtilizationChart
                 vehicleUtilizationList
             }
             .padding(.horizontal)
@@ -32,45 +29,57 @@ struct FleetUtilizationDetailView: View {
     }
 
     private var fleetSummaryGrid: some View {
-        LazyVGrid(columns: FleetPalette.twoColumnGrid, spacing: 12) {
-            DashboardMetricCard(title: "Total Vehicles", systemImage: "car.2.fill", tint: FleetPalette.accent, metrics: [("Count", "\(vehiclesViewModel.vehicles.count)")])
+        let active = vehiclesViewModel.activeVehicles.count
+        let maint = vehiclesViewModel.maintenanceVehicles.count
+        let driversOnTrips = reportsViewModel.driverPerformance.count
 
-            let active = vehiclesViewModel.activeVehicles.count
-            DashboardMetricCard(title: "Active", systemImage: "checkmark.circle", tint: FleetPalette.success, metrics: [("Count", "\(active)")])
+        return GlassPanel(hasBorder: false) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("UTILIZATION SUMMARY")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
 
-            let maint = vehiclesViewModel.maintenanceVehicles.count
-            DashboardMetricCard(title: "In Maintenance", systemImage: "wrench.fill", tint: FleetPalette.warning, metrics: [("Count", "\(maint)")])
-
-            let driversOnTrips = reportsViewModel.driverPerformance.count
-            DashboardMetricCard(title: "Drivers on Trip", systemImage: "person.fill", tint: FleetPalette.tertiary, metrics: [("Count", "\(driversOnTrips)")])
-        }
-    }
-
-    private var vehicleUtilizationChart: some View {
-        GlassPanel(hasBorder: false) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("VEHICLE USAGE (TOP 8)")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(FleetPalette.textSecondary)
-
-                let data = reportsViewModel.vehicleUtilization.prefix(8)
-                if data.isEmpty {
-                    Text("No vehicle usage data")
-                        .font(.subheadline).foregroundStyle(FleetPalette.textSecondary)
-                        .frame(maxWidth: .infinity).frame(height: 160)
-                } else {
-                    Chart(data, id: \.vehicle.id) { item in
-                        BarMark(
-                            x: .value("Trips", item.tripCount),
-                            y: .value("Vehicle", item.vehicle.licencePlate)
-                        )
-                        .foregroundStyle(FleetPalette.success.gradient)
+                LazyVGrid(columns: FleetPalette.twoColumnGrid, alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(vehiclesViewModel.vehicles.count)")
+                            .font(.title3).bold()
+                            .foregroundStyle(FleetPalette.textPrimary)
+                            .frame(minHeight: 26, alignment: .bottom)
+                        Text("Total Vehicles")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
                     }
-                    .chartXAxis { AxisMarks { AxisValueLabel() } }
-                    .chartYAxis { AxisMarks { AxisValueLabel() } }
-                    .frame(height: 200)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(active)")
+                            .font(.title3).bold()
+                            .foregroundStyle(FleetPalette.textPrimary)
+                            .frame(minHeight: 26, alignment: .bottom)
+                        Text("Active")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(maint)")
+                            .font(.title3).bold()
+                            .foregroundStyle(FleetPalette.textPrimary)
+                        Text("In Maintenance")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(driversOnTrips)")
+                            .font(.title3).bold()
+                            .foregroundStyle(FleetPalette.textPrimary)
+                        Text("Drivers on Trip")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
+            .padding(4)
         }
     }
 
@@ -78,7 +87,7 @@ struct FleetUtilizationDetailView: View {
         GlassPanel(hasBorder: false) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("VEHICLE TRIP COUNTS")
-                    .font(.caption.weight(.bold))
+                    .font(.caption).bold()
                     .foregroundStyle(FleetPalette.textSecondary)
 
                 let data = reportsViewModel.vehicleUtilization
@@ -87,14 +96,23 @@ struct FleetUtilizationDetailView: View {
                         .font(.subheadline).foregroundStyle(FleetPalette.textSecondary)
                 } else {
                     ForEach(data, id: \.vehicle.id) { item in
-                        HStack {
-                            Text(item.vehicle.licencePlate)
-                                .font(.subheadline.weight(.bold)).foregroundStyle(FleetPalette.textPrimary)
-                            Text("\(item.vehicle.make) \(item.vehicle.model)")
-                                .font(.caption).foregroundStyle(FleetPalette.textSecondary)
-                            Spacer()
-                            Text("\(item.tripCount) trips")
-                                .font(.subheadline.weight(.bold)).foregroundStyle(FleetPalette.accent)
+                        NavigationLink {
+                            ManagerVehicleDetailView(
+                                vehicle: item.vehicle,
+                                viewModel: vehiclesViewModel,
+                                usersViewModel: usersViewModel,
+                                openMaintenanceRequest: { _ in }
+                            )
+                        } label: {
+                            HStack {
+                                Text(item.vehicle.licencePlate)
+                                    .font(.subheadline).bold().foregroundStyle(FleetPalette.textPrimary)
+                                Text("\(item.vehicle.make) \(item.vehicle.model)")
+                                    .font(.caption).foregroundStyle(FleetPalette.textSecondary)
+                                Spacer()
+                                Text("\(item.tripCount) trips")
+                                    .font(.subheadline).bold().foregroundStyle(FleetPalette.accent)
+                            }
                         }
                         Divider()
                     }

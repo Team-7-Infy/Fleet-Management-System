@@ -1,8 +1,8 @@
 import SwiftUI
-import Charts
 
 struct TripReportDetailView: View {
     @ObservedObject var tripsViewModel: ReportsViewModel
+    @ObservedObject var tripsManager: TripManagementViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
 
@@ -11,7 +11,6 @@ struct TripReportDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                ScreenHeader(title: "Trip Report", subtitle: "Detailed trip performance")
                 PeriodFilterPicker(selectedPeriod: $localPeriod)
                     .padding(.horizontal, 4)
                     .onChange(of: localPeriod) { _, new in
@@ -19,7 +18,6 @@ struct TripReportDetailView: View {
                     }
 
                 summaryGrid
-                weeklyChart
                 punctualitySection
                 fuelExpenditureSection
             }
@@ -35,88 +33,166 @@ struct TripReportDetailView: View {
     }
 
     private var summaryGrid: some View {
-        LazyVGrid(columns: FleetPalette.twoColumnGrid, spacing: 12) {
-            DashboardMetricCard(title: "Total Trips", systemImage: "number", tint: FleetPalette.accent, metrics: [("Count", "\(tripsViewModel.totalFilteredTrips)")])
-            DashboardMetricCard(title: "Completed", systemImage: "checkmark.circle", tint: FleetPalette.success, metrics: [("Rate", "\(Int(tripsViewModel.completionRate * 100))%")])
-            DashboardMetricCard(title: "Total Cost", systemImage: "indianrupeesign", tint: FleetPalette.warning, metrics: [("Amount", tripsViewModel.filteredTripCostTotal.formatted(.currency(code: "INR")))])
+        let completed = tripsViewModel.totalFilteredCompletedTrips
+        let total = tripsViewModel.totalFilteredTrips
+        let totalCost = tripsViewModel.filteredTripCostTotal
+        let avgCost = completed > 0 ? totalCost / Double(completed) : 0
 
-            let avgCost = tripsViewModel.totalFilteredCompletedTrips > 0
-                ? tripsViewModel.filteredTripCostTotal / Double(tripsViewModel.totalFilteredCompletedTrips)
-                : 0
-            DashboardMetricCard(title: "Avg Cost/Trip", systemImage: "chart.bar.fill", tint: FleetPalette.tertiary, metrics: [("Per Trip", avgCost.formatted(.currency(code: "INR")))])
-        }
-    }
+        return GlassPanel(hasBorder: false) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("TRIP SUMMARY")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
 
-    private var weeklyChart: some View {
-        GlassPanel(hasBorder: false) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("TRIPS BY WEEK")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(FleetPalette.textSecondary)
-
-                let data = tripsViewModel.filteredTripsByWeek
-                if data.isEmpty {
-                    Text("No trip data")
-                        .font(.subheadline)
-                        .foregroundStyle(FleetPalette.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 120)
-                } else {
-                    Chart(data, id: \.weekStart) { item in
-                        BarMark(
-                            x: .value("Week", item.weekStart, unit: .weekOfYear),
-                            y: .value("Trips", item.count)
-                        )
-                        .foregroundStyle(FleetPalette.accent.gradient)
+                LazyVGrid(columns: FleetPalette.twoColumnGrid, alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(total)")
+                            .font(.title3).bold()
+                            .foregroundStyle(FleetPalette.textPrimary)
+                            .frame(minHeight: 26, alignment: .bottom)
+                        Text("Total Trips")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
                     }
-                    .chartXAxis { AxisMarks(values: .stride(by: .month)) { _ in
-                        AxisValueLabel(format: .dateTime.month(.abbreviated))
-                    } }
-                    .chartYAxis { AxisMarks { AxisValueLabel() } }
-                    .frame(height: 160)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(completed)")
+                            .font(.title3).bold()
+                            .foregroundStyle(FleetPalette.textPrimary)
+                            .frame(minHeight: 26, alignment: .bottom)
+                        Text("Completed")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(totalCost.formatted(.currency(code: "INR")))
+                            .font(.title3).bold()
+                            .foregroundStyle(FleetPalette.textPrimary)
+                        Text("Total Cost")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(avgCost.formatted(.currency(code: "INR")))
+                            .font(.title3).bold()
+                            .foregroundStyle(FleetPalette.textPrimary)
+                        Text("Avg / Trip")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
+            .padding(4)
         }
     }
 
     private var punctualitySection: some View {
-        GlassPanel(hasBorder: false) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("TRIP PUNCTUALITY")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(FleetPalette.textSecondary)
+        let onTime = Array(tripsViewModel.onTimeTrips.prefix(5))
+        let delayed = Array(tripsViewModel.delayedTrips.prefix(5))
+        let onTimeCount = onTime.count
+        let delayedCount = delayed.count
+        let total = onTimeCount + delayedCount
+        let punctualityRate = total > 0 ? Double(onTimeCount) / Double(total) * 100 : 0
 
-                let onTime = tripsViewModel.onTimeTrips.prefix(5)
-                let delayed = tripsViewModel.delayedTrips.prefix(5)
+        return GlassPanel(hasBorder: false) {
+            VStack(alignment: .leading, spacing: 16) {
+                Label("Trip Punctuality", systemImage: "clock.badge.checkmark")
+                    .font(.headline)
+                    .foregroundStyle(FleetPalette.textPrimary)
 
-                if onTime.isEmpty && delayed.isEmpty {
-                    Text("No completed trips to evaluate")
-                        .font(.subheadline)
-                        .foregroundStyle(FleetPalette.textSecondary)
+                if total == 0 {
+                    ContentUnavailableView(
+                        "No completed trips to evaluate",
+                        systemImage: "clock.badge.questionmark",
+                        description: Text("Complete trips to see punctuality data.")
+                    )
+                    .frame(height: 120)
                 } else {
-                    if onTime.isEmpty == false {
-                        Text("Most On-Time").font(.subheadline.weight(.bold)).foregroundStyle(FleetPalette.success)
-                        ForEach(onTime, id: \.trip.id) { item in
-                            HStack {
-                                Text("\(item.trip.startLocation) → \(item.trip.endLocation)")
-                                    .font(.caption).foregroundStyle(FleetPalette.textPrimary).lineLimit(1)
-                                Spacer()
-                                Text("\(Int(abs(item.deviation) / 60)) min early")
-                                    .font(.caption.weight(.bold)).foregroundStyle(FleetPalette.success)
-                            }
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(onTimeCount) of \(total)")
+                                .font(.title3).bold()
+                            Text("on time")
+                                .font(.caption).foregroundStyle(.tertiary)
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("\(Int(punctualityRate.rounded()))%")
+                                .font(.title3).bold()
+                                .foregroundStyle(punctualityRate >= 70 ? FleetPalette.success : FleetPalette.warning)
+                            Text("punctuality")
+                                .font(.caption).foregroundStyle(.tertiary)
                         }
                     }
-                    if delayed.isEmpty == false {
-                        Divider()
-                        Text("Most Delayed").font(.subheadline.weight(.bold)).foregroundStyle(FleetPalette.danger)
-                        ForEach(delayed, id: \.trip.id) { item in
-                            HStack {
-                                Text("\(item.trip.startLocation) → \(item.trip.endLocation)")
-                                    .font(.caption).foregroundStyle(FleetPalette.textPrimary).lineLimit(1)
-                                Spacer()
-                                Text("\(Int(item.deviation / 60)) min late")
-                                    .font(.caption.weight(.bold)).foregroundStyle(FleetPalette.danger)
+
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(.quaternary).frame(height: 8)
+                            Capsule()
+                                .fill(punctualityRate >= 70 ? FleetPalette.success.gradient : FleetPalette.warning.gradient)
+                                .frame(width: geo.size.width * CGFloat(punctualityRate / 100), height: 8)
+                        }
+                    }
+                    .frame(height: 8)
+
+                    if onTime.isEmpty == false {
+                        Text("Most On-Time")
+                            .font(.subheadline).bold()
+                            .foregroundStyle(FleetPalette.success)
+                        ForEach(onTime, id: \.trip.id) { item in
+                            NavigationLink {
+                                ManagerTripDetailView(
+                                    trip: item.trip,
+                                    viewModel: tripsManager,
+                                    vehiclesViewModel: vehiclesViewModel,
+                                    usersViewModel: usersViewModel
+                                )
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Circle().fill(FleetPalette.success).frame(width: 6, height: 6)
+                                    Text("\(item.trip.startLocation) → \(item.trip.endLocation)")
+                                        .font(.subheadline)
+                                        .foregroundStyle(FleetPalette.textPrimary)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Text("\(Int(abs(item.deviation) / 60)) min early")
+                                        .font(.subheadline).bold()
+                                        .foregroundStyle(FleetPalette.success)
+                                }
                             }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    if delayed.isEmpty == false {
+                        if onTime.isEmpty == false { Divider() }
+                        Text("Most Delayed")
+                            .font(.subheadline).bold()
+                            .foregroundStyle(FleetPalette.danger)
+                        ForEach(delayed, id: \.trip.id) { item in
+                            NavigationLink {
+                                ManagerTripDetailView(
+                                    trip: item.trip,
+                                    viewModel: tripsManager,
+                                    vehiclesViewModel: vehiclesViewModel,
+                                    usersViewModel: usersViewModel
+                                )
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Circle().fill(FleetPalette.danger).frame(width: 6, height: 6)
+                                    Text("\(item.trip.startLocation) → \(item.trip.endLocation)")
+                                        .font(.subheadline)
+                                        .foregroundStyle(FleetPalette.textPrimary)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Text("\(Int(item.deviation / 60)) min late")
+                                        .font(.subheadline).bold()
+                                        .foregroundStyle(FleetPalette.danger)
+                                }
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -125,42 +201,101 @@ struct TripReportDetailView: View {
     }
 
     private var fuelExpenditureSection: some View {
-        GlassPanel(hasBorder: false) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("FUEL EXPENDITURE")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(FleetPalette.textSecondary)
+        let top = Array(tripsViewModel.topTripsByFuelCost.prefix(5))
+        let bottom = Array(tripsViewModel.bottomTripsByFuelCost.prefix(5))
+        let totalFuel = tripsViewModel.filteredTripFuelTotal
+        let completedCount = tripsViewModel.filteredCompletedTrips.count
+        let avgFuel = completedCount > 0 ? totalFuel / Double(completedCount) : 0
 
-                let top = tripsViewModel.topTripsByFuelCost.prefix(5)
-                let bottom = tripsViewModel.bottomTripsByFuelCost.prefix(5)
+        return GlassPanel(hasBorder: false) {
+            VStack(alignment: .leading, spacing: 16) {
+                Label("Fuel Expenditure", systemImage: "fuelpump.fill")
+                    .font(.headline)
+                    .foregroundStyle(FleetPalette.textPrimary)
 
                 if top.isEmpty {
-                    Text("No fuel data recorded")
-                        .font(.subheadline)
-                        .foregroundStyle(FleetPalette.textSecondary)
+                    ContentUnavailableView(
+                        "No fuel data recorded",
+                        systemImage: "fuelpump",
+                        description: Text("Add fuel costs to trips to see data.")
+                    )
+                    .frame(height: 120)
                 } else {
-                    Text("Highest Fuel Cost").font(.subheadline.weight(.bold)).foregroundStyle(FleetPalette.warning)
-                    ForEach(top, id: \.trip.id) { item in
-                        HStack {
-                            Text("\(item.trip.startLocation) → \(item.trip.endLocation)")
-                                .font(.caption).foregroundStyle(FleetPalette.textPrimary).lineLimit(1)
-                            Spacer()
-                            Text(item.cost.formatted(.currency(code: "INR")))
-                                .font(.caption.weight(.bold)).foregroundStyle(FleetPalette.warning)
+                    HStack(spacing: 24) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(totalFuel.formatted(.currency(code: "INR")))
+                                .font(.title3).bold()
+                            Text("Total fuel")
+                                .font(.caption).foregroundStyle(.tertiary)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(avgFuel.formatted(.currency(code: "INR")))
+                                .font(.title3).bold()
+                            Text("Avg / trip")
+                                .font(.caption).foregroundStyle(.tertiary)
                         }
                     }
 
                     Divider()
 
-                    Text("Lowest Fuel Cost").font(.subheadline.weight(.bold)).foregroundStyle(FleetPalette.success)
-                    ForEach(bottom, id: \.trip.id) { item in
-                        HStack {
-                            Text("\(item.trip.startLocation) → \(item.trip.endLocation)")
-                                .font(.caption).foregroundStyle(FleetPalette.textPrimary).lineLimit(1)
-                            Spacer()
-                            Text(item.cost.formatted(.currency(code: "INR")))
-                                .font(.caption.weight(.bold)).foregroundStyle(FleetPalette.success)
+                    Text("Highest Fuel Cost")
+                        .font(.subheadline).bold()
+                        .foregroundStyle(FleetPalette.warning)
+                    ForEach(top, id: \.trip.id) { item in
+                        NavigationLink {
+                            ManagerTripDetailView(
+                                trip: item.trip,
+                                viewModel: tripsManager,
+                                vehiclesViewModel: vehiclesViewModel,
+                                usersViewModel: usersViewModel
+                            )
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.up.right")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(FleetPalette.warning)
+                                Text("\(item.trip.startLocation) → \(item.trip.endLocation)")
+                                    .font(.subheadline)
+                                    .foregroundStyle(FleetPalette.textPrimary)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(item.cost.formatted(.currency(code: "INR")))
+                                    .font(.subheadline).bold()
+                                    .foregroundStyle(FleetPalette.warning)
+                            }
                         }
+                        .buttonStyle(.plain)
+                    }
+
+                    Divider()
+
+                    Text("Lowest Fuel Cost")
+                        .font(.subheadline).bold()
+                        .foregroundStyle(FleetPalette.success)
+                    ForEach(bottom, id: \.trip.id) { item in
+                        NavigationLink {
+                            ManagerTripDetailView(
+                                trip: item.trip,
+                                viewModel: tripsManager,
+                                vehiclesViewModel: vehiclesViewModel,
+                                usersViewModel: usersViewModel
+                            )
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.down.right")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(FleetPalette.success)
+                                Text("\(item.trip.startLocation) → \(item.trip.endLocation)")
+                                    .font(.subheadline)
+                                    .foregroundStyle(FleetPalette.textPrimary)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(item.cost.formatted(.currency(code: "INR")))
+                                    .font(.subheadline).bold()
+                                    .foregroundStyle(FleetPalette.success)
+                            }
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }

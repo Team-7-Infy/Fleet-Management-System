@@ -13,7 +13,7 @@ struct ReportsNavRow: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.bold))
+                    .font(.caption).bold()
                     .foregroundStyle(FleetPalette.accent)
             }
             .padding(18)

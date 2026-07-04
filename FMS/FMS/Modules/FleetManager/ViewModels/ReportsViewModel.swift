@@ -30,10 +30,10 @@ enum PeriodPreset: String, CaseIterable, Identifiable, Hashable, Sendable {
 final class ReportsViewModel: ObservableObject {
     @Published var selectedPeriod: PeriodPreset = .oneMonth
 
-    private let tripsViewModel: TripManagementViewModel
-    private let vehiclesViewModel: VehicleViewModel
-    private let maintenanceViewModel: MaintenanceViewModel
-    private let usersViewModel: UserManagementViewModel
+    let tripsViewModel: TripManagementViewModel
+    let vehiclesViewModel: VehicleViewModel
+    let maintenanceViewModel: MaintenanceViewModel
+    let usersViewModel: UserManagementViewModel
 
     init(
         tripsViewModel: TripManagementViewModel,

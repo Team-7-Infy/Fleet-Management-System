@@ -46,6 +46,7 @@ struct ReportsHubView: View {
         NavigationLink {
             TripReportDetailView(
                 tripsViewModel: viewModel,
+                tripsManager: viewModel.tripsViewModel,
                 vehiclesViewModel: vehiclesViewModel,
                 usersViewModel: usersViewModel
             )
@@ -61,7 +62,7 @@ struct ReportsHubView: View {
                     if let change = viewModel.tripPercentChange {
                         HStack(spacing: 4) {
                             Image(systemName: change >= 0 ? "arrow.up.right" : "arrow.down.right")
-                                .font(.caption.weight(.bold))
+                                .font(.caption).bold()
                             Text("\(abs(change), specifier: "%.0f")% from last month")
                                 .font(.caption.weight(.semibold))
                         }
@@ -84,6 +85,7 @@ struct ReportsHubView: View {
 
                 navigationPill(destination: TripReportDetailView(
                     tripsViewModel: viewModel,
+                    tripsManager: viewModel.tripsViewModel,
                     vehiclesViewModel: vehiclesViewModel,
                     usersViewModel: usersViewModel
                 ))
@@ -98,7 +100,10 @@ struct ReportsHubView: View {
         NavigationLink {
             ExpenditureDetailView(
                 reportsViewModel: viewModel,
-                maintenanceViewModel: maintenanceViewModel
+                maintenanceViewModel: maintenanceViewModel,
+                tripsManager: viewModel.tripsViewModel,
+                vehiclesViewModel: vehiclesViewModel,
+                usersViewModel: usersViewModel
             )
         } label: {
             FitnessCategoryCard {
@@ -122,7 +127,10 @@ struct ReportsHubView: View {
 
                 navigationPill(destination: ExpenditureDetailView(
                     reportsViewModel: viewModel,
-                    maintenanceViewModel: maintenanceViewModel
+                    maintenanceViewModel: maintenanceViewModel,
+                    tripsManager: viewModel.tripsViewModel,
+                    vehiclesViewModel: vehiclesViewModel,
+                    usersViewModel: usersViewModel
                 ))
             }
         }
@@ -178,7 +186,7 @@ struct ReportsHubView: View {
     private var vehicleHealthSectionSeparator: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("FLEET STATUS")
-                .font(.caption.weight(.bold))
+                .font(.caption).bold()
                 .foregroundStyle(.tertiary)
                 .padding(.top, 8)
             vehicleHealthSection
@@ -192,6 +200,8 @@ struct ReportsHubView: View {
         let color = viewModel.fleetHealthColor
         let label = viewModel.fleetHealthLabel
 
+        let ringGradient = AngularGradient(colors: [FleetPalette.accent, FleetPalette.success, FleetPalette.accent], center: .center, startAngle: .degrees(-90), endAngle: .degrees(270))
+
         return FitnessCategoryCard {
             VStack(spacing: 20) {
                 VStack(spacing: 12) {
@@ -201,7 +211,7 @@ struct ReportsHubView: View {
                             .frame(width: 120, height: 120)
                         Circle()
                             .trim(from: 0, to: CGFloat(score) / 100)
-                            .stroke(color.gradient, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                            .stroke(ringGradient, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                             .frame(width: 120, height: 120)
                             .rotationEffect(.degrees(-90))
                         Text("\(score)")
@@ -210,7 +220,7 @@ struct ReportsHubView: View {
                     }
 
                     Text(label)
-                        .font(.title2.weight(.bold))
+                        .font(.title2).bold()
                         .foregroundStyle(color)
                     Text("Aggregate of vehicle health and driver scores")
                         .font(.caption)
@@ -227,11 +237,11 @@ struct ReportsHubView: View {
                         )
                     } label: {
                         Text("Optimize")
-                            .font(.subheadline.bold())
+                            .font(.title3.bold())
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(color.gradient, in: Capsule())
+                            .background(LinearGradient(colors: [FleetPalette.accent, FleetPalette.success], startPoint: .leading, endPoint: .trailing), in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .frame(minHeight: 44)

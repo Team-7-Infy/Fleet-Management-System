@@ -49,7 +49,7 @@ struct MaintenanceReportDetailView: View {
         GlassPanel(hasBorder: false) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("COST BREAKDOWN")
-                    .font(.caption.weight(.bold))
+                    .font(.caption).bold()
                     .foregroundStyle(FleetPalette.textSecondary)
 
                 let data = reportsViewModel.mostExpensiveWorkOrders.prefix(8)
@@ -76,7 +76,7 @@ struct MaintenanceReportDetailView: View {
         GlassPanel(hasBorder: false) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("LONGEST WORK ORDERS")
-                    .font(.caption.weight(.bold))
+                    .font(.caption).bold()
                     .foregroundStyle(FleetPalette.textSecondary)
 
                 let items = reportsViewModel.longestWorkOrders
@@ -88,7 +88,7 @@ struct MaintenanceReportDetailView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.task.displayTitle)
-                                    .font(.subheadline.weight(.bold)).foregroundStyle(FleetPalette.textPrimary)
+                                    .font(.subheadline).bold().foregroundStyle(FleetPalette.textPrimary)
                                 if let user = usersViewModel.personnelUser(for: item.task.executedBy) {
                                     Text(user.displayName)
                                         .font(.caption).foregroundStyle(FleetPalette.textSecondary)
@@ -96,7 +96,7 @@ struct MaintenanceReportDetailView: View {
                             }
                             Spacer()
                             Text("\(item.hours, specifier: "%.1f") hrs")
-                                .font(.subheadline.weight(.bold)).foregroundStyle(FleetPalette.warning)
+                                .font(.subheadline).bold().foregroundStyle(FleetPalette.warning)
                         }
                         Divider()
                     }
@@ -109,7 +109,7 @@ struct MaintenanceReportDetailView: View {
         GlassPanel(hasBorder: false) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("MOST EXPENSIVE WORK ORDERS")
-                    .font(.caption.weight(.bold))
+                    .font(.caption).bold()
                     .foregroundStyle(FleetPalette.textSecondary)
 
                 let items = reportsViewModel.mostExpensiveWorkOrders
@@ -120,10 +120,10 @@ struct MaintenanceReportDetailView: View {
                     ForEach(items, id: \.task.id) { item in
                         HStack {
                             Text(item.task.displayTitle)
-                                .font(.subheadline.weight(.bold)).foregroundStyle(FleetPalette.textPrimary)
+                                .font(.subheadline).bold().foregroundStyle(FleetPalette.textPrimary)
                             Spacer()
                             Text(item.cost.formatted(.currency(code: "INR")))
-                                .font(.subheadline.weight(.bold)).foregroundStyle(FleetPalette.danger)
+                                .font(.subheadline).bold().foregroundStyle(FleetPalette.danger)
                         }
                         Divider()
                     }

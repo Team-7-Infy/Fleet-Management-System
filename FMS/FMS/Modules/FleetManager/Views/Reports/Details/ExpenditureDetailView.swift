@@ -1,23 +1,23 @@
 import SwiftUI
-import Charts
 
 struct ExpenditureDetailView: View {
     @ObservedObject var reportsViewModel: ReportsViewModel
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
+    @ObservedObject var tripsManager: TripManagementViewModel
+    @ObservedObject var vehiclesViewModel: VehicleViewModel
+    @ObservedObject var usersViewModel: UserManagementViewModel
 
     @State private var localPeriod: PeriodPreset = .oneMonth
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                ScreenHeader(title: "Expenditure", subtitle: "Cost breakdown across the fleet")
                 PeriodFilterPicker(selectedPeriod: $localPeriod)
                     .padding(.horizontal, 4)
                     .onChange(of: localPeriod) { _, new in
                         reportsViewModel.selectedPeriod = new
                     }
 
-                pieSection
                 summaryGrid
                 maintenanceSection
                 fuelSection
@@ -32,56 +32,59 @@ struct ExpenditureDetailView: View {
         .onAppear { localPeriod = reportsViewModel.selectedPeriod }
     }
 
-    private var pieSection: some View {
-        GlassPanel(hasBorder: false) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("DISTRIBUTION")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(FleetPalette.textSecondary)
+    private var summaryGrid: some View {
+        let totalValue = reportsViewModel.totalExpenditure
+        let maintenanceValue = reportsViewModel.maintenanceCostTotal
+        let fuelValue = reportsViewModel.filteredTripFuelTotal
+        let miscValue = reportsViewModel.filteredTripMiscTotal
 
-                let slices = reportsViewModel.expenditureSlices
-                if slices.allSatisfy({ $0.amount == 0 }) {
-                    Text("No expenditure data")
-                        .font(.subheadline)
-                        .foregroundStyle(FleetPalette.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 120)
-                } else {
-                    FitnessPieChart(slices: slices, height: 220)
+        return GlassPanel(hasBorder: false) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("EXPENDITURE SUMMARY")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+
+                LazyVGrid(columns: FleetPalette.twoColumnGrid, alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(totalValue.formatted(.currency(code: "INR")))
+                            .font(.title3).bold()
+                            .foregroundStyle(FleetPalette.textPrimary)
+                            .frame(minHeight: 26, alignment: .bottom)
+                        Text("Total")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(maintenanceValue.formatted(.currency(code: "INR")))
+                            .font(.title3).bold()
+                            .foregroundStyle(FleetPalette.textPrimary)
+                            .frame(minHeight: 26, alignment: .bottom)
+                        Text("Maintenance")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(fuelValue.formatted(.currency(code: "INR")))
+                            .font(.title3).bold()
+                            .foregroundStyle(FleetPalette.textPrimary)
+                        Text("Fuel")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(miscValue.formatted(.currency(code: "INR")))
+                            .font(.title3).bold()
+                            .foregroundStyle(FleetPalette.textPrimary)
+                        Text("Miscellaneous")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
-        }
-    }
-
-    private var summaryGrid: some View {
-        LazyVGrid(columns: FleetPalette.twoColumnGrid, spacing: 12) {
-            DashboardMetricCard(
-                title: "Total",
-                systemImage: "indianrupeesign",
-                tint: FleetPalette.accent,
-                metrics: [("Amount", reportsViewModel.totalExpenditure.formatted(.currency(code: "INR")))]
-            )
-            DashboardMetricCard(
-                title: "Maintenance",
-                systemImage: "wrench.fill",
-                tint: FleetPalette.warning,
-                metrics: [
-                    ("Labour", reportsViewModel.maintenanceLabourTotal.formatted(.currency(code: "INR"))),
-                    ("Parts", reportsViewModel.maintenancePartsTotal.formatted(.currency(code: "INR")))
-                ]
-            )
-            DashboardMetricCard(
-                title: "Fuel",
-                systemImage: "fuelpump.fill",
-                tint: FleetPalette.success,
-                metrics: [("Amount", reportsViewModel.filteredTripFuelTotal.formatted(.currency(code: "INR")))]
-            )
-            DashboardMetricCard(
-                title: "Miscellaneous",
-                systemImage: "ellipsis",
-                tint: FleetPalette.tertiary,
-                metrics: [("Amount", reportsViewModel.filteredTripMiscTotal.formatted(.currency(code: "INR")))]
-            )
+            .padding(4)
         }
     }
 
@@ -89,7 +92,7 @@ struct ExpenditureDetailView: View {
         GlassPanel(hasBorder: false) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("MAINTENANCE COSTS")
-                    .font(.caption.weight(.bold))
+                    .font(.caption).bold()
                     .foregroundStyle(FleetPalette.textSecondary)
 
                 let items = reportsViewModel.mostExpensiveWorkOrders
@@ -99,15 +102,24 @@ struct ExpenditureDetailView: View {
                         .foregroundStyle(FleetPalette.textSecondary)
                 } else {
                     ForEach(items.prefix(8), id: \.task.id) { item in
-                        HStack {
-                            Text(item.task.displayTitle)
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(FleetPalette.textPrimary)
-                                .lineLimit(1)
-                            Spacer()
-                            Text(item.cost.formatted(.currency(code: "INR")))
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(FleetPalette.warning)
+                        NavigationLink {
+                            ManagerServiceDetailView(
+                                task: item.task,
+                                viewModel: maintenanceViewModel,
+                                vehiclesViewModel: vehiclesViewModel,
+                                usersViewModel: usersViewModel
+                            )
+                        } label: {
+                            HStack {
+                                Text(item.task.displayTitle)
+                                    .font(.subheadline).bold()
+                                    .foregroundStyle(FleetPalette.textPrimary)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(item.cost.formatted(.currency(code: "INR")))
+                                    .font(.subheadline).bold()
+                                    .foregroundStyle(FleetPalette.warning)
+                            }
                         }
                         Divider()
                     }
@@ -120,7 +132,7 @@ struct ExpenditureDetailView: View {
         GlassPanel(hasBorder: false) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("FUEL COSTS")
-                    .font(.caption.weight(.bold))
+                    .font(.caption).bold()
                     .foregroundStyle(FleetPalette.textSecondary)
 
                 let fuelItems = reportsViewModel.topTripsByFuelCost
@@ -131,15 +143,24 @@ struct ExpenditureDetailView: View {
                 } else {
                     let displayItems = fuelItems.prefix(8)
                     ForEach(Array(zip(displayItems.indices, displayItems)), id: \.0) { _, item in
-                        HStack {
-                            Text("\(item.trip.startLocation) \u{2192} \(item.trip.endLocation)")
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(FleetPalette.textPrimary)
-                                .lineLimit(1)
-                            Spacer()
-                            Text(item.cost.formatted(.currency(code: "INR")))
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(FleetPalette.success)
+                        NavigationLink {
+                            ManagerTripDetailView(
+                                trip: item.trip,
+                                viewModel: tripsManager,
+                                vehiclesViewModel: vehiclesViewModel,
+                                usersViewModel: usersViewModel
+                            )
+                        } label: {
+                            HStack {
+                                Text("\(item.trip.startLocation) \u{2192} \(item.trip.endLocation)")
+                                    .font(.subheadline).bold()
+                                    .foregroundStyle(FleetPalette.textPrimary)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(item.cost.formatted(.currency(code: "INR")))
+                                    .font(.subheadline).bold()
+                                    .foregroundStyle(FleetPalette.success)
+                            }
                         }
                         Divider()
                     }
@@ -152,7 +173,7 @@ struct ExpenditureDetailView: View {
         GlassPanel(hasBorder: false) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("MISCELLANEOUS COSTS")
-                    .font(.caption.weight(.bold))
+                    .font(.caption).bold()
                     .foregroundStyle(FleetPalette.textSecondary)
 
                 let allMisc = reportsViewModel.filteredTrips
@@ -166,15 +187,24 @@ struct ExpenditureDetailView: View {
                 } else {
                     let displayMisc = allMisc.prefix(8)
                     ForEach(Array(zip(displayMisc.indices, displayMisc)), id: \.0) { _, trip in
-                        HStack {
-                            Text("\(trip.startLocation) \u{2192} \(trip.endLocation)")
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(FleetPalette.textPrimary)
-                                .lineLimit(1)
-                            Spacer()
-                            Text((trip.miscellaneousCost ?? 0).formatted(.currency(code: "INR")))
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(FleetPalette.tertiary)
+                        NavigationLink {
+                            ManagerTripDetailView(
+                                trip: trip,
+                                viewModel: tripsManager,
+                                vehiclesViewModel: vehiclesViewModel,
+                                usersViewModel: usersViewModel
+                            )
+                        } label: {
+                            HStack {
+                                Text("\(trip.startLocation) \u{2192} \(trip.endLocation)")
+                                    .font(.subheadline).bold()
+                                    .foregroundStyle(FleetPalette.textPrimary)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text((trip.miscellaneousCost ?? 0).formatted(.currency(code: "INR")))
+                                    .font(.subheadline).bold()
+                                    .foregroundStyle(FleetPalette.tertiary)
+                            }
                         }
                         Divider()
                     }

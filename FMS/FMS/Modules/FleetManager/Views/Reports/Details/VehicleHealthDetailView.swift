@@ -50,7 +50,7 @@ struct VehicleHealthDetailView: View {
         GlassPanel(hasBorder: false) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("HEALTH SCORES")
-                    .font(.caption.weight(.bold))
+                    .font(.caption).bold()
                     .foregroundStyle(FleetPalette.textSecondary)
 
                 let data = reportsViewModel.vehicleHealthScores
@@ -83,7 +83,7 @@ struct VehicleHealthDetailView: View {
         GlassPanel(hasBorder: false) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("VEHICLE HEALTH DETAILS")
-                    .font(.caption.weight(.bold))
+                    .font(.caption).bold()
                     .foregroundStyle(FleetPalette.textSecondary)
 
                 let data = reportsViewModel.vehicleHealthScores
@@ -95,7 +95,7 @@ struct VehicleHealthDetailView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.vehicle.licencePlate)
-                                    .font(.subheadline.weight(.bold)).foregroundStyle(FleetPalette.textPrimary)
+                                    .font(.subheadline).bold().foregroundStyle(FleetPalette.textPrimary)
                                 Text("\(item.vehicle.make) \(item.vehicle.model)")
                                     .font(.caption).foregroundStyle(FleetPalette.textSecondary)
                             }

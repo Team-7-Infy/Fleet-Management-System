@@ -44,7 +44,7 @@ struct DriverPerformanceDetailView: View {
         GlassPanel(hasBorder: false) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("TRIPS PER DRIVER")
-                    .font(.caption.weight(.bold))
+                    .font(.caption).bold()
                     .foregroundStyle(FleetPalette.textSecondary)
 
                 let data = reportsViewModel.driverPerformance.prefix(8)
@@ -72,7 +72,7 @@ struct DriverPerformanceDetailView: View {
         GlassPanel(hasBorder: false) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("DRIVER TRIP BREAKDOWN")
-                    .font(.caption.weight(.bold))
+                    .font(.caption).bold()
                     .foregroundStyle(FleetPalette.textSecondary)
 
                 let data = reportsViewModel.driverPerformance
@@ -84,13 +84,13 @@ struct DriverPerformanceDetailView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.user?.displayName ?? "Unknown")
-                                    .font(.subheadline.weight(.bold)).foregroundStyle(FleetPalette.textPrimary)
+                                    .font(.subheadline).bold().foregroundStyle(FleetPalette.textPrimary)
                                 Text(item.driver.licenceNum)
                                     .font(.caption).foregroundStyle(FleetPalette.textSecondary)
                             }
                             Spacer()
                             Text("\(item.tripCount) trips")
-                                .font(.subheadline.weight(.bold)).foregroundStyle(FleetPalette.accent)
+                                .font(.subheadline).bold().foregroundStyle(FleetPalette.accent)
                         }
                         Divider()
                     }

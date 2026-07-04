@@ -274,7 +274,7 @@ struct FitnessPieChart: View {
                             .lineLimit(1)
                         Spacer(minLength: 4)
                         Text(slice.amount.formatted(.currency(code: "INR")))
-                            .font(.caption.weight(.bold))
+                            .font(.caption).bold()
                             .foregroundStyle(FleetPalette.textPrimary)
                     }
                 }
