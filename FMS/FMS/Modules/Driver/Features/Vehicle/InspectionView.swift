@@ -408,13 +408,20 @@ struct InspectionView: View {
                     
                     let maintenanceTask = MaintenanceTask(
                         id: UUID(),
+                        title: item.name,
                         description: description,
                         scheduledDate: DateOnly(wrappedValue: Date()),
                         isUrgent: true,
                         scheduledBy: nil,
                         executedBy: nil,
                         status: .scheduled,
-                        photoUrls: photoUrls.isEmpty ? nil : photoUrls
+                        reportedDate: nil,
+                        completedAt: nil,
+                        timeTakenHours: nil,
+                        partsSummary: nil,
+                        totalCost: nil,
+                        photoUrls: photoUrls.isEmpty ? nil : photoUrls,
+                        elapsedTime: 0
                     )
                     
                     _ = try await services.maintenanceService.createTask(maintenanceTask)
