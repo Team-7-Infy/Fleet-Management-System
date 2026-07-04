@@ -105,57 +105,68 @@ struct DashboardView: View {
                         )
 
                         // --- 1. Active Trip Section (Highest Priority) ---
-                        if let active = liveTrip {
-                            VStack(alignment: .leading, spacing: 10) {
-                                SectionHeader(title: "Active Trip")
-                                ActiveRouteCard(
-                                    startLocation: active.startLocation,
-                                    endLocation: active.endLocation,
-                                    distanceCovered: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? "120 km" : "0 km",
-                                    distanceRemaining: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? "45 km" : formattedDistance(for: active),
-                                    eta: formattedEta(for: active),
-                                    remainingTime: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? "2h 15m" : "Calculating...",
-                                    progress: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? 0.65 : 0.0,
-                                    onCardTap: { showingTripDetailsSheet = true },
-                                    onNavigationTap: {
-                                        localStore.isNavigationActive = true
-                                        showingActiveNavigation = true
-                                    },
-                                    onFuelTap: { showingFuelSheet = true },
-                                    onSOSTap: { showingSOSAlert = true }
-                                )
-                            }
-                            .padding(.bottom, 8)
-                        } else if let nearest = nearestScheduledTrip {
-                            VStack(alignment: .leading, spacing: 10) {
-                                SectionHeader(title: "Upcoming Trip")
-                                UpcomingLiveTripCard(
-                                    trip: nearest,
-                                    vehicles: vehicles,
-                                    isInspected: localStore.inspectedVehicles.contains(nearest.id.uuidString),
-                                    activeTripExists: false,
-                                    isInspectionEnabled: isInspectionEnabled,
-                                    onPerformInspection: {
-                                        selectedTripToStart = nearest.id.uuidString
-                                        showingInspectionSheet = true
-                                    },
-                                    onStartTrip: {
-                                        Task {
-                                            do {
-                                                try await services.tripService.updateTripStatus(id: nearest.id, status: .inProgress)
-                                                await onRefreshData?()
-                                                await MainActor.run {
-                                                    showingActiveNavigation = true
+                        ZStack {
+                            if let active = liveTrip {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    SectionHeader(title: "Active Trip")
+                                    ActiveRouteCard(
+                                        startLocation: active.startLocation,
+                                        endLocation: active.endLocation,
+                                        distanceCovered: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? "120 km" : "0 km",
+                                        distanceRemaining: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? "45 km" : formattedDistance(for: active),
+                                        eta: formattedEta(for: active),
+                                        remainingTime: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? "2h 15m" : "Calculating...",
+                                        progress: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? 0.65 : 0.0,
+                                        onCardTap: { showingTripDetailsSheet = true },
+                                        onNavigationTap: {
+                                            localStore.isNavigationActive = true
+                                            showingActiveNavigation = true
+                                        },
+                                        onFuelTap: { showingFuelSheet = true },
+                                        onSOSTap: { showingSOSAlert = true }
+                                    )
+                                }
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                                    removal: .move(edge: .leading).combined(with: .opacity)
+                                ))
+                            } else if let nearest = nearestScheduledTrip {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    SectionHeader(title: "Upcoming Trip")
+                                    UpcomingLiveTripCard(
+                                        trip: nearest,
+                                        vehicles: vehicles,
+                                        isInspected: localStore.inspectedVehicles.contains(nearest.id.uuidString),
+                                        activeTripExists: false,
+                                        isInspectionEnabled: isInspectionEnabled,
+                                        onPerformInspection: {
+                                            selectedTripToStart = nearest.id.uuidString
+                                            showingInspectionSheet = true
+                                        },
+                                        onStartTrip: {
+                                            Task {
+                                                do {
+                                                    try await services.tripService.updateTripStatus(id: nearest.id, status: .inProgress)
+                                                    await onRefreshData?()
+                                                    await MainActor.run {
+                                                        showingActiveNavigation = true
+                                                    }
+                                                } catch {
+                                                    print("Failed to start trip: \(error)")
                                                 }
-                                            } catch {
-                                                print("Failed to start trip: \(error)")
                                             }
                                         }
-                                    }
-                                )
+                                    )
+                                }
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                                    removal: .move(edge: .leading).combined(with: .opacity)
+                                ))
                             }
-                            .padding(.bottom, 8)
                         }
+                        .animation(.spring(response: 0.55, dampingFraction: 0.82), value: liveTrip)
+                        .animation(.spring(response: 0.55, dampingFraction: 0.82), value: localStore.inspectedVehicles)
+                        .padding(.bottom, 8)
 
                         // --- Empty State ---
                         if liveTrip == nil && nearestScheduledTrip == nil && trips.isEmpty {

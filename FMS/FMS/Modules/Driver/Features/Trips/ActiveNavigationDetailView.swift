@@ -291,6 +291,10 @@ struct ActiveNavigationDetailView: View {
     // End Trip Flow States
     @State private var showingEndConfirmation = false
     @State private var showingCompletionForm = false
+    @State private var showingTripSuccess = false
+    @State private var finalDistance: Double = 0.0
+    @State private var finalDuration: Int = 0
+    @State private var finalEarnings: Double = 0.0
     
     // General SOS alerts
     @State private var showingSOSAlert = false
@@ -718,14 +722,27 @@ struct ActiveNavigationDetailView: View {
                                 onComplete: { finalOdometer, finalFuelLevel, needsMaintenance, driverNote in
                                     Task {
                                         var updatedTrip = trip
-                                        updatedTrip.finalOdometer = Double(finalOdometer)
+                                        let startOdo = Double(UserDefaults.standard.integer(forKey: "trip_\(trip.id.uuidString)_pre_odo"))
+                                        let finalOdo = Double(finalOdometer) ?? (startOdo > 0 ? startOdo + 12.4 : 124000.0)
+                                        updatedTrip.finalOdometer = finalOdo
                                         updatedTrip.finalFuelLevel = Double(finalFuelLevel.trimmingCharacters(in: CharacterSet(charactersIn: "%"))) ?? 75.0
                                         updatedTrip.status = .completed
                                         updatedTrip.endTime = Date()
                                         updatedTrip.driverNote = driverNote
                                         _ = try? await services.tripService.updateTrip(updatedTrip)
+                                        
+                                        let startOdoVal = startOdo > 0 ? startOdo : (finalOdo - 12.4)
+                                        let dist = max(1.2, finalOdo - startOdoVal)
+                                        let duration = max(15, Int(Date().timeIntervalSince(trip.startTime)) / 60)
+                                        let earn = Double(dist) * 1.95 + 2.0
+                                        
                                         await MainActor.run {
-                                            onBack()
+                                            self.finalDistance = dist
+                                            self.finalDuration = duration
+                                            self.finalEarnings = earn
+                                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                                self.showingTripSuccess = true
+                                            }
                                         }
                                     }
                                 }
@@ -759,6 +776,21 @@ struct ActiveNavigationDetailView: View {
                         }
                     }
             )
+            
+            if showingTripSuccess {
+                TripCompletionSuccessView(
+                    trip: trip,
+                    distance: finalDistance,
+                    durationMinutes: finalDuration,
+                    earnings: finalEarnings,
+                    onDismiss: {
+                        showingTripSuccess = false
+                        onBack()
+                    }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(200)
+            }
         }
         .toolbar(.hidden, for: .navigationBar)
 
