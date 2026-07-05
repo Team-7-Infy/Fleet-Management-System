@@ -9,12 +9,12 @@ struct EndTripView: View {
     var onComplete: ((_ finalOdometer: String, _ notes: String) -> Void)? = nil
 
     @State private var endOdometer: String = ""
-    @State private var tripNotes: String = ""
+    @State private var endFuel: Double = 50.0
+    @State private var needsMaintenance: Bool = false
     @State private var isSubmitting: Bool = false
-    @State private var signaturePath = Path()
 
     private var isFormValid: Bool {
-        !endOdometer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !signaturePath.isEmpty
+        !endOdometer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -76,34 +76,30 @@ struct EndTripView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
-                        // Odometer Readings Card
+                        // 1. Odometer Readings Card
                         VStack(alignment: .leading, spacing: 16) {
                             HStack {
-                                Image(systemName: "square.and.pencil")
+                                Image(systemName: "speedometer")
                                     .foregroundColor(.blue)
                                     .font(.headline)
-                                Text("REQUIRED METER READINGS")
+                                Text("ODOMETER READING")
                                     .font(.system(size: 11, weight: .black))
                                     .foregroundColor(.secondary)
                                     .tracking(1.0)
                             }
                             
                             VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Image(systemName: "speedometer")
-                                        .foregroundColor(.secondary)
-                                    Text("Final Odometer *")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.primary)
-                                }
+                                Text("Final Odometer *")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.primary)
                                 
                                 HStack(spacing: 6) {
                                     TextField("Enter ending odometer (km)", text: $endOdometer)
                                         .keyboardType(.numberPad)
                                         .font(.subheadline)
                                         .padding(.horizontal, 12)
-                                        .padding(.vertical, 8)
+                                        .padding(.vertical, 10)
                                         .background(Color(.systemGray6))
                                         .cornerRadius(8)
                                     Text("km")
@@ -117,61 +113,64 @@ struct EndTripView: View {
                         .cornerRadius(16)
                         .shadow(color: Color.black.opacity(0.02), radius: 8, y: 4)
 
-                        // Delivery Notes Card
-                        VStack(alignment: .leading, spacing: 12) {
+                        // 2. Fuel Level Readings Card
+                        VStack(alignment: .leading, spacing: 16) {
                             HStack {
-                                Image(systemName: "note.text")
+                                Image(systemName: "fuelpump.fill")
                                     .foregroundColor(.blue)
                                     .font(.headline)
-                                Text("DELIVERY REMARKS")
+                                Text("FUEL LEVEL")
                                     .font(.system(size: 11, weight: .black))
                                     .foregroundColor(.secondary)
                                     .tracking(1.0)
                             }
                             
-                            TextEditor(text: $tripNotes)
-                                .frame(height: 80)
-                                .font(.subheadline)
-                                .padding(8)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
-                                )
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("Final Fuel Level")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Text("\(Int(endFuel))%")
+                                        .font(.subheadline.monospacedDigit())
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.blue)
+                                }
+                                
+                                Slider(value: $endFuel, in: 0...100, step: 1)
+                                    .accentColor(.blue)
+                            }
                         }
                         .padding(20)
                         .background(Color(UIColor.secondarySystemGroupedBackground))
                         .cornerRadius(16)
                         .shadow(color: Color.black.opacity(0.02), radius: 8, y: 4)
 
-                        // Digital Signature Card
-                        VStack(alignment: .leading, spacing: 12) {
+                        // 3. Maintenance Toggle Card
+                        VStack(alignment: .leading, spacing: 16) {
                             HStack {
-                                Image(systemName: "signature")
+                                Image(systemName: "wrench.and.screwdriver.fill")
                                     .foregroundColor(.blue)
                                     .font(.headline)
-                                Text("CUSTOMER CONFIRMATION *")
+                                Text("MAINTENANCE STATUS")
                                     .font(.system(size: 11, weight: .black))
                                     .foregroundColor(.secondary)
                                     .tracking(1.0)
-                                Spacer()
-                                Button(action: { signaturePath = Path() }) {
-                                    Text("Clear")
-                                        .font(.caption)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.red)
-                                }
                             }
                             
-                            SignatureCanvas(path: $signaturePath)
-                                .frame(height: 140)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.secondary.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [4]))
-                                )
+                            Toggle(isOn: $needsMaintenance) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Needs Maintenance")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.primary)
+                                    Text("Flag vehicle for technical inspection")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .tint(.orange)
                         }
                         .padding(20)
                         .background(Color(UIColor.secondarySystemGroupedBackground))
@@ -227,18 +226,52 @@ struct EndTripView: View {
         Task {
             do {
                 var updatedTrip = trip
-                let odoDouble = Double(endOdometer) ?? 124000.0
+                let odoDouble = Double(endOdometer) ?? 0.0
                 updatedTrip.finalOdometer = odoDouble
+                updatedTrip.finalFuelLevel = endFuel
                 updatedTrip.status = .completed
                 updatedTrip.endTime = Date()
-                updatedTrip.driverNote = tripNotes
+                
+                let note = needsMaintenance ? "Needs Maintenance" : "Post-trip check completed normally."
+                updatedTrip.driverNote = note
                 
                 _ = try await services.tripService.updateTrip(updatedTrip)
+                
+                if needsMaintenance {
+                    let vehicle = try await services.vehicleService.fetchVehicle(id: trip.vehicleId)
+                    
+                    let maintenanceTask = MaintenanceTask(
+                        id: UUID(),
+                        title: "Post-trip Defect",
+                        description: "Post-trip inspection flagged for maintenance. Odometer: \(odoDouble) km, Fuel Level: \(Int(endFuel))%.",
+                        scheduledDate: DateOnly(wrappedValue: Date()),
+                        isUrgent: true,
+                        scheduledBy: nil,
+                        executedBy: nil,
+                        status: .scheduled,
+                        reportedDate: nil,
+                        completedAt: nil,
+                        timeTakenHours: nil,
+                        partsSummary: nil,
+                        totalCost: nil,
+                        photoUrls: nil,
+                        elapsedTime: 0
+                    )
+                    
+                    _ = try await services.maintenanceService.createTask(maintenanceTask)
+                    
+                    let taskVehicle = TaskVehicle(taskId: maintenanceTask.id, vin: vehicle.id)
+                    try await services.maintenanceService.addTaskVehicle(taskVehicle)
+                    
+                    var updatedVehicle = vehicle
+                    updatedVehicle.status = .maintenance
+                    _ = try await services.vehicleService.updateVehicle(updatedVehicle)
+                }
                 
                 await MainActor.run {
                     isSubmitting = false
                     dismiss()
-                    onComplete?(endOdometer, tripNotes)
+                    onComplete?(endOdometer, note)
                 }
             } catch {
                 print("Failed to complete trip: \(error)")
@@ -246,28 +279,6 @@ struct EndTripView: View {
                     isSubmitting = false
                 }
             }
-        }
-    }
-}
-
-struct SignatureCanvas: View {
-    @Binding var path: Path
-
-    var body: some View {
-        GeometryReader { geometry in
-            path.stroke(Color.primary, lineWidth: 3)
-                .background(Color.clear)
-                .gesture(
-                    DragGesture(minimumDistance: 0.1)
-                        .onChanged { value in
-                            let currentPoint = value.location
-                            if value.translation.width == 0 && value.translation.height == 0 {
-                                path.move(to: currentPoint)
-                            } else {
-                                path.addLine(to: currentPoint)
-                            }
-                        }
-                )
         }
     }
 }

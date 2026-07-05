@@ -124,7 +124,6 @@ struct DashboardView: View {
                                         vehicles: vehicles,
                                         onPerformInspection: {
                                             selectedTripForPostInspection = matchingTrip
-                                            showingPostTripInspection = true
                                         }
                                     )
                                 }
@@ -415,30 +414,28 @@ struct DashboardView: View {
                     )
                 }
             }
-            .fullScreenCover(isPresented: $showingPostTripInspection) {
-                if let tripToInspect = selectedTripForPostInspection {
-                    EndTripView(
-                        trip: tripToInspect,
-                        services: services,
-                        onComplete: { finalOdometer, notes in
-                            localStore.pendingPostTripInspectionTripId = nil
-                            
-                            // Calculate metrics
-                            let startOdo = Double(UserDefaults.standard.integer(forKey: "trip_\(tripToInspect.id.uuidString)_pre_odo"))
-                            let finalOdo = Double(finalOdometer) ?? (startOdo > 0 ? startOdo + 12.4 : 124000.0)
-                            let startOdoVal = startOdo > 0 ? startOdo : (finalOdo - 12.4)
-                            
-                            self.successDistance = max(1.2, finalOdo - startOdoVal)
-                            self.successDuration = max(15, Int(Date().timeIntervalSince(tripToInspect.startTime)) / 60)
-                            self.completedTripForSuccess = tripToInspect
-                            
-                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                                self.showingTripSuccess = true
-                            }
+            .fullScreenCover(item: $selectedTripForPostInspection) { tripToInspect in
+                EndTripView(
+                    trip: tripToInspect,
+                    services: services,
+                    onComplete: { finalOdometer, notes in
+                        localStore.pendingPostTripInspectionTripId = nil
+                        
+                        // Calculate metrics
+                        let startOdo = Double(UserDefaults.standard.integer(forKey: "trip_\(tripToInspect.id.uuidString)_pre_odo"))
+                        let finalOdo = Double(finalOdometer) ?? (startOdo > 0 ? startOdo + 12.4 : 124000.0)
+                        let startOdoVal = startOdo > 0 ? startOdo : (finalOdo - 12.4)
+                        
+                        self.successDistance = max(1.2, finalOdo - startOdoVal)
+                        self.successDuration = max(15, Int(Date().timeIntervalSince(tripToInspect.startTime)) / 60)
+                        self.completedTripForSuccess = tripToInspect
+                        
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            self.showingTripSuccess = true
                         }
-                    )
-                    .environmentObject(localStore)
-                }
+                    }
+                )
+                .environmentObject(localStore)
             }
             .fullScreenCover(isPresented: $showingActiveNavigation) {
                 if let activeTrip = activeTripForNavigation {
@@ -2007,16 +2004,19 @@ struct PostTripInspectionCard: View {
             Button(action: onPerformInspection) {
                 HStack {
                     Text("Perform Post-Trip Inspection")
+                        .font(.subheadline)
                         .fontWeight(.bold)
                     Spacer()
                     Image(systemName: "arrow.right")
+                        .font(.subheadline.bold())
                 }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 14)
+                .foregroundColor(.white)
                 .background(Color.orange)
                 .cornerRadius(12)
             }
+            .buttonStyle(PlainButtonStyle())
         }
         .padding(20)
         .background(Color(UIColor.secondarySystemGroupedBackground))
