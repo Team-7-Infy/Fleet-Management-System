@@ -9,11 +9,25 @@ final actor NotificationService: NotificationServiceProtocol {
         self.supabase = supabase
     }
 
-    func fetchNotifications(for recipientId: UUID?) async throws -> [AppNotification] {
+    func fetchNotifications(for recipientId: UUID?, driverId: UUID?) async throws -> [AppNotification] {
         let query = supabase.client.from("notifications").select()
         if let recipientId {
+            if let driverId {
+                return try await query
+                    .or("recipient_id.eq.\(recipientId.uuidString),recipient_id.eq.\(driverId.uuidString),recipient_id.is.null")
+                    .order("created_at", ascending: false)
+                    .execute()
+                    .value
+            } else {
+                return try await query
+                    .or("recipient_id.eq.\(recipientId.uuidString),recipient_id.is.null")
+                    .order("created_at", ascending: false)
+                    .execute()
+                    .value
+            }
+        } else if let driverId {
             return try await query
-                .or("recipient_id.eq.\(recipientId.uuidString),recipient_id.is.null")
+                .or("recipient_id.eq.\(driverId.uuidString),recipient_id.is.null")
                 .order("created_at", ascending: false)
                 .execute()
                 .value
@@ -33,11 +47,21 @@ final actor NotificationService: NotificationServiceProtocol {
             .execute()
     }
 
-    func markAllAsRead(for recipientId: UUID?) async throws {
+    func markAllAsRead(for recipientId: UUID?, driverId: UUID?) async throws {
         let query = try supabase.client.from("notifications").update(["is_read": true])
         if let recipientId {
+            if let driverId {
+                try await query
+                    .or("recipient_id.eq.\(recipientId.uuidString),recipient_id.eq.\(driverId.uuidString),recipient_id.is.null")
+                    .execute()
+            } else {
+                try await query
+                    .or("recipient_id.eq.\(recipientId.uuidString),recipient_id.is.null")
+                    .execute()
+            }
+        } else if let driverId {
             try await query
-                .or("recipient_id.eq.\(recipientId.uuidString),recipient_id.is.null")
+                .or("recipient_id.eq.\(driverId.uuidString),recipient_id.is.null")
                 .execute()
         } else {
             try await query
@@ -45,9 +69,10 @@ final actor NotificationService: NotificationServiceProtocol {
         }
     }
 
-    func subscribeToRealtime(for recipientId: UUID?) -> AsyncStream<AppNotification> {
+    func subscribeToRealtime(for recipientId: UUID?, driverId: UUID?) -> AsyncStream<AppNotification> {
         AsyncStream { continuation in
-            let channelName = "notifications-realtime-\(recipientId?.uuidString ?? "all")"
+            let channelIdString = recipientId?.uuidString ?? driverId?.uuidString ?? "all"
+            let channelName = "notifications-realtime-\(channelIdString)"
             let channel = supabase.client.channel(channelName)
             
             let changes = channel.postgresChange(
@@ -61,14 +86,23 @@ final actor NotificationService: NotificationServiceProtocol {
                     await channel.subscribe()
                     
                     for await change in changes {
-                        // Convert [String: AnyJSON] to Data and decode
                         let record = change.record
                         do {
                             let jsonData = try JSONEncoder().encode(record)
                             let notification = try SharedDecoder.json.decode(AppNotification.self, from: jsonData)
                             
                             if let recipientId {
-                                if notification.recipientId == recipientId || notification.recipientId == nil {
+                                if let driverId {
+                                    if notification.recipientId == recipientId || notification.recipientId == driverId || notification.recipientId == nil {
+                                        continuation.yield(notification)
+                                    }
+                                } else {
+                                    if notification.recipientId == recipientId || notification.recipientId == nil {
+                                        continuation.yield(notification)
+                                    }
+                                }
+                            } else if let driverId {
+                                if notification.recipientId == driverId || notification.recipientId == nil {
                                     continuation.yield(notification)
                                 }
                             } else {

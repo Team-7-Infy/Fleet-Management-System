@@ -46,7 +46,7 @@ final class NotificationViewModel: ObservableObject {
     private func shouldIncludeNotification(_ notification: AppNotification) -> Bool {
         switch role {
         case .driver:
-            return notification.recipientId == recipientId
+            return notification.recipientId == recipientId || notification.recipientId == driverId || notification.recipientId == nil
         case .maintenance:
             if let recId = notification.recipientId {
                 return recId == recipientId
@@ -68,7 +68,7 @@ final class NotificationViewModel: ObservableObject {
 
     func loadNotifications() async {
         do {
-            let list = try await notificationService.fetchNotifications(for: recipientId)
+            let list = try await notificationService.fetchNotifications(for: recipientId, driverId: driverId)
             self.notifications = filterNotifications(list)
             self.unreadCount = self.notifications.filter { !$0.isRead }.count
         } catch {
@@ -90,7 +90,7 @@ final class NotificationViewModel: ObservableObject {
 
     func markAllAsRead() async {
         do {
-            try await notificationService.markAllAsRead(for: recipientId)
+            try await notificationService.markAllAsRead(for: recipientId, driverId: driverId)
             for index in 0..<notifications.count {
                 notifications[index].isRead = true
             }
@@ -103,7 +103,7 @@ final class NotificationViewModel: ObservableObject {
     func subscribeToRealtime() {
         realtimeTask?.cancel()
         realtimeTask = Task {
-            let stream = notificationService.subscribeToRealtime(for: recipientId)
+            let stream = notificationService.subscribeToRealtime(for: recipientId, driverId: driverId)
             for await newNotification in stream {
                 guard shouldIncludeNotification(newNotification) else { continue }
                 self.notifications.insert(newNotification, at: 0)
