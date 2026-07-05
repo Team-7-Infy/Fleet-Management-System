@@ -8,5 +8,6 @@ protocol WorkOrderServicing {
     func inspectionItems(for workOrderID: WorkOrder.ID) async throws -> [MPInspectionItem]
     func parts(for workOrderID: WorkOrder.ID) async throws -> [Part]
     func updateWorkOrder(id: WorkOrder.ID, status: JobStatus, elapsedTime: TimeInterval, parts: [PartItem], remarks: String?, totalCost: Decimal?) async throws
+    func reportInvalidWorkOrder(id: WorkOrder.ID, reason: String, photos: [Data]) async throws
     func fetchInventory() async throws -> [Part]
 }

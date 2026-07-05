@@ -5,10 +5,11 @@ struct ActivityRow: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            Image(systemName: "car.fill")
-                .font(.system(size: 16))
-                .foregroundStyle(AppColor.brand)
-                .frame(width: 36, height: 36)
+            Image(activity.assetImageName)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 24, height: 24)
+                .padding(6)
                 .background(Color.gray.opacity(0.1))
                 .clipShape(Circle())
             

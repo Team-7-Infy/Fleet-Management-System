@@ -1,10 +1,10 @@
 import Foundation
 import Combine
+import Supabase
 
 // MARK: - Threshold Store
-/// Persists a per-part minimum stock threshold in UserDefaults.
-/// Keyed by part UUID string so values survive app restarts and are
-/// independent of CSV reload order.
+/// Manages per-part minimum stock threshold locally and syncs to Supabase.
+/// Local cache ensures UI remains responsive while backend updates.
 final class ThresholdStore: ObservableObject {
 
     static let shared = ThresholdStore()
@@ -16,6 +16,7 @@ final class ThresholdStore: ObservableObject {
     private let keyPrefix = "threshold_"
 
     @Published private(set) var thresholds: [String: Int] = [:]
+    private var supabase: SupabaseServiceProtocol?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -24,6 +25,12 @@ final class ThresholdStore: ObservableObject {
         self.thresholds = all
             .filter { $0.key.hasPrefix(keyPrefix) }
             .compactMapValues { $0 as? Int }
+            
+        // Setup realtime sync or fetch from DB in future if needed
+    }
+
+    func configure(supabase: SupabaseServiceProtocol) {
+        self.supabase = supabase
     }
 
     // MARK: - Read
@@ -41,8 +48,23 @@ final class ThresholdStore: ObservableObject {
     func setThreshold(_ value: Int, for id: UUID) {
         let k = key(for: id)
         let clamped = max(0, value)
+        
+        // Save locally for immediate UI update
         defaults.set(clamped, forKey: k)
         thresholds[k] = clamped
+        
+        // Save to Supabase backend asynchronously
+        guard let supabase = supabase else { return }
+        Task {
+            do {
+                try await supabase.client.from("inventory")
+                    .update(["threshold": clamped])
+                    .eq("partid", value: id)
+                    .execute()
+            } catch {
+                print("Failed to sync threshold to Supabase for part \(id): \(error)")
+            }
+        }
     }
 
     // MARK: - Private

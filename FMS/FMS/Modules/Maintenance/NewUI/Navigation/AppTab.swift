@@ -2,14 +2,13 @@ import Foundation
 
 enum AppTab: String, CaseIterable, Identifiable {
     case dashboard
-    case myJobs
     case inventory
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .dashboard: "Dashboard"
+        case .dashboard: "Home"
         case .inventory: "Inventory"
         }
     }

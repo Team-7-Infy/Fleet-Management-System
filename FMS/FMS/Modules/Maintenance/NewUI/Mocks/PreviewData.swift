@@ -53,6 +53,7 @@ enum PreviewData {
             statusString: JobStatus.inProgress.rawValue,
             totalCostDB: nil,
             photoUrls: nil,
+            fakeReportPhotoUrls: nil,
             remarks: nil,
             completedAt: nil,
             taskVehicles: [MpTaskVehicle(vin: vehicles[0].id)],

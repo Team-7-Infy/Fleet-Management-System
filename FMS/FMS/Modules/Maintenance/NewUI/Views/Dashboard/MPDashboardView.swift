@@ -4,6 +4,7 @@ import SwiftUI
 struct MPDashboardView: View {
     @StateObject private var viewModel: MPDashboardViewModel
     @ObservedObject private var navigation: TabNavigationState
+    @EnvironmentObject private var notificationService: NotificationService
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var isShowingProfile = false
@@ -19,25 +20,102 @@ struct MPDashboardView: View {
         self.onLogout = onLogout
     }
 
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: AppSpacing.xLarge) {
-                header
-                
-                if viewModel.state.isLoading {
-                    LoadingView(title: "Loading dashboard")
-                } else {
-                    todaySection
-                    upcomingSection
-                    unfinishedTasksSection
-                    historySection
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, AppSpacing.large)
-            .padding(.bottom, 60)
+    @State private var searchText = ""
+    @State private var selectedTab = "Today"
+    let tabs = ["Today", "Pending", "Upcoming", "History"]
+    
+    private func tabTitle(for key: String) -> String {
+        let count: Int
+        switch key {
+        case "Today": count = viewModel.todayWorkOrders.count
+        case "Pending": count = viewModel.pendingWorkOrders.count
+        case "Upcoming": count = viewModel.upcomingWorkOrders.count
+        case "History": count = viewModel.completedWorkOrders.count
+        default: count = 0
         }
-        .background(AppColor.background.ignoresSafeArea())
+        return "\(key) (\(count))"
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            
+            searchAndTabs
+            
+            ScrollView {
+                VStack(spacing: 16) {
+                    if viewModel.state.isLoading {
+                        ProgressView()
+                            .padding(.top, 40)
+                    } else if filteredWorkOrders.isEmpty {
+                        MPEmptyStateView(title: "No Tasks", message: "There are no tasks matching your current filter.", systemImage: "tray")
+                            .padding(.top, 40)
+                    } else {
+                        let urgentOrders = filteredWorkOrders.filter { $0.workOrder.isUrgent == true }
+                        let normalOrders = filteredWorkOrders.filter { $0.workOrder.isUrgent != true }
+                        
+                        if !urgentOrders.isEmpty {
+                            HStack {
+                                Text("Urgent Tasks")
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.red)
+                                Spacer()
+                            }
+                            .padding(.top, 8)
+                            .padding(.bottom, 4)
+                            
+                            ForEach(urgentOrders, id: \.workOrder.id) { dashboardOrder in
+                                Button {
+                                    if dashboardOrder.workOrder.status == .completed || dashboardOrder.workOrder.status == .fake {
+                                        navigation.push(.pastWorkOrderDetails(workOrderID: dashboardOrder.workOrder.id))
+                                    } else {
+                                        if let vehicleId = dashboardOrder.vehicle?.id {
+                                            navigation.push(.vehicleWorkOrderDetails(vehicleID: vehicleId.uuidString, workOrderID: dashboardOrder.workOrder.id))
+                                        }
+                                    }
+                                } label: {
+                                    whiteThemeCard(for: dashboardOrder)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        
+                        if !normalOrders.isEmpty {
+                            HStack {
+                                Text("Normal Tasks")
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.gray)
+                                Spacer()
+                            }
+                            .padding(.top, 16)
+                            .padding(.bottom, 4)
+                            
+                            ForEach(normalOrders, id: \.workOrder.id) { dashboardOrder in
+                                Button {
+                                    if dashboardOrder.workOrder.status == .completed || dashboardOrder.workOrder.status == .fake {
+                                        navigation.push(.pastWorkOrderDetails(workOrderID: dashboardOrder.workOrder.id))
+                                    } else {
+                                        if let vehicleId = dashboardOrder.vehicle?.id {
+                                            navigation.push(.vehicleWorkOrderDetails(vehicleID: vehicleId.uuidString, workOrderID: dashboardOrder.workOrder.id))
+                                        }
+                                    }
+                                } label: {
+                                    whiteThemeCard(for: dashboardOrder)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 16)
+                .padding(.bottom, 60)
+            }
+            .refreshable {
+                await viewModel.load()
+            }
+        }
+        .background(Color(hex: 0xF4F5F9).ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $isShowingProfile) {
             MPProfileView(dependencies: dependencies, onLogout: onLogout)
@@ -45,10 +123,14 @@ struct MPDashboardView: View {
         .onAppear {
             Task {
                 await viewModel.load()
+                if notificationService.notifications.isEmpty {
+                    await notificationService.fetchNotifications()
+                }
             }
         }
         .refreshable {
             await viewModel.load(isRefresh: true)
+            await notificationService.fetchNotifications()
         }
         .onReceive(Timer.publish(every: 20, on: .main, in: .common).autoconnect()) { _ in
             Task {
@@ -61,55 +143,19 @@ struct MPDashboardView: View {
                 await viewModel.load(isRefresh: true)
             }
         }
-        .alert(
-            "Start Work Order",
-            isPresented: Binding(
-                get: { workOrderToStart != nil },
-                set: { if !$0 { workOrderToStart = nil } }
-            )
-        ) {
-            Button("Cancel", role: .cancel) {
-                workOrderToStart = nil
-            }
-            Button("Start") {
-                if let id = workOrderToStart {
-                    navigation.push(.completeWorkOrder(workOrderID: id))
-                }
-                workOrderToStart = nil
-            }
-        } message: {
-            Text("Do you want to start this work order?")
-        }
-    }
-
-    private var greeting: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 0..<12:
-            return "Good Morning"
-        case 12..<17:
-            return "Good Afternoon"
-        default:
-            return "Good Evening"
-        }
     }
 
     private var header: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(greeting)
-                    .font(AppTypography.callout)
-                    .foregroundStyle(AppColor.textSecondary)
-                Text(viewModel.user?.name ?? "John Carter")
-                    .font(AppTypography.largeTitle)
-                    .minimumScaleFactor(0.75)
-                    .accessibilityAddTraits(.isHeader)
-                
-            }
-
+        HStack {
+            Text("Home")
+                .font(.system(size: 34, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.black)
+            
             Spacer()
-
-            HStack(spacing: AppSpacing.medium) {
+            
+            HStack(spacing: 16) {
+                NotificationBellView(service: notificationService)
+                
                 Button {
                     isShowingProfile = true
                 } label: {
@@ -117,368 +163,234 @@ struct MPDashboardView: View {
                         Image(uiImage: uiImage)
                             .resizable()
                             .scaledToFill()
-                            .frame(width: 48, height: 48)
+                            .frame(width: 36, height: 36)
                             .clipShape(Circle())
                     } else {
-                        Image(systemName: FleetIcon.account)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 48, height: 48)
-                            .foregroundStyle(AppColor.brand)
-                            .background(Circle().fill(Color.white))
+                        ZStack {
+                            Circle()
+                                .fill(LinearGradient(colors: [Color.blue, Color.blue.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                .frame(width: 36, height: 36)
+                            
+                            if let name = viewModel.user?.name {
+                                Text(initials(for: name))
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.white)
+                            } else {
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(Color.white)
+                            }
+                        }
                     }
                 }
                 .buttonStyle(.plain)
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.white)
+            .clipShape(Capsule())
+            .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 16)
     }
     
-    private var todaySection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.medium) {
-            Text("Today")
-                .font(AppTypography.title)
-                .foregroundStyle(AppColor.textPrimary)
-            
-            if viewModel.todayWorkOrders.isEmpty {
-                MPEmptyStateView(title: "No Tasks Today", message: "You're all caught up for today.", systemImage: FleetIcon.calendar)
-            } else {
-                VStack(spacing: 0) {
-                    let itemsToShow = isTodayExpanded ? viewModel.todayWorkOrders : Array(viewModel.todayWorkOrders.prefix(5))
-                    ForEach(Array(itemsToShow.enumerated()), id: \.element.id) { index, item in
-                        Button {
-                            // push to summary
-                        } label: {
-                            workOrderRow(for: item, isLast: index == itemsToShow.count - 1 && (isTodayExpanded || viewModel.todayWorkOrders.count <= 5))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.white)
-                        .shadow(color: AppColor.textPrimary.opacity(0.06), radius: 8, x: 0, y: 4)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                        )
-                )
-                
-                if !isTodayExpanded && viewModel.todayWorkOrders.count > 5 {
-                    let extraCount = viewModel.todayWorkOrders.count - 5
-                    Button(action: {
-                        withAnimation {
-                            isTodayExpanded = true
-                        }
-                    }) {
-                        Text("+\(extraCount) more")
-                            .font(AppTypography.callout.weight(.medium))
-                            .foregroundStyle(AppColor.brand)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                    }
-                }
-            }
-        }
-        .padding(.bottom, AppSpacing.medium)
-    }
-    
-    private var upcomingSection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.medium) {
-            if viewModel.upcomingWorkOrdersFiltered.count > 5 {
-                sectionHeaderWithAction(title: "Upcoming", actionTitle: "View All") {
-                    navigation.push(.allUpcomingWorkOrders)
-                }
-            } else {
-                Text("Upcoming")
-                    .font(AppTypography.title)
-                    .foregroundStyle(AppColor.textPrimary)
-            }
-            
-            if viewModel.upcomingWorkOrdersFiltered.isEmpty {
-                MPEmptyStateView(title: "No Upcoming Tasks", message: "You don't have any upcoming tasks scheduled.", systemImage: FleetIcon.calendar)
-            } else {
-                VStack(spacing: 0) {
-                    let itemsToShow = Array(viewModel.upcomingWorkOrdersFiltered.prefix(5))
-                    ForEach(Array(itemsToShow.enumerated()), id: \.element.id) { index, item in
-                        Button {
-                            // push to summary
-                        } label: {
-                            workOrderRow(for: item, isLast: index == itemsToShow.count - 1, showDate: true)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.white)
-                        .shadow(color: AppColor.textPrimary.opacity(0.06), radius: 8, x: 0, y: 4)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                        )
-                )
-            }
-        }
-        .padding(.bottom, AppSpacing.medium)
-    }
-
-    private var unfinishedTasksSection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.medium) {
-            if viewModel.backlogWorkOrders.count > 5 {
-                sectionHeaderWithAction(title: "Unfinished Tasks", actionTitle: "View All") {
-                    navigation.push(.allUnfinishedWorkOrders)
-                }
-            } else {
-                Text("Unfinished Tasks")
-                    .font(AppTypography.title)
-                    .foregroundStyle(AppColor.textPrimary)
-            }
-            
-            if viewModel.backlogWorkOrders.isEmpty {
-                MPEmptyStateView(title: "No Unfinished Tasks", message: "You don't have any past tasks pending.", systemImage: "tray")
-            } else {
-                VStack(spacing: 0) {
-                    let itemsToShow = Array(viewModel.backlogWorkOrders.prefix(5))
-                    ForEach(Array(itemsToShow.enumerated()), id: \.element.id) { index, item in
-                        Button {
-                            // push to summary
-                        } label: {
-                            workOrderRow(for: item, isLast: index == itemsToShow.count - 1)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.white)
-                        .shadow(color: AppColor.textPrimary.opacity(0.06), radius: 8, x: 0, y: 4)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                        )
-                )
-            }
-        }
-        .padding(.bottom, AppSpacing.medium)
-    }
-
-    private var historySection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.medium) {
-            if viewModel.completedWorkOrders.count > 3 {
-                sectionHeaderWithAction(title: "History", actionTitle: "View All") {
-                    navigation.push(.allHistoryWorkOrders)
-                }
-            } else {
-                Text("History")
-                    .font(AppTypography.title)
-                    .foregroundStyle(AppColor.textPrimary)
-            }
-            
-            if viewModel.completedWorkOrders.isEmpty {
-                MPEmptyStateView(title: "No History", message: "You don't have any completed tasks.", systemImage: "clock")
-            } else {
-                VStack(spacing: 0) {
-                    let itemsToShow = Array(viewModel.completedWorkOrders.prefix(3))
-                    ForEach(Array(itemsToShow.enumerated()), id: \.element.id) { index, item in
-                        Button {
-                            navigation.push(.pastWorkOrderDetails(workOrderID: item.workOrder.id))
-                        } label: {
-                            historyWorkOrderRow(for: item, isLast: index == itemsToShow.count - 1)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.white)
-                        .shadow(color: AppColor.textPrimary.opacity(0.06), radius: 8, x: 0, y: 4)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                        )
-                )
-            }
-        }
-    }
-
-    private func workOrderRow(for dashboardOrder: DashboardWorkOrder, isLast: Bool, showDate: Bool = false) -> some View {
-        let workOrder = dashboardOrder.workOrder
-        let vehicle = dashboardOrder.vehicle
-        let vehicleDisplay = vehicle != nil ? "\(vehicle!.make) \(vehicle!.model)" : "Unknown"
-        
-        return VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: 12) {
-                Image(systemName: "car.fill")
-                    .font(.system(size: 16))
-                    .foregroundStyle(AppColor.brand)
-                    .frame(width: 36, height: 36)
-                    .background(Color.gray.opacity(0.1))
-                    .clipShape(Circle())
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(vehicleDisplay)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(AppColor.textPrimary)
-                    
-                    HStack(spacing: 8) {
-                        Text(workOrder.title)
-                            .font(.system(size: 12))
-                            .foregroundStyle(AppColor.textSecondary)
-                            .lineLimit(1)
-                        
-                        if workOrder.isUrgent == true {
-                            Text("Urgent")
-                                .font(.system(size: 9, weight: .bold))
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
-                                .background(Color.red.opacity(0.1))
-                                .foregroundStyle(Color.red)
-                                .cornerRadius(4)
-                        }
-                    }
-                    
-                    if showDate {
-                        HStack(spacing: 4) {
-                            Image(systemName: "calendar")
-                                .font(.system(size: 10))
-                            Text(workOrder.dueDate.formatted(date: .abbreviated, time: .shortened))
-                                .font(.system(size: 10))
-                        }
-                        .foregroundStyle(Color.gray)
-                        .padding(.top, 2)
-                    }
-                }
-                
-                Spacer()
-                
-                Button {
-                    workOrderToStart = workOrder.id
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(Color.green.opacity(0.15))
-                            .frame(width: 28, height: 28)
-                        
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color.green.opacity(0.7))
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 16)
-            
-            if !isLast {
-                Divider()
-                    .padding(.leading, 44 + 12 + 16)
-                    .padding(.trailing, 16)
-            }
-        }
-    }
-    
-    private func historyWorkOrderRow(for dashboardOrder: DashboardWorkOrder, isLast: Bool) -> some View {
-        let workOrder = dashboardOrder.workOrder
-        let vehicle = dashboardOrder.vehicle
-        let vehicleDisplay = vehicle != nil ? "\(vehicle!.make) \(vehicle!.model)" : "Unknown"
-        
-        return VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: 12) {
-                Image(systemName: "car.fill")
-                    .font(.system(size: 16))
-                    .foregroundStyle(AppColor.brand)
-                    .frame(width: 36, height: 36)
-                    .background(Color.gray.opacity(0.1))
-                    .clipShape(Circle())
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(vehicleDisplay)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(AppColor.textPrimary)
-                    
-                    HStack(spacing: 8) {
-                        Text(workOrder.title)
-                            .font(.system(size: 12))
-                            .foregroundStyle(AppColor.textSecondary)
-                            .lineLimit(1)
-                        
-                        if workOrder.isUrgent == true {
-                            Text("Urgent")
-                                .font(.system(size: 9, weight: .bold))
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
-                                .background(Color.red.opacity(0.1))
-                                .foregroundStyle(Color.red)
-                                .cornerRadius(4)
-                        }
-                    }
-                    
-                    HStack(spacing: 4) {
-                        Image(systemName: FleetIcon.checkmark)
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.green)
-                        Text("Completed")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(Color.green)
-                        
-                        Text("•")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.gray)
-                        
-                        Image(systemName: "stopwatch")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.gray)
-                        Text(workOrder.formattedElapsedTime)
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.gray)
-                        
-                        Text("•")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.gray)
-                        
-                        Image(systemName: "calendar")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.gray)
-                        Text(workOrder.completedDateFormatted)
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.gray)
-                    }
-                }
-                
-                Spacer()
-                
-                Image(systemName: FleetIcon.chevronRight)
+    private var searchAndTabs: some View {
+        VStack(spacing: 16) {
+            // Search Bar
+            HStack(spacing: 12) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(Color.gray)
-                    .font(.system(size: 12, weight: .semibold))
+                
+                TextField("Search tasks", text: $searchText)
+                    .font(.system(size: 16, weight: .medium))
             }
-            .padding(.vertical, 12)
             .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color(hex: 0xE8EAED))
+            .clipShape(Capsule())
             
-            if !isLast {
-                Divider()
-                    .padding(.leading, 44 + 12 + 16)
-                    .padding(.trailing, 16)
+            // Segmented Tabs
+            HStack(spacing: 0) {
+                ForEach(tabs, id: \.self) { tab in
+                    Button {
+                        withAnimation(.spring(response: 0.3)) {
+                            selectedTab = tab
+                        }
+                    } label: {
+                        Text(tabTitle(for: tab))
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundStyle(selectedTab == tab ? Color.black : Color.gray)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(selectedTab == tab ? Color.white : Color.clear)
+                            .clipShape(Capsule())
+                            .shadow(color: selectedTab == tab ? Color.black.opacity(0.04) : .clear, radius: 4, x: 0, y: 2)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+            .padding(4)
+            .background(Color(hex: 0xE8EAED))
+            .clipShape(Capsule())
         }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 8)
     }
 
-    private func sectionHeaderWithAction(title: String, actionTitle: String, action: @escaping () -> Void) -> some View {
-        HStack {
-            Text(title)
-                .font(AppTypography.title)
-                .foregroundStyle(AppColor.textPrimary)
-            Spacer()
-            Button(action: action) {
-                HStack(spacing: 2) {
-                    Text(actionTitle)
-                    Image(systemName: FleetIcon.chevronRight)
-                        .font(AppTypography.callout.weight(.semibold))
+    private var filteredWorkOrders: [DashboardWorkOrder] {
+        var baseList: [DashboardWorkOrder] = []
+        
+        switch selectedTab {
+        case "Today":
+            baseList = viewModel.todayWorkOrders
+        case "Pending":
+            baseList = viewModel.pendingWorkOrders
+        case "Upcoming":
+            baseList = viewModel.upcomingWorkOrders
+        case "History":
+            baseList = viewModel.completedWorkOrders
+        default:
+            baseList = []
+        }
+        
+        if !searchText.isEmpty {
+            baseList = baseList.filter {
+                $0.workOrder.title.localizedCaseInsensitiveContains(searchText) ||
+                ($0.vehicle?.licencePlate.localizedCaseInsensitiveContains(searchText) ?? false) ||
+                ($0.vehicle?.make.localizedCaseInsensitiveContains(searchText) ?? false)
+            }
+        }
+        
+        return baseList
+    }
+
+    private func whiteThemeCard(for dashboardOrder: DashboardWorkOrder) -> some View {
+        let workOrder = dashboardOrder.workOrder
+        let vehicle = dashboardOrder.vehicle
+        let vehicleDisplay = vehicle != nil ? "\(vehicle!.make) \(vehicle!.model)" : "Unknown Vehicle"
+        let plateDisplay = vehicle != nil ? vehicle!.formattedLicencePlate : "No Plate"
+        
+        // Status pill logic mimicking the "ACTIVE/INACTIVE" from screenshot
+        let statusColor: Color
+        let statusText: String
+        let statusBgColor: Color
+        
+        if workOrder.status == .completed {
+            statusColor = Color.green
+            statusBgColor = Color.green.opacity(0.1)
+            statusText = "COMPLETED"
+        } else if workOrder.status == .fake {
+            statusColor = Color.red
+            statusBgColor = Color.red.opacity(0.1)
+            statusText = "FAKE"
+        } else if workOrder.status == .inProgress {
+            statusColor = Color.orange
+            statusBgColor = Color.orange.opacity(0.1)
+            statusText = "IN PROGRESS"
+        } else {
+            statusColor = Color.blue
+            statusBgColor = Color.blue.opacity(0.1)
+            statusText = "PENDING"
+        }
+        
+        // Date String formatting
+        let dateString: String
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "d MMM"
+        
+        if workOrder.status == .completed || workOrder.status == .fake {
+            if let completedDateStr = workOrder.completedAt {
+                // Try to parse completedAt string to date
+                let isoFormatter = ISO8601DateFormatter()
+                isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                var cDate = isoFormatter.date(from: completedDateStr)
+                if cDate == nil {
+                    let fallback = DateFormatter()
+                    fallback.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                    cDate = fallback.date(from: completedDateStr)
                 }
-                .font(AppTypography.callout.weight(.medium))
+                if let validDate = cDate {
+                    dateString = "Completed on: \(dateFormatter.string(from: validDate))"
+                } else {
+                    dateString = "Completed on: Unknown"
+                }
+            } else {
+                dateString = "Completed on: Unknown"
+            }
+        } else {
+            // For Upcoming, In Progress, etc. use dueDate
+            dateString = "Scheduled on: \(dateFormatter.string(from: workOrder.dueDate))"
+        }
+        
+        return HStack(alignment: .center, spacing: 16) {
+            // Rounded Square Image Container
+            Image(vehicle?.assetImageName ?? "Car")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 48, height: 48)
+                .padding(8)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .top) {
+                    Text(plateDisplay)
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.black)
+                    
+                    Spacer()
+                    
+
+                    
+                    // Tiny Status Pill
+                    Text(statusText)
+                        .font(.system(size: 9, weight: .heavy, design: .rounded))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(statusBgColor)
+                        .foregroundStyle(statusColor)
+                        .clipShape(Capsule())
+                }
+                
+                Text(workOrder.title)
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.black)
+                    .lineLimit(1)
+                
+                Text(dateString)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.gray)
+                
+                HStack(spacing: 4) {
+                    Image(systemName: "wrench.and.screwdriver.fill")
+                        .font(.system(size: 11, weight: .bold))
+                    Text(vehicleDisplay)
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                }
                 .foregroundStyle(AppColor.brand)
             }
         }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+        )
+    }
+    
+    private func initials(for name: String) -> String {
+        let parts = name.split(separator: " ")
+        guard !parts.isEmpty else { return "" }
+        if parts.count == 1 {
+            return String(parts[0].prefix(2)).uppercased()
+        }
+        return (String(parts[0].prefix(1)) + String(parts[1].prefix(1))).uppercased()
     }
 }
 

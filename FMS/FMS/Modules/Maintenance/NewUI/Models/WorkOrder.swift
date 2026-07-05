@@ -11,6 +11,7 @@ struct WorkOrder: Identifiable, Codable, Hashable {
     let statusString: String?
     let totalCostDB: Double?
     let photoUrls: [String]?
+    let fakeReportPhotoUrls: [String]?
     let remarks: String?
     let completedAt: String?
     
@@ -33,12 +34,25 @@ struct WorkOrder: Identifiable, Codable, Hashable {
         case statusString = "status"
         case totalCostDB = "totalcost"
         case photoUrls = "photourls"
+        case fakeReportPhotoUrls = "fake_report_photourls"
         case elapsedTime = "elapsed_time"
         case taskVehicles = "task_vehicles"
         case taskParts = "maintenance_task_parts"
         case remarks
-        case completedAt = "completedat"
+    case completedAt = "completedat"
+        case scheduledByRelation = "fleet_manager"
     }
+    
+    struct FleetManagerRelation: Codable, Hashable {
+        let users: UserRelation?
+    }
+    
+    struct UserRelation: Codable, Hashable {
+        let f_name: String?
+        let l_name: String?
+    }
+    
+    var scheduledByRelation: FleetManagerRelation? = nil
     
     // UI Helpers for backward compatibility
     var vehicleID: String { taskVehicles?.first?.vin.uuidString ?? UUID().uuidString }

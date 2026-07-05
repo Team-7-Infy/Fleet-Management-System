@@ -22,68 +22,32 @@ struct CompleteWorkOrderView: View {
                         
                         // 1. Top Card: Issue Details
                         VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.blue.opacity(0.1))
-                                        .frame(width: 32, height: 32)
-                                    
-                                    Image(systemName: "wrench.and.screwdriver.fill")
-                                        .font(.system(size: 14))
-                                        .foregroundStyle(Color.blue)
-                                }
-                                
-                                Text("#\(workOrder.id.uuidString.prefix(8).uppercased())")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundStyle(Color.blue)
-                                
-                                Spacer()
-                            }
-                            
+
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(workOrder.title)
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundStyle(AppColor.textPrimary)
+                                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.black)
                                     .lineLimit(2)
                                 
                                 Text(workOrder.description)
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(AppColor.textSecondary)
+                                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                                    .foregroundStyle(Color.gray)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .padding(16)
+                        .padding(20)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
+                                .fill(Color.white)
                         )
-                        
-                        // History of Vehicle Button
-                        Button(action: {
-                            navigation.push(.vehicleDetails(vehicleID: workOrder.vehicleID))
-                        }) {
-                            HStack {
-                                Image(systemName: "clock.arrow.circlepath")
-                                Text("History of Vehicle")
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 14))
-                            }
-                            .font(.system(size: 16, weight: .semibold))
-                            .padding()
-                            .foregroundStyle(Color.blue)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.blue.opacity(0.1))
-                            )
-                        }
                         
                         // Attached Photos
                         if let photoUrls = workOrder.photoUrls, !photoUrls.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Attached Photos")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.black)
                                 
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 12) {
@@ -94,14 +58,14 @@ struct CompleteWorkOrderView: View {
                                                     .scaledToFill()
                                             } placeholder: {
                                                 Rectangle()
-                                                    .fill(Color.gray.opacity(0.2))
+                                                    .fill(Color(hex: 0xE8EAED))
                                                     .overlay(
                                                         Image(systemName: "photo")
                                                             .foregroundStyle(Color.gray)
                                                     )
                                             }
                                             .frame(width: 100, height: 100)
-                                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                                         }
                                     }
                                 }
@@ -112,15 +76,13 @@ struct CompleteWorkOrderView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             HStack {
                                 Text("Parts Used")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.black)
                                 Spacer()
                                 Button(action: { showingAddPartsSheet = true }) {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "plus")
-                                        Text("Add Part")
-                                    }
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(Color.blue)
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.system(size: 24))
+                                        .foregroundStyle(Color.blue)
                                 }
                             }
                             
@@ -131,11 +93,9 @@ struct CompleteWorkOrderView: View {
                                         HStack(alignment: .top) {
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text(part.name)
-                                                    .font(.system(size: 14, weight: .bold))
+                                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                                    .foregroundStyle(Color.black)
                                                     .fixedSize(horizontal: false, vertical: true)
-                                                Text(part.id)
-                                                    .font(.system(size: 12))
-                                                    .foregroundStyle(Color.gray)
                                             }
                                             
                                             Spacer()
@@ -143,10 +103,11 @@ struct CompleteWorkOrderView: View {
                                             // Amount & Unit Price
                                             VStack(alignment: .trailing, spacing: 4) {
                                                 Text("₹\(formatDecimal(part.amount))")
-                                                    .font(.system(size: 14, weight: .bold))
+                                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                                    .foregroundStyle(Color.black)
                                                 
                                                 Text("₹\(formatDecimal(part.unitPrice))/ea")
-                                                    .font(.system(size: 10))
+                                                    .font(.system(size: 11, weight: .medium, design: .rounded))
                                                     .foregroundStyle(Color.gray)
                                             }
                                         }
@@ -157,27 +118,28 @@ struct CompleteWorkOrderView: View {
                                                 Button(action: { viewModel.decrementPart(id: part.id) }) {
                                                     Image(systemName: "minus")
                                                         .foregroundStyle(Color.gray)
-                                                        .font(.system(size: 12, weight: .semibold))
+                                                        .font(.system(size: 12, weight: .bold))
                                                         .frame(width: 24, height: 24)
                                                 }
                                                 Text("\(part.quantity)")
-                                                    .font(.system(size: 14, weight: .bold))
+                                                    .font(.system(size: 14, weight: .bold, design: .rounded))
                                                 Button(action: { viewModel.incrementPart(id: part.id) }) {
                                                     Image(systemName: "plus")
-                                                        .foregroundStyle(Color.gray)
-                                                        .font(.system(size: 12, weight: .semibold))
+                                                        .foregroundStyle(Color.black)
+                                                        .font(.system(size: 12, weight: .bold))
                                                         .frame(width: 24, height: 24)
                                                 }
                                             }
                                             .padding(.horizontal, 4)
-                                            .padding(.vertical, 2)
-                                            .background(RoundedRectangle(cornerRadius: 16).fill(Color(white: 0.95)))
+                                            .padding(.vertical, 4)
+                                            .background(Color(hex: 0xE8EAED))
+                                            .clipShape(Capsule())
                                             
                                             Spacer()
                                                 
                                             Button(action: { viewModel.removePart(id: part.id) }) {
-                                                Image(systemName: "trash")
-                                                    .foregroundStyle(Color.red)
+                                                Image(systemName: "trash.fill")
+                                                    .foregroundStyle(Color.red.opacity(0.8))
                                                     .font(.system(size: 16))
                                                     .padding(8)
                                             }
@@ -187,55 +149,56 @@ struct CompleteWorkOrderView: View {
                                 .padding(.vertical, 8)
                                 
                                 if part.id != viewModel.usedParts.last?.id {
-                                    Divider()
+                                    Divider().opacity(0.5)
                                 }
                             }
                             
-                            Divider()
+                            Divider().opacity(0.5)
                             
                             HStack {
                                 Spacer()
                                 Text("TOTAL PARTS COST")
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
                                     .foregroundStyle(Color.gray)
                                 Text("₹\(formatDecimal(viewModel.totalPartsCost))")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.black)
                             }
                         }
-                        .padding(16)
+                        .padding(20)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
+                                .fill(Color.white)
                         )
                         
                         // 3. Labour Cost
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Labour Cost")
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .foregroundStyle(Color.black)
                             
                             HStack {
                                 Text("₹")
-                                    .font(.system(size: 16))
-                                TextField("", text: $viewModel.laborCost)
                                     .font(.system(size: 16, weight: .bold))
+                                    .foregroundStyle(Color.gray)
+                                TextField("0", text: $viewModel.laborCost)
+                                    .font(.system(size: 16, weight: .bold, design: .rounded))
                                     .keyboardType(.decimalPad)
                                 
                                 if !viewModel.laborCost.isEmpty {
                                     Button(action: { viewModel.laborCost = "" }) {
-                                        Image(systemName: "xmark.circle")
-                                            .foregroundStyle(Color.gray)
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundStyle(Color.gray.opacity(0.5))
                                     }
                                 }
                             }
-                            .padding()
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                            )
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 16)
+                            .background(Color(hex: 0xE8EAED))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                             
                             Text("Enter the total labour/service cost incurred.")
-                                .font(.system(size: 10))
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
                                 .foregroundStyle(Color.gray)
                         }
                         
@@ -243,71 +206,72 @@ struct CompleteWorkOrderView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 4) {
                                 Text("Remarks")
-                                    .font(.system(size: 14, weight: .bold))
+                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.black)
                                 Text("(Optional)")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 13, weight: .medium, design: .rounded))
                                     .foregroundStyle(Color.gray)
                             }
                             
                             VStack(alignment: .trailing, spacing: 4) {
                                 TextEditor(text: $viewModel.remarks)
-                                    .font(.system(size: 14))
-                                    .frame(height: 80)
-                                    .padding(8)
+                                    .font(.system(size: 15, design: .rounded))
+                                    .frame(height: 100)
+                                    .padding(12)
                                     .scrollContentBackground(.hidden)
                                 
                                 Text("\(viewModel.remarks.count)/250")
-                                    .font(.system(size: 10))
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
                                     .foregroundStyle(Color.gray)
-                                    .padding(.trailing, 8)
-                                    .padding(.bottom, 8)
+                                    .padding(.trailing, 12)
+                                    .padding(.bottom, 12)
                             }
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                            )
+                            .background(Color(hex: 0xE8EAED))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
                         
                         // 5. Summary
-                        VStack(spacing: 12) {
+                        VStack(spacing: 16) {
                             Text("SUMMARY")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundStyle(Color.gray)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 
                             HStack {
                                 Text("Parts Cost")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 14, weight: .medium, design: .rounded))
                                     .foregroundStyle(Color.gray)
                                 Spacer()
                                 Text("₹\(formatDecimal(viewModel.totalPartsCost))")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.black)
                             }
                             HStack {
                                 Text("Labour Cost")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 14, weight: .medium, design: .rounded))
                                     .foregroundStyle(Color.gray)
                                 Spacer()
                                 Text("₹\(formatDecimal(viewModel.totalLaborCost))")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.black)
                             }
                             
-                            Divider()
+                            Divider().opacity(0.5)
                             
                             HStack {
                                 Text("Total Cost")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.black)
                                 Spacer()
                                 Text("₹\(formatDecimal(viewModel.totalCost))")
-                                    .font(.system(size: 24, weight: .bold))
+                                    .font(.system(size: 28, weight: .black, design: .rounded))
                                     .foregroundStyle(Color.blue)
                             }
                         }
-                        .padding(16)
+                        .padding(20)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
+                                .fill(Color.white)
                         )
                         
                         // 6. Action Buttons at end of ScrollView
@@ -323,15 +287,16 @@ struct CompleteWorkOrderView: View {
                                 }
                             }) {
                                 Text("Complete")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
                                     .foregroundStyle(Color.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
                                     .background(Color.green)
                                     .clipShape(Capsule())
+                                    .shadow(color: Color.green.opacity(0.3), radius: 8, x: 0, y: 4)
                             }
                         }
-                        .padding(.top, 8)
+                        .padding(.top, 16)
                         
                     }
                     .padding(24)
@@ -340,7 +305,7 @@ struct CompleteWorkOrderView: View {
                 MPEmptyStateView(title: "Not Found", message: "Work order details could not be loaded.", systemImage: AppIcon.workOrder)
             }
         }
-        .background(AppColor.background.ignoresSafeArea())
+        .background(Color(hex: 0xF4F5F9).ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -350,6 +315,9 @@ struct CompleteWorkOrderView: View {
         }
         .task {
             await viewModel.load()
+        }
+        .onDisappear {
+            viewModel.pauseWorkOrder()
         }
         .sheet(isPresented: $showingAddPartsSheet) {
             AddPartsSheet(dependencies: dependencies, usedParts: viewModel.usedParts, vehicleType: viewModel.currentVehicleType) { part, qty in

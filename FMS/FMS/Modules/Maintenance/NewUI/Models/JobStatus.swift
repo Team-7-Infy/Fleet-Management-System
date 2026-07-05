@@ -6,6 +6,7 @@ enum JobStatus: String, CaseIterable, Codable, Hashable, Identifiable {
     case assigned = "assigned"
     case inProgress = "in_progress"
     case completed = "completed"
+    case fake = "fake"
 
     var id: String { rawValue }
 
@@ -15,6 +16,7 @@ enum JobStatus: String, CaseIterable, Codable, Hashable, Identifiable {
         case .assigned: "Assigned"
         case .inProgress: "Under Maintenance"
         case .completed: "Completed"
+        case .fake: "Flagged"
         }
     }
 
@@ -24,6 +26,7 @@ enum JobStatus: String, CaseIterable, Codable, Hashable, Identifiable {
         case .assigned: .blue
         case .inProgress: .orange
         case .completed: .green
+        case .fake: .red
         }
     }
 }

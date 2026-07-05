@@ -28,6 +28,18 @@ enum RouteViewFactory {
             }
         case .pastWorkOrderDetails(let workOrderID):
             PastWorkOrderDetailsView(workOrderID: workOrderID, dependencies: dependencies, navigation: navigation)
+        case .vehicleWorkOrderDetails(let vehicleID, let workOrderID):
+            if let uuid = UUID(uuidString: vehicleID) {
+                VehicleWorkOrderDetailsView(vehicleID: uuid, workOrderID: workOrderID, dependencies: dependencies, navigation: navigation)
+            } else {
+                EmptyView()
+            }
+        case .vehicleServiceHistory(let vehicleID):
+            if let uuid = UUID(uuidString: vehicleID) {
+                VehicleServiceHistoryView(vehicleID: uuid, dependencies: dependencies, navigation: navigation)
+            } else {
+                EmptyView()
+            }
         }
     }
 }

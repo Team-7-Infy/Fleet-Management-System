@@ -9,6 +9,7 @@ final class AppServices {
     let maintenanceService: MaintenanceService
     let inventoryService: InventoryService
     let userManagementService: UserManagementService
+    let notificationService: NotificationService
 
     init() {
         let supabase = SupabaseService()
@@ -19,6 +20,9 @@ final class AppServices {
         maintenanceService = MaintenanceService(supabase: supabase)
         inventoryService = InventoryService(supabase: supabase)
         userManagementService = UserManagementService(supabase: supabase)
+        notificationService = NotificationService(supabase: supabase)
+        
+        ThresholdStore.shared.configure(supabase: supabase)
     }
 }
 
@@ -36,8 +40,9 @@ struct AppRouter: View {
     @State private var screen: AppScreen = .splash
 
     var body: some View {
-        switch screen {
-        case .splash:
+        Group {
+            switch screen {
+            case .splash:
             SplashView(authService: services.authService) { user in
                 if let user {
                     screen = route(for: user)
@@ -70,9 +75,11 @@ struct AppRouter: View {
         case .maintenancePersonnel:
             MaintenanceTabRouter(onLogout: logout, supabaseClient: services.supabase.client)
 
-        case .driver(let user):
-            DriverDashboardView(services: services, user: user, onLogout: logout)
+            case .driver(let user):
+                DriverDashboardView(services: services, user: user, onLogout: logout)
+            }
         }
+        .environmentObject(services.notificationService)
     }
 
     private func route(for user: User) -> AppScreen {

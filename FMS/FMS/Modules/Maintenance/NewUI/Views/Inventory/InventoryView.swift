@@ -6,27 +6,28 @@ struct InventoryView: View {
     @FocusState private var isSearchFocused: Bool
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                // ── Liquid Glass Search Bar ──────────────────────
-                liquidGlassSearchBar
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 14)
-
-                // ── Vehicle Category Chips ───────────────────────
+        VStack(spacing: 0) {
+            // ── Custom Header ────────────────────────────────
+            headerView
+            VStack(spacing: 16) {
+                searchBar
                 categoryChips
-                    .padding(.bottom, 16)
-
-                // ── Inventory List ───────────────────────────────
-                inventoryList
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 100)
+            }
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+            
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    // ── Inventory List ───────────────────────────────
+                    inventoryList
+                        .padding(.top, 16)
+                        .padding(.horizontal, 0) // Rows have their own padding
+                        .padding(.bottom, 100)
+                }
             }
         }
-        .background(AppColor.background.ignoresSafeArea())
-        .navigationTitle("Inventory")
-        .navigationBarTitleDisplayMode(.large)
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .background(Color(hex: 0xF4F5F9).ignoresSafeArea())
+        .navigationBarHidden(true)
         .onTapGesture { isSearchFocused = false }
         // ── Threshold Sheet ──────────────────────────────────────
         .sheet(item: $viewModel.thresholdSheetItem) { item in
@@ -37,18 +38,31 @@ struct InventoryView: View {
         }
     }
 
-    // MARK: - Liquid Glass Search Bar
-    private var liquidGlassSearchBar: some View {
-        HStack(spacing: 10) {
+    // MARK: - Custom Header
+    private var headerView: some View {
+        HStack {
+            Text("Inventory")
+                .font(.system(size: 34, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.black)
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 16)
+    }
+
+    // MARK: - Search Bar
+    private var searchBar: some View {
+        HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .font(.body.weight(.medium))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(Color.gray)
 
             TextField("Search for spare parts", text: $viewModel.searchText)
                 .focused($isSearchFocused)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-                .foregroundStyle(AppColor.textPrimary)
+                .font(.system(size: 16, weight: .medium))
 
             if !viewModel.searchText.isEmpty {
                 Button {
@@ -57,31 +71,29 @@ struct InventoryView: View {
                     }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gray.opacity(0.8))
                 }
                 .transition(.scale.combined(with: .opacity))
             }
         }
         .padding(.horizontal, 16)
-        .frame(height: 48)
-        .glassEffect(.regular.interactive(), in: .capsule)
+        .padding(.vertical, 12)
+        .background(Color(hex: 0xE8EAED))
+        .clipShape(Capsule())
+        .padding(.horizontal, 20)
     }
 
-    // MARK: - Category Chips (Liquid Glass)
+    // MARK: - Category Chips
     private var categoryChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            GlassEffectContainer(spacing: 8) {
-                HStack(spacing: 8) {
-                    ForEach(VehicleCategory.allCases) { category in
-                        categoryChip(category)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
+        HStack(spacing: 0) {
+            ForEach(VehicleCategory.allCases) { category in
+                categoryChip(category)
             }
         }
-        .scrollClipDisabled()
-        .padding(.vertical, 4)
+        .padding(4)
+        .background(Color(hex: 0xE8EAED))
+        .clipShape(Capsule())
+        .padding(.horizontal, 20)
     }
 
     private func categoryChip(_ category: VehicleCategory) -> some View {
@@ -92,21 +104,15 @@ struct InventoryView: View {
             }
         } label: {
             Text(category.rawValue)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(isSelected ? Color.white : AppColor.textPrimary)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 9)
-                // Solid blue fill sits behind the glass layer for selected state
-                .background(
-                    Capsule()
-                        .fill(isSelected ? AppColor.brand : Color.clear)
-                )
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(isSelected ? Color.black : Color.gray)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(isSelected ? Color.white : Color.clear)
+                .clipShape(Capsule())
+                .shadow(color: isSelected ? Color.black.opacity(0.04) : .clear, radius: 4, x: 0, y: 2)
         }
-        .glassEffect(
-            isSelected ? .regular : .regular.interactive(),
-            in: .capsule
-        )
-        .tint(isSelected ? AppColor.brand : .clear)
+        .buttonStyle(.plain)
     }
 
     // MARK: - Inventory List
@@ -116,7 +122,7 @@ struct InventoryView: View {
         if items.isEmpty {
             emptyState
         } else {
-            VStack(spacing: 0) {
+            LazyVStack(spacing: 8) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                     InventoryRow(
                         item: item,
@@ -130,16 +136,6 @@ struct InventoryView: View {
                     .id("\(item.id)-\(viewModel.threshold(for: item))-\(viewModel.isLowStock(item))")
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.large, style: .continuous))
-            .background(
-                RoundedRectangle(cornerRadius: AppCornerRadius.large, style: .continuous)
-                    .fill(Color.white)
-                    .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 4)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AppCornerRadius.large, style: .continuous)
-                            .stroke(Color.gray.opacity(0.09), lineWidth: 1)
-                    )
-            )
         }
     }
 
@@ -151,11 +147,11 @@ struct InventoryView: View {
                 .foregroundStyle(AppColor.brand.opacity(0.4))
 
             Text("No parts found")
-                .font(.headline)
+                .font(.system(.headline, design: .rounded))
                 .foregroundStyle(AppColor.textPrimary)
 
             Text("Try adjusting your search or filter.")
-                .font(.subheadline)
+                .font(.system(.subheadline, design: .rounded))
                 .foregroundStyle(AppColor.textSecondary)
                 .multilineTextAlignment(.center)
         }

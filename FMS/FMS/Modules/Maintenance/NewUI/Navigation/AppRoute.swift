@@ -11,4 +11,6 @@ enum AppRoute: Hashable {
     case allHistoryWorkOrders
     case vehicleDetails(vehicleID: String)
     case pastWorkOrderDetails(workOrderID: WorkOrder.ID)
+    case vehicleWorkOrderDetails(vehicleID: String, workOrderID: WorkOrder.ID)
+    case vehicleServiceHistory(vehicleID: String)
 }

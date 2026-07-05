@@ -17,15 +17,15 @@ struct AllUpcomingWorkOrdersView: View {
             VStack(alignment: .leading, spacing: AppSpacing.large) {
                 if viewModel.state.isLoading {
                     LoadingView(title: "Loading Upcoming Tasks")
-                } else if viewModel.upcomingWorkOrdersFiltered.isEmpty {
+                } else if viewModel.upcomingWorkOrders.isEmpty {
                     MPEmptyStateView(title: "No Upcoming Tasks", message: "You don't have any upcoming tasks scheduled.", systemImage: FleetIcon.calendar)
                 } else {
                     VStack(spacing: 0) {
-                        ForEach(Array(viewModel.upcomingWorkOrdersFiltered.enumerated()), id: \.element.id) { index, item in
+                        ForEach(Array(viewModel.upcomingWorkOrders.enumerated()), id: \.element.id) { index, item in
                             Button {
                                 // push to summary
                             } label: {
-                                workOrderRow(for: item, isLast: index == viewModel.upcomingWorkOrdersFiltered.count - 1, showDate: true)
+                                workOrderRow(for: item, isLast: index == viewModel.upcomingWorkOrders.count - 1, showDate: true)
                             }
                             .buttonStyle(.plain)
                         }

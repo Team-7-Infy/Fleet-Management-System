@@ -52,7 +52,7 @@ final class AppDependencyContainer {
         return AppDependencyContainer(
             vehicleService: SupabaseVehicleService(apiClient: apiClient),
             workOrderService: SupabaseWorkOrderService(apiClient: apiClient, client: supabaseClient),
-            activityService: SupabaseActivityService(apiClient: apiClient),
+            activityService: SupabaseActivityService(client: supabaseClient),
             authService: SupabaseAuthService(client: supabaseClient),
             notificationService: MockNotificationService(),
             apiClient: apiClient

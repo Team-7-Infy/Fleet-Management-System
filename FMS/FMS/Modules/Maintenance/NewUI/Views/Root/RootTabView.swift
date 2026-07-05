@@ -24,17 +24,6 @@ struct RootTabView: View {
             }
             .tag(AppTab.dashboard)
 
-            NavigationStack(path: $myJobsNavigation.path) {
-                MyJobsView(dependencies: dependencies, navigation: myJobsNavigation)
-                    .navigationDestination(for: AppRoute.self) { route in
-                        RouteViewFactory.view(for: route, dependencies: dependencies, navigation: myJobsNavigation)
-                    }
-            }
-            .tabItem {
-                Label(AppTab.myJobs.title, systemImage: AppTab.myJobs.systemImage)
-            }
-            .tag(AppTab.myJobs)
-
             NavigationStack {
                 InventoryView()
             }

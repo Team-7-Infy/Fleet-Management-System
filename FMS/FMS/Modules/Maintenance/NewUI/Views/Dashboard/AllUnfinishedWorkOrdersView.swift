@@ -16,16 +16,16 @@ struct AllUnfinishedWorkOrdersView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: AppSpacing.large) {
                 if viewModel.state.isLoading {
-                    LoadingView(title: "Loading Unfinished Tasks")
-                } else if viewModel.backlogWorkOrders.isEmpty {
-                    MPEmptyStateView(title: "No Unfinished Tasks", message: "You don't have any past tasks pending.", systemImage: "tray")
+                    LoadingView(title: "Loading Pending Tasks")
+                } else if viewModel.pendingWorkOrders.isEmpty {
+                    MPEmptyStateView(title: "No Pending Tasks", message: "You don't have any past tasks pending.", systemImage: "tray")
                 } else {
                     VStack(spacing: 0) {
-                        ForEach(Array(viewModel.backlogWorkOrders.enumerated()), id: \.element.id) { index, item in
+                        ForEach(Array(viewModel.pendingWorkOrders.enumerated()), id: \.element.id) { index, item in
                             Button {
                                 // push to summary
                             } label: {
-                                workOrderRow(for: item, isLast: index == viewModel.backlogWorkOrders.count - 1)
+                                workOrderRow(for: item, isLast: index == viewModel.pendingWorkOrders.count - 1)
                             }
                             .buttonStyle(.plain)
                         }
@@ -44,26 +44,10 @@ struct AllUnfinishedWorkOrdersView: View {
             .padding()
         }
         .background(AppColor.background.ignoresSafeArea())
-        .navigationTitle("Unfinished Tasks")
+        .navigationTitle("Pending")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             Task { await viewModel.load() }
-        }
-        .alert("Start Work Order", isPresented: Binding(
-            get: { workOrderToStart != nil },
-            set: { if !$0 { workOrderToStart = nil } }
-        )) {
-            Button("Cancel", role: .cancel) {
-                workOrderToStart = nil
-            }
-            Button("Start") {
-                if let id = workOrderToStart {
-                    navigation.push(.completeWorkOrder(workOrderID: id))
-                }
-                workOrderToStart = nil
-            }
-        } message: {
-            Text("Do you want to start this work order?")
         }
     }
     
@@ -74,10 +58,11 @@ struct AllUnfinishedWorkOrdersView: View {
         
         return VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 12) {
-                Image(systemName: "car.fill")
-                    .font(.title3)
-                    .foregroundStyle(AppColor.brand)
-                    .frame(width: 44, height: 44)
+                Image(vehicle?.assetImageName ?? "Car")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 32, height: 32)
+                    .padding(6)
                     .background(Color.gray.opacity(0.1))
                     .clipShape(Circle())
                 
@@ -107,7 +92,9 @@ struct AllUnfinishedWorkOrdersView: View {
                 Spacer()
                 
                 Button {
-                    workOrderToStart = workOrder.id
+                    if let vehicleId = vehicle?.id {
+                        navigation.push(.vehicleWorkOrderDetails(vehicleID: vehicleId.uuidString, workOrderID: workOrder.id))
+                    }
                 } label: {
                     ZStack {
                         Circle()

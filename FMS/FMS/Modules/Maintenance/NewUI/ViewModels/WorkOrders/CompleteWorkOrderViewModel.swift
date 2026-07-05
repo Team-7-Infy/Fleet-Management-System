@@ -1,5 +1,14 @@
 import Foundation
 import Combine
+import Combine
+
+struct WorkOrderDraft: Codable {
+    let elapsedTime: TimeInterval
+    let remarks: String
+    let laborCost: String
+    let usedParts: [PartItem]
+    let timestamp: Date
+}
 
 final class CompleteWorkOrderViewModel: ObservableObject {
     @Published private(set) var workOrder: WorkOrder?
@@ -70,6 +79,38 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                     } else {
                         self.usedParts = []
                     }
+                    self.remarks = wo.remarks ?? ""
+                    
+                    if let totalCostDB = wo.totalCostDB {
+                        let partsCost = self.usedParts.reduce(0.0) { $0 + (Double(truncating: $1.unitPrice as NSNumber) * Double($1.quantity)) }
+                        let calculatedLabor = totalCostDB - partsCost
+                        if calculatedLabor > 0 {
+                            self.laborCost = String(format: "%.2f", calculatedLabor)
+                        } else {
+                            self.laborCost = ""
+                        }
+                    }
+                    
+                    // Check for local draft
+                    let draftKey = "draft_wo_\(self.workOrderID)"
+                    if let data = UserDefaults.standard.data(forKey: draftKey),
+                       let draft = try? JSONDecoder().decode(WorkOrderDraft.self, from: data) {
+                        
+                        // Merge draft if it has data
+                        if draft.elapsedTime > self.elapsedTime {
+                            self.elapsedTime = draft.elapsedTime
+                        }
+                        if !draft.remarks.isEmpty {
+                            self.remarks = draft.remarks
+                        }
+                        if !draft.laborCost.isEmpty {
+                            self.laborCost = draft.laborCost
+                        }
+                        if !draft.usedParts.isEmpty {
+                            self.usedParts = draft.usedParts
+                        }
+                    }
+                    
                     self.currentVehicleType = fetchedVehicleType
                 }
                 self.startTime = Date()
@@ -121,12 +162,52 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                 )
                 try await activityService.logActivity(activity)
             }
+            
+            // Clear local draft upon completion
+            UserDefaults.standard.removeObject(forKey: "draft_wo_\(workOrderID)")
+            
             NotificationCenter.default.post(name: NSNotification.Name("WorkOrderUpdated"), object: nil)
         } catch {
             await MainActor.run {
                 self.errorMessage = "Failed to complete work order: \(error.localizedDescription)"
                 self.showError = true
             }
+        }
+    }
+    
+    func pauseWorkOrder() {
+        if wasCompleted { return }
+        
+        var currentElapsedTime = elapsedTime
+        if let start = startTime {
+            currentElapsedTime += Date().timeIntervalSince(start)
+        }
+        
+        let partsToSave = usedParts
+        let currentRemarks = remarks
+        let currentCost = totalCost
+        
+        // Save local draft
+        let draft = WorkOrderDraft(
+            elapsedTime: currentElapsedTime,
+            remarks: currentRemarks,
+            laborCost: laborCost,
+            usedParts: partsToSave,
+            timestamp: Date()
+        )
+        if let data = try? JSONEncoder().encode(draft) {
+            UserDefaults.standard.set(data, forKey: "draft_wo_\(workOrderID)")
+        }
+        
+        Task {
+            try? await workOrderService.updateWorkOrder(
+                id: workOrderID,
+                status: .inProgress,
+                elapsedTime: currentElapsedTime,
+                parts: partsToSave,
+                remarks: currentRemarks.isEmpty ? nil : currentRemarks,
+                totalCost: currentCost
+            )
         }
     }
     

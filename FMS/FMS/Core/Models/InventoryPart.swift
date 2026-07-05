@@ -6,6 +6,7 @@ struct InventoryPart: Identifiable, Codable, Hashable, Sendable {
     var cost: Double
     var quantity: Int
     var vehicleType: String
+    var threshold: Int
 
     enum CodingKeys: String, CodingKey {
         case id = "partid"
@@ -13,5 +14,6 @@ struct InventoryPart: Identifiable, Codable, Hashable, Sendable {
         case cost
         case quantity
         case vehicleType = "vehicletype"
+        case threshold
     }
 }
