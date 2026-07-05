@@ -39,11 +39,9 @@ final class SupabaseWorkOrderService: WorkOrderServicing {
         return task
     }
     
-    func updateWorkOrder(id: WorkOrder.ID, status: JobStatus, elapsedTime: TimeInterval, parts: [PartItem], remarks: String?, totalCost: Decimal?) async throws {
-        // Delete any existing parts for the task
+    func updateWorkOrder(id: WorkOrder.ID, status: JobStatus, elapsedTime: TimeInterval, parts: [PartItem], remarks: String?, totalCost: Decimal?, labourCost: Decimal?) async throws {
         try await deleteParts(for: id)
         
-        // Patch the work order status and elapsed time
         var update: [String: AnyJSON] = [
             "status": .string(status.rawValue),
             "elapsed_time": .integer(Int(elapsedTime))
@@ -53,6 +51,9 @@ final class SupabaseWorkOrderService: WorkOrderServicing {
         }
         if let totalCost = totalCost {
             update["totalcost"] = .double(NSDecimalNumber(decimal: totalCost).doubleValue)
+        }
+        if let labourCost = labourCost {
+            update["labour_cost"] = .double(NSDecimalNumber(decimal: labourCost).doubleValue)
         }
         if status == .completed {
             let isoFormatter = ISO8601DateFormatter()

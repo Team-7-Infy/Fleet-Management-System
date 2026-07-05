@@ -125,7 +125,8 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                     elapsedTime: elapsedTime,
                     parts: usedParts,
                     remarks: nil,
-                    totalCost: nil
+                    totalCost: nil,
+                    labourCost: nil
                 )
             }
         } catch let error as AppError {
@@ -148,7 +149,8 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                 elapsedTime: elapsedTime,
                 parts: usedParts,
                 remarks: remarks,
-                totalCost: totalCost
+                totalCost: totalCost,
+                labourCost: totalLaborCost
             )
             
             if let wo = workOrder {
@@ -206,7 +208,8 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                 elapsedTime: currentElapsedTime,
                 parts: partsToSave,
                 remarks: currentRemarks.isEmpty ? nil : currentRemarks,
-                totalCost: currentCost
+                totalCost: currentCost,
+                labourCost: nil
             )
         }
     }

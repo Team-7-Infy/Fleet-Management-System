@@ -19,7 +19,7 @@ class MockWorkOrderService: WorkOrderServicing {
         return workOrder
     }
     
-    func updateWorkOrder(id: WorkOrder.ID, status: JobStatus, elapsedTime: TimeInterval, parts: [PartItem], remarks: String?, totalCost: Decimal?) async throws {
+    func updateWorkOrder(id: WorkOrder.ID, status: JobStatus, elapsedTime: TimeInterval, parts: [PartItem], remarks: String?, totalCost: Decimal?, labourCost: Decimal?) async throws {
         // Mock update logic simplified for compilation
     }
     
