@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 struct TripReportDetailView: View {
     @ObservedObject var tripsViewModel: ReportsViewModel
@@ -17,6 +18,7 @@ struct TripReportDetailView: View {
                         tripsViewModel.selectedPeriod = new
                     }
 
+                tripChart
                 summaryGrid
                 punctualitySection
                 fuelExpenditureSection
@@ -29,6 +31,29 @@ struct TripReportDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             localPeriod = tripsViewModel.selectedPeriod
+        }
+    }
+
+    private var tripChart: some View {
+        GlassPanel(hasBorder: false) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("MONTHLY TRIPS")
+                    .font(.caption).bold()
+                    .foregroundStyle(FleetPalette.textSecondary)
+
+                let data = tripsViewModel.filteredTripsByMonth
+
+                if data.allSatisfy({ $0.count == 0 }) {
+                    ContentUnavailableView(
+                        "No Trips",
+                        systemImage: "point.topleft.down.curvedto.point.bottomright.up",
+                        description: Text("No trip data for this period.")
+                    )
+                    .frame(height: 180)
+                } else {
+                    FitnessMonthlyBarChart(data: data, color: FleetPalette.accent)
+                }
+            }
         }
     }
 

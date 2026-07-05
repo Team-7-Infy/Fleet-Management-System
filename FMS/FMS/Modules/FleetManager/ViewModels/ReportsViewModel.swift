@@ -204,7 +204,7 @@ final class ReportsViewModel: ObservableObject {
             ExpenditureSlice(label: "Labour", amount: maintenanceLabourTotal, color: FleetPalette.accent),
             ExpenditureSlice(label: "Parts", amount: maintenancePartsTotal, color: FleetPalette.warning),
             ExpenditureSlice(label: "Fuel", amount: filteredTripFuelTotal, color: FleetPalette.success),
-            ExpenditureSlice(label: "Misc", amount: filteredTripMiscTotal, color: FleetPalette.miscellaneous)
+            ExpenditureSlice(label: "Misc", amount: filteredTripMiscTotal, color: .gray)
         ]
     }
 
@@ -427,6 +427,55 @@ final class ReportsViewModel: ObservableObject {
             let overall = (ageScore + maintenanceScore + defectScore) / 3
             return (v, max(0, min(100, overall)))
         }.sorted { $0.score > $1.score }
+    }
+
+    // MARK: - Fleet Optimization
+
+    var vehiclesNeedingMaintenancePriority: [(vehicle: Vehicle, overdueDays: Int, tasks: [MaintenanceTask])] {
+        let calendar = Calendar.current
+        let now = Date()
+        return vehiclesViewModel.vehicles.compactMap { v in
+            let vehicleTasks = maintenanceViewModel.tasks.filter { t in
+                maintenanceViewModel.vehicles(for: t).contains { $0.vin == v.id }
+            }
+            let overdueTask = vehicleTasks
+                .filter { $0.status != .completed }
+                .sorted {
+                    let leftDays = calendar.dateComponents([.day], from: $0.reportedOrScheduledDate, to: now).day ?? 0
+                    let rightDays = calendar.dateComponents([.day], from: $1.reportedOrScheduledDate, to: now).day ?? 0
+                    return leftDays > rightDays
+                }
+                .first
+            guard let task = overdueTask else { return nil }
+            let days = calendar.dateComponents([.day], from: task.reportedOrScheduledDate, to: now).day ?? 0
+            return (v, max(0, days), vehicleTasks)
+        }.sorted { $0.overdueDays > $1.overdueDays }
+    }
+
+    var underperformingDrivers: [(driver: Driver, user: User?, totalTrips: Int, onTimeRate: Double)] {
+        let allTrips = tripsViewModel.trips
+        let allDrivers = usersViewModel.drivers
+
+        return allDrivers.compactMap { d in
+            let driverTrips = allTrips.filter { $0.driverId == d.id }
+            let tripCount = driverTrips.count
+            guard tripCount > 0 else { return nil }
+
+            let completed = driverTrips.filter { $0.status == .completed && $0.endTime != nil }
+            let onTime = completed.filter { t in
+                let expectedDuration: TimeInterval = 8 * 3600
+                let onTime = t.startTime.addingTimeInterval(expectedDuration)
+                return (t.endTime ?? t.startTime) <= onTime
+            }.count
+
+            let onTimeRate = completed.isEmpty ? 0.0 : Double(onTime) / Double(completed.count) * 100
+            let user = usersViewModel.user(for: d.userId)
+            return (d, user, tripCount, onTimeRate)
+        }.sorted { $0.onTimeRate < $1.onTimeRate }
+    }
+
+    var topUnderperformingDrivers: [(driver: Driver, user: User?, totalTrips: Int, onTimeRate: Double)] {
+        underperformingDrivers.filter { $0.onTimeRate < 70 }
     }
 }
 

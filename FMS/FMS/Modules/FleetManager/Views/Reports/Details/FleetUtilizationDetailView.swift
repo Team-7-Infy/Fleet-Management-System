@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 struct FleetUtilizationDetailView: View {
     @ObservedObject var reportsViewModel: ReportsViewModel
@@ -16,6 +17,7 @@ struct FleetUtilizationDetailView: View {
                         reportsViewModel.selectedPeriod = new
                     }
 
+                utilizationChart
                 fleetSummaryGrid
                 vehicleUtilizationList
             }
@@ -80,6 +82,33 @@ struct FleetUtilizationDetailView: View {
                 }
             }
             .padding(4)
+        }
+    }
+
+    private var utilizationChart: some View {
+        GlassPanel(hasBorder: false) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("FLEET UTILIZATION (MONTHLY)")
+                    .font(.caption).bold()
+                    .foregroundStyle(FleetPalette.textSecondary)
+
+                let data = reportsViewModel.fleetUtilizationByMonth
+
+                if data.allSatisfy({ $0.vehiclesUsed == 0 }) {
+                    ContentUnavailableView(
+                        "No Utilization Data",
+                        systemImage: "car.2.fill",
+                        description: Text("No vehicle usage data for this period.")
+                    )
+                    .frame(height: 180)
+                } else {
+                    FitnessLineChart(
+                        data: data,
+                        totalVehicles: reportsViewModel.totalVehiclesCount,
+                        color: FleetPalette.success
+                    )
+                }
+            }
         }
     }
 

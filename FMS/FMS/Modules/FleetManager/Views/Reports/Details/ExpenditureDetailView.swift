@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 struct ExpenditureDetailView: View {
     @ObservedObject var reportsViewModel: ReportsViewModel
@@ -18,6 +19,7 @@ struct ExpenditureDetailView: View {
                         reportsViewModel.selectedPeriod = new
                     }
 
+                expenditureChart
                 summaryGrid
                 maintenanceSection
                 fuelSection
@@ -85,6 +87,28 @@ struct ExpenditureDetailView: View {
                 }
             }
             .padding(4)
+        }
+    }
+
+    private var expenditureChart: some View {
+        GlassPanel(hasBorder: false) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("COST BREAKDOWN")
+                    .font(.caption).bold()
+                    .foregroundStyle(FleetPalette.textSecondary)
+
+                let slices = reportsViewModel.expenditureSlices
+                if slices.allSatisfy({ $0.amount == 0 }) {
+                    ContentUnavailableView(
+                        "No Expenditure",
+                        systemImage: "indianrupeesign",
+                        description: Text("No cost data for this period.")
+                    )
+                    .frame(height: 200)
+                } else {
+                    FitnessPieChart(slices: slices)
+                }
+            }
         }
     }
 

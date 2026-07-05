@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct ReportsHubView: View {
+    @Namespace private var optimizeSpace
+
     @StateObject private var viewModel: ReportsViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
@@ -230,10 +232,14 @@ struct ReportsHubView: View {
 
                 if score <= 90 {
                     NavigationLink {
-                        VehicleHealthDetailView(
+                        FleetOptimizationView(
                             reportsViewModel: viewModel,
                             vehiclesViewModel: vehiclesViewModel,
+                            usersViewModel: usersViewModel,
                             maintenanceViewModel: maintenanceViewModel
+                        )
+                        .navigationTransition(
+                            .zoom(sourceID: "optimizeButton", in: optimizeSpace)
                         )
                     } label: {
                         Text("Optimize")
@@ -245,6 +251,7 @@ struct ReportsHubView: View {
                     }
                     .buttonStyle(.plain)
                     .frame(minHeight: 44)
+                    .matchedTransitionSource(id: "optimizeButton", in: optimizeSpace)
                 }
             }
         }
