@@ -13,6 +13,9 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
     var distanceKm: Double?
     var fuelCost: Double?
     var miscellaneousCost: Double?
+    var finalOdometer: Double?
+    var finalFuelLevel: Double?
+    var driverNote: String?
 
     enum CodingKeys: String, CodingKey {
         case id = "tripid"
@@ -27,6 +30,9 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
         case distanceKm = "distance_km"
         case fuelCost = "fuel_cost"
         case miscellaneousCost = "miscellaneous_cost"
+        case finalOdometer = "final_odometer"
+        case finalFuelLevel = "final_fuel_level"
+        case driverNote = "driver_note"
     }
 }
 

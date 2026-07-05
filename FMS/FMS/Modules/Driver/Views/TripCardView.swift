@@ -27,13 +27,13 @@ struct TripCardView: View {
 
                 Spacer(minLength: 8)
 
-                StatusDot(text: trip.status.title, color: FleetPalette.tripStatus(trip.status))
+                StatusPill(text: trip.status.title, color: FleetPalette.tripStatus(trip.status))
             }
 
             HStack(spacing: 12) {
                 if let vehicle {
-                    VehicleAssetImage(vehicle: vehicle, width: 48, height: 38, cornerRadius: 10)
-
+                    Image(systemName: "car.fill")
+                        .foregroundStyle(FleetPalette.textSecondary)
                     Text("\(vehicle.make) \(vehicle.model)")
                         .font(.subheadline)
                     Text(vehicle.licencePlate)
@@ -70,12 +70,13 @@ struct TripCardView: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(FleetPalette.tertiary.opacity(0.55), lineWidth: 1)
         }
+        .shadow(color: FleetPalette.primary.opacity(0.10), radius: 16, x: 0, y: 9)
     }
 
     @ViewBuilder
     private var actionButtons: some View {
         switch trip.status {
-        case .scheduled, .pending:
+        case .pending:
             HStack(spacing: 12) {
                 Button(action: onAccept) {
                     Label("Accept", systemImage: "checkmark.circle")
@@ -94,14 +95,14 @@ struct TripCardView: View {
                 .tint(FleetPalette.danger)
             }
 
-        case .accepted:
+        case .accepted, .scheduled:
             Button(action: onStart) {
                 Label("Start Trip", systemImage: "play.fill")
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
             }
             .buttonStyle(.borderedProminent)
-            .tint(FleetPalette.accent)
+            .tint(FleetPalette.primary)
 
         case .inProgress:
             Button(action: onEnd) {
@@ -124,7 +125,7 @@ struct TripCardView: View {
             .padding(12)
             .background(FleetPalette.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-        case .cancelled, .rejected, .completed:
+        case .rejected, .completed, .cancelled:
             EmptyView()
         }
     }
@@ -135,12 +136,12 @@ private struct TripCardRouteGlyph: View {
         VStack(spacing: 4) {
             Image(systemName: "mappin.circle.fill")
                 .font(.title2.weight(.bold))
-                .foregroundStyle(FleetPalette.accent)
+                .foregroundStyle(FleetPalette.primary)
 
             VStack(spacing: 3) {
                 ForEach(0..<4, id: \.self) { _ in
                     Circle()
-                        .fill(FleetPalette.accent.opacity(0.62))
+                        .fill(FleetPalette.primary.opacity(0.62))
                         .frame(width: 4, height: 4)
                 }
             }

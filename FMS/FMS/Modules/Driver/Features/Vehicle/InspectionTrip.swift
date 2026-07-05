@@ -8,45 +8,70 @@ struct InspectionTrip: Identifiable {
     let destination: String
     let status: String
 }
-
 // MARK: - Flow Controller
 struct InspectionFlowView: View {
     @Environment(\.dismiss) var dismiss
-    @State private var selectedTrip: InspectionTrip? = nil
-    @State private var inspectedIds: Set<String> = []
-    
+    @EnvironmentObject var localStore: LocalDataStore
+
+    let services: AppServices
     let isPresentedModally: Bool
-    
-    init(isPresentedModally: Bool = false) {
+    let preselectedTripId: String?
+    let trips: [Trip]
+    let vehicles: [Vehicle]
+    let activeTripId: String?
+    let isPostTrip: Bool
+    var onComplete: (() -> Void)? = nil
+
+    init(services: AppServices, isPresentedModally: Bool = false, preselectedTripId: String? = nil, trips: [Trip] = [], vehicles: [Vehicle] = [], activeTripId: String? = nil, isPostTrip: Bool = false, onComplete: (() -> Void)? = nil) {
+        self.services = services
         self.isPresentedModally = isPresentedModally
+        self.preselectedTripId = preselectedTripId
+        self.trips = trips
+        self.vehicles = vehicles
+        self.activeTripId = activeTripId
+        self.isPostTrip = isPostTrip
+        self.onComplete = onComplete
     }
 
-    let upcomingTrips: [InspectionTrip] = [
-        InspectionTrip(tripId: "TRP-083", vehicleNumber: "KA-01-HC-1234", destination: "Nashik Distribution Hub", status: "Pending"),
-        InspectionTrip(tripId: "TRP-084", vehicleNumber: "KA-05-AB-9876", destination: "Surat Port Authority", status: "Scheduled"),
-        InspectionTrip(tripId: "TRP-085", vehicleNumber: "MH-12-ZX-4321", destination: "Pune Distribution Hub", status: "Scheduled"),
-    ]
+    var inspectionTrips: [InspectionTrip] {
+        trips.map { trip in
+            let plate = vehicles.first(where: { $0.id == trip.vehicleId })?.licencePlate ?? ""
+            return InspectionTrip(
+                tripId: trip.id.uuidString,
+                vehicleNumber: plate,
+                destination: trip.endLocation,
+                status: trip.status.rawValue
+            )
+        }
+    }
+
+    var allottedTrip: InspectionTrip {
+        let list = inspectionTrips
+        if let preselectedTripId, let match = list.first(where: { $0.tripId == preselectedTripId }) {
+            return match
+        }
+        if let activeId = activeTripId, let match = list.first(where: { $0.tripId == activeId }) {
+            return match
+        }
+        return list.first ?? InspectionTrip(tripId: "", vehicleNumber: "", destination: "", status: "")
+    }
 
     var body: some View {
-        if let _ = selectedTrip {
-            InspectionView()
-                .onDisappear {
-                    if let trip = selectedTrip {
-                        inspectedIds.insert(trip.tripId)
-                        selectedTrip = nil
-                    }
-                }
-        } else {
-            VehiclePickerView(
-                trips: upcomingTrips,
-                inspectedIds: inspectedIds,
-                isPresentedModally: isPresentedModally
-            ) { trip in
-                selectedTrip = trip
-            } onClose: {
+        InspectionView(
+            services: services,
+            trip: allottedTrip,
+            isPresentedModally: isPresentedModally,
+            vehicleNumber: allottedTrip.vehicleNumber,
+            onBack: {
                 dismiss()
-            }
-        }
+            },
+            onComplete: {
+                dismiss()
+                onComplete?()
+            },
+            isPostTrip: isPostTrip
+        )
+        .environmentObject(localStore)
     }
 }
 

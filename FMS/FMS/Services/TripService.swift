@@ -19,6 +19,15 @@ final actor TripService: TripServiceProtocol {
             .value
     }
 
+    func fetchTrips(forDriverId driverId: UUID) async throws -> [Trip] {
+        try await supabase.client
+            .from("trips")
+            .select()
+            .eq("driverid", value: driverId.uuidString)
+            .execute()
+            .value
+    }
+
     func fetchTrip(id: UUID) async throws -> Trip {
         try await supabase.client
             .from("trips")
@@ -159,5 +168,64 @@ final actor TripService: TripServiceProtocol {
             .single()
             .execute()
             .value
+    }
+
+    nonisolated func subscribeToTrips(forDriverId driverId: UUID) -> AsyncStream<Void> {
+        AsyncStream { continuation in
+            let channelName = "trips-realtime-dashboard-\(driverId.uuidString.lowercased())"
+            let channel = supabase.client.channel(channelName)
+            
+            let inserts = channel.postgresChange(
+                InsertAction.self,
+                schema: "public",
+                table: "trips"
+            )
+            let updates = channel.postgresChange(
+                UpdateAction.self,
+                schema: "public",
+                table: "trips"
+            )
+            
+            let task = Task {
+                await channel.subscribe()
+                
+                Task {
+                    for await change in inserts {
+                        let record = change.record
+                        do {
+                            let jsonData = try JSONEncoder().encode(record)
+                            let trip = try SharedDecoder.json.decode(Trip.self, from: jsonData)
+                            if trip.driverId == driverId {
+                                continuation.yield(())
+                            }
+                        } catch {
+                            print("Error decoding dashboard Realtime trip insert: \(error)")
+                        }
+                    }
+                }
+                
+                Task {
+                    for await change in updates {
+                        let record = change.record
+                        do {
+                            let jsonData = try JSONEncoder().encode(record)
+                            let trip = try SharedDecoder.json.decode(Trip.self, from: jsonData)
+                            if trip.driverId == driverId {
+                                continuation.yield(())
+                            }
+                        } catch {
+                            print("Error decoding dashboard Realtime trip update: \(error)")
+                        }
+                    }
+                }
+            }
+            
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
+                Task {
+                    await channel.unsubscribe()
+                }
+            }
+        }
     }
 }

@@ -2,6 +2,7 @@ import SwiftUI
 
 protocol TripServiceProtocol: AnyObject, Sendable {
     func fetchTrips() async throws -> [Trip]
+    func fetchTrips(forDriverId: UUID) async throws -> [Trip]
     func fetchTrip(id: UUID) async throws -> Trip
     func createTrip(_ trip: Trip) async throws -> Trip
     func updateTrip(_ trip: Trip) async throws -> Trip
@@ -18,4 +19,5 @@ protocol TripServiceProtocol: AnyObject, Sendable {
     func fetchRouteWaypoints(tripId: UUID) async throws -> [RouteWaypoint]
     func fetchTelemetry(driverId: UUID) async throws -> [Telemetry]
     func logTelemetry(_ telemetry: Telemetry) async throws -> Telemetry
+    func subscribeToTrips(forDriverId driverId: UUID) -> AsyncStream<Void>
 }

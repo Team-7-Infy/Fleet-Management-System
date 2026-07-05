@@ -106,3 +106,7 @@ struct AppRouter: View {
         screen = .login
     }
 }
+
+#Preview{
+    AppRouter()
+}

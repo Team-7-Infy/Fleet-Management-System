@@ -11,7 +11,7 @@ import SwiftUI
 struct SOSView: View {
     @StateObject private var viewModel = SOSViewModel()
     @EnvironmentObject var locationManager: LocationManager
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) var dismiss
     
     // Animation states
     @State private var isPressing = false
@@ -153,7 +153,7 @@ struct SOSView: View {
                 
                 // Dismiss Button
                 Button(action: {
-                    presentationMode.wrappedValue.dismiss()
+                    dismiss()
                 }) {
                     Text("Close")
                         .foregroundColor(.gray)

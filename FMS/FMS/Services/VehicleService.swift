@@ -18,6 +18,15 @@ final actor VehicleService: VehicleServiceProtocol {
             .value
     }
 
+    func fetchVehicles(forDriverId driverId: UUID) async throws -> [Vehicle] {
+        try await supabase.client
+            .from("vehicles")
+            .select()
+            .eq("driverid", value: driverId.uuidString)
+            .execute()
+            .value
+    }
+
     func fetchVehicle(id: UUID) async throws -> Vehicle {
         try await supabase.client
             .from("vehicles")

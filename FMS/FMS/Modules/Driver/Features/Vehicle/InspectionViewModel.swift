@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 
 class InspectionViewModel: ObservableObject {
     @Published var items: [InspectionItem] = [
@@ -13,14 +14,28 @@ class InspectionViewModel: ObservableObject {
     
     @Published var isSubmitting: Bool = false
     
-    // Check if every item has been marked as either passed or failed
+    // Check if every item has been marked as either passed or failed, and failed items have mandatory description filled
     var isComplete: Bool {
-        !items.contains(where: { $0.status == .untested })
+        !items.contains(where: { 
+            $0.status == .untested || ($0.status == .failed && $0.failDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        })
     }
     
     func updateStatus(for id: UUID, to newStatus: InspectionItem.ItemStatus) {
         if let index = items.firstIndex(where: { $0.id == id }) {
             items[index].status = newStatus
+            // Clear details if changed to passed
+            if newStatus == .passed {
+                items[index].failDescription = ""
+                items[index].failImage = nil
+            }
+        }
+    }
+
+    func updateDetails(for id: UUID, description: String, image: UIImage?) {
+        if let index = items.firstIndex(where: { $0.id == id }) {
+            items[index].failDescription = description
+            items[index].failImage = image
         }
     }
 }

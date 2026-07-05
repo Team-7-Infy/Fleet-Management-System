@@ -13,43 +13,38 @@ import Combine
 class IncidentViewModel: ObservableObject {
     @Published var selectedType: Incident.IncidentType = .accident
     @Published var incidentDescription: String = ""
-    @Published var capturedPhotos: [String] = [] // Storing mock file paths
-    
+    @Published var capturedPhotos: [String] = []
+
     @Published var isSubmitting: Bool = false
     @Published var submissionSuccess: Bool = false
     @Published var errorMessage: String? = nil
-    
-    // Validates that the driver has provided the minimum required information
+
     var isValid: Bool {
         !incidentDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
-    
-    func submitReport(currentLocation: CLLocation?) {
+
+    func submitReport(currentLocation: CLLocation?, tripId: String?) {
         guard isValid else { return }
-        
+
         isSubmitting = true
         errorMessage = nil
-        
-        // Construct the payload
-        let report = Incident(
-            date: Date(),
+
+        LocalDataStore.shared.submitIncident(
             type: selectedType,
             description: incidentDescription,
-            location: currentLocation?.coordinate,
-            photoURLs: capturedPhotos,
-            status: .submitted
+            photos: capturedPhotos,
+            latitude: currentLocation?.coordinate.latitude,
+            longitude: currentLocation?.coordinate.longitude,
+            tripId: tripId
         )
-        
-        // Simulate Network/API Request to Fleet Manager
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.isSubmitting = false
             self.submissionSuccess = true
-            // In a real application, you would save 'report' to CoreData or send via API here
         }
     }
-    
+
     func simulatePhotoCapture() {
-        // Simulate adding a photo from the device camera
         capturedPhotos.append("mock_photo_\(UUID().uuidString).jpg")
     }
 }
