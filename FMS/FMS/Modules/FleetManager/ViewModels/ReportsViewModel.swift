@@ -204,7 +204,7 @@ final class ReportsViewModel: ObservableObject {
             ExpenditureSlice(label: "Labour", amount: maintenanceLabourTotal, color: FleetPalette.accent),
             ExpenditureSlice(label: "Parts", amount: maintenancePartsTotal, color: FleetPalette.warning),
             ExpenditureSlice(label: "Fuel", amount: filteredTripFuelTotal, color: FleetPalette.success),
-            ExpenditureSlice(label: "Misc", amount: filteredTripMiscTotal, color: .gray)
+            ExpenditureSlice(label: "Misc", amount: filteredTripMiscTotal, color: .purple)
         ]
     }
 
