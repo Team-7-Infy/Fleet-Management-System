@@ -310,6 +310,9 @@ struct DashboardView: View {
                                 showingTripSuccess = false
                             }
                             completedTripForSuccess = nil
+                            Task {
+                                await onRefreshData?()
+                            }
                         }
                     )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -420,6 +423,10 @@ struct DashboardView: View {
                     services: services,
                     onComplete: { finalOdometer, notes in
                         localStore.pendingPostTripInspectionTripId = nil
+                        
+                        Task {
+                            await onRefreshData?()
+                        }
                         
                         // Calculate metrics
                         let startOdo = Double(UserDefaults.standard.integer(forKey: "trip_\(tripToInspect.id.uuidString)_pre_odo"))
