@@ -108,7 +108,7 @@ struct FleetManagerDashboardView: View {
                     .tabItem { Label("Service", systemImage: "wrench") }
                     .tag(ManagerTab.maintenance)
             }
-            .tint(FleetPalette.primary)
+            .tint(FleetPalette.accent)
 
             if notificationViewModel.showBanner, let banner = notificationViewModel.currentBanner {
                 NotificationBannerView(
