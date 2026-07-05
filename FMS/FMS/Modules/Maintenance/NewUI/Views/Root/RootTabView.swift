@@ -3,19 +3,20 @@ import SwiftUI
 struct RootTabView: View {
     let dependencies: AppDependencyContainer
     let onLogout: () -> Void
+    let notificationService: NotificationServiceProtocol
     @State private var selectedTab: AppTab = .dashboard
     @StateObject private var dashboardNavigation = TabNavigationState()
-    @StateObject private var myJobsNavigation = TabNavigationState()
 
-    init(dependencies: AppDependencyContainer, coordinator: NavigationCoordinator? = nil, onLogout: @escaping () -> Void = {}) {
+    init(dependencies: AppDependencyContainer, coordinator: NavigationCoordinator? = nil, onLogout: @escaping () -> Void = {}, notificationService: NotificationServiceProtocol) {
         self.dependencies = dependencies
         self.onLogout = onLogout
+        self.notificationService = notificationService
     }
 
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack(path: $dashboardNavigation.path) {
-                MPDashboardView(dependencies: dependencies, navigation: dashboardNavigation, onLogout: onLogout)
+                MPDashboardView(dependencies: dependencies, navigation: dashboardNavigation, onLogout: onLogout, notificationService: notificationService)
                     .navigationDestination(for: AppRoute.self) { route in
                         RouteViewFactory.view(for: route, dependencies: dependencies, navigation: dashboardNavigation)
                     }
@@ -25,20 +26,30 @@ struct RootTabView: View {
             }
             .tag(AppTab.dashboard)
 
-            NavigationStack(path: $myJobsNavigation.path) {
-                MyJobsView(dependencies: dependencies, navigation: myJobsNavigation)
-                    .navigationDestination(for: AppRoute.self) { route in
-                        RouteViewFactory.view(for: route, dependencies: dependencies, navigation: myJobsNavigation)
-                    }
+            NavigationStack {
+                InventoryView()
             }
             .tabItem {
-                Label(AppTab.myJobs.title, systemImage: AppTab.myJobs.systemImage)
+                Label(AppTab.inventory.title, systemImage: AppTab.inventory.systemImage)
             }
-            .tag(AppTab.myJobs)
+            .tag(AppTab.inventory)
         }
     }
 }
 
 #Preview {
-    RootTabView(dependencies: .mock())
+    let mock = PreviewNotificationService()
+    RootTabView(dependencies: .mock(), notificationService: mock)
+}
+
+private actor PreviewNotificationService: NotificationServiceProtocol {
+    func fetchNotifications(for recipientId: UUID?) async throws -> [AppNotification] { [] }
+    func markAsRead(id: UUID) async throws {}
+    func markAllAsRead(for recipientId: UUID?) async throws {}
+    func subscribeToRealtime(for recipientId: UUID?) -> AsyncStream<AppNotification> {
+        AsyncStream { $0.finish() }
+    }
+    func subscribeToTripsRealtime(forDriverId driverId: UUID) -> AsyncStream<Trip> {
+        AsyncStream { $0.finish() }
+    }
 }

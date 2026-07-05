@@ -47,6 +47,10 @@ struct VehicleDetailsView: View {
                         .foregroundStyle(AppColor.textPrimary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
+                        
+                    Text(vehicle.licencePlate)
+                        .font(AppTypography.callout)
+                        .foregroundStyle(AppColor.textSecondary)
                 }
                 Spacer()
             }
@@ -54,14 +58,20 @@ struct VehicleDetailsView: View {
             
             Divider()
             
-            // Horizontal Details Section
-            HStack(alignment: .center) {
-
-                
-                horizontalDetailItem(icon: "box.truck", title: "Type", value: vehicle.vehicleType.isEmpty ? "Unknown" : vehicle.vehicleType)
+            // Details Grid
+            let columns = [
+                GridItem(.flexible(), spacing: 16),
+                GridItem(.flexible(), spacing: 16)
+            ]
+            
+            LazyVGrid(columns: columns, spacing: 16) {
+                horizontalDetailItem(icon: "car.fill", title: "Type", value: vehicle.vehicleType.capitalized)
+                horizontalDetailItem(icon: "fuelpump.fill", title: "Fuel", value: vehicle.fuelType?.capitalized ?? "Unknown")
+                horizontalDetailItem(icon: "calendar", title: "Year", value: String(vehicle.year))
+                horizontalDetailItem(icon: "123.rectangle", title: "Licence", value: vehicle.licencePlate)
+                horizontalDetailItem(icon: "info.circle.fill", title: "Status", value: vehicle.status.rawValue.capitalized)
             }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 16)
+            .padding(16)
         }
         .background(
             RoundedRectangle(cornerRadius: 16)

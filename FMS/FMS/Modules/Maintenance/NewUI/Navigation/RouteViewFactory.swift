@@ -14,6 +14,12 @@ enum RouteViewFactory {
             WorkOrderSuccessView(workOrderID: workOrderID, elapsedTime: elapsedTime, parts: parts, laborCost: laborCost, dependencies: dependencies, navigation: navigation)
         case .upcomingMaintenanceList:
             UpcomingMaintenanceListView(dependencies: dependencies, navigation: navigation)
+        case .allUpcomingWorkOrders:
+            AllUpcomingWorkOrdersView(dependencies: dependencies, navigation: navigation)
+        case .allUnfinishedWorkOrders:
+            AllUnfinishedWorkOrdersView(dependencies: dependencies, navigation: navigation)
+        case .allHistoryWorkOrders:
+            AllHistoryWorkOrdersView(dependencies: dependencies, navigation: navigation)
         case .vehicleDetails(let vehicleID):
             if let uuid = UUID(uuidString: vehicleID) {
                 VehicleDetailsView(vehicleID: uuid, dependencies: dependencies, navigation: navigation)
@@ -22,6 +28,18 @@ enum RouteViewFactory {
             }
         case .pastWorkOrderDetails(let workOrderID):
             PastWorkOrderDetailsView(workOrderID: workOrderID, dependencies: dependencies, navigation: navigation)
+        case .vehicleWorkOrderDetails(let vehicleID, let workOrderID):
+            if let uuid = UUID(uuidString: vehicleID) {
+                VehicleWorkOrderDetailsView(vehicleID: uuid, workOrderID: workOrderID, dependencies: dependencies, navigation: navigation)
+            } else {
+                EmptyView()
+            }
+        case .vehicleServiceHistory(let vehicleID):
+            if let uuid = UUID(uuidString: vehicleID) {
+                VehicleServiceHistoryView(vehicleID: uuid, dependencies: dependencies, navigation: navigation)
+            } else {
+                EmptyView()
+            }
         }
     }
 }

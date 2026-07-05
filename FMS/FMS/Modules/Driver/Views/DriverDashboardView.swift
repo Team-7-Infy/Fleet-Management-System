@@ -37,9 +37,51 @@ struct DriverDashboardView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 24) {
                     header
-                    assignedTripsSection
+
+                    quickActions
+
+                    if isLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                    } else {
+                        if let activeTrip = activeTrips.first {
+                            activeTripCard(trip: activeTrip)
+                        }
+
+                        if let pendingTrip = pendingTrips.first {
+                            safetyBlock(trip: pendingTrip)
+                        } else if activeTrips.isEmpty && pendingTrips.isEmpty {
+                            EmptyStateView(
+                                title: "No Trips Assigned",
+                                message: "You don't have any trips yet. They will appear here once the fleet manager assigns them.",
+                                systemImage: "road.lanes"
+                            )
+                        }
+
+                        // Remaining trips if any (beyond the first active/pending shown)
+                        let remainingActive = activeTrips.dropFirst()
+                        let remainingPending = pendingTrips.dropFirst()
+
+                        if !remainingActive.isEmpty || !remainingPending.isEmpty || !completedTrips.isEmpty {
+                            Text("Other Trips")
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .foregroundStyle(FleetPalette.textPrimary)
+                                .padding(.top, 8)
+
+                            if !remainingPending.isEmpty {
+                                tripGroup(trips: Array(remainingPending))
+                            }
+                            if !remainingActive.isEmpty {
+                                tripGroup(trips: Array(remainingActive))
+                            }
+                            if !completedTrips.isEmpty {
+                                tripGroup(trips: completedTrips)
+                            }
+                        }
+                    }
 
                     if let errorMessage {
                         Text(errorMessage)
@@ -52,7 +94,7 @@ struct DriverDashboardView: View {
                 }
                 .padding()
             }
-            .fleetScreenBackground()
+            .background(Color(hex: 0xF4F5F9).ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .refreshable { await loadData(isRefresh: true) }
             .task { await loadData() }
@@ -121,112 +163,232 @@ struct DriverDashboardView: View {
         }
     }
 
-    private var accountButton: some View {
-        Button {
-            isShowingProfile = true
-        } label: {
-            if let avatarUrl = user.avatarUrl,
-               let imageURL = URL(string: avatarUrl) {
-                AsyncImage(url: imageURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 48, height: 48)
-                            .clipShape(Circle())
-                    default:
-                        accountFallbackIcon
-                    }
-                }
-            } else {
-                accountFallbackIcon
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Account")
-    }
-
-    private var accountFallbackIcon: some View {
-        Image(systemName: FleetIcon.account)
-            .resizable()
-            .scaledToFit()
-            .frame(width: 48, height: 48)
-            .foregroundStyle(FleetPalette.accent)
-            .background(Circle().fill(Color.white))
-    }
-
     private var header: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Good \(timeOfDay), \(user.fName)")
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(FleetPalette.textPrimary)
-                Text("You have \(pendingTrips.count) trip\(pendingTrips.count == 1 ? "" : "s") awaiting action")
-                    .font(.subheadline)
-                    .foregroundStyle(FleetPalette.textSecondary)
-            }
+            Text("Home")
+                .font(.system(size: 34, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.black)
             Spacer()
-            accountButton
         }
+        .padding(.top, 10)
     }
 
-    private var assignedTripsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 40)
-            } else if driverTrips.isEmpty {
-                GlassPanel {
-                    EmptyStateView(
-                        title: "No Trips Assigned",
-                        message: "You don't have any trips yet. They will appear here once the fleet manager assigns them.",
-                        systemImage: "road.lanes"
-                    )
-                }
-            } else {
-                if !pendingTrips.isEmpty {
-                    tripGroup(title: "Pending Action", trips: pendingTrips, tint: FleetPalette.warning)
-                }
+    private var quickActions: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Quick Actions")
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.black)
 
-                if !activeTrips.isEmpty {
-                    tripGroup(title: "Active", trips: activeTrips, tint: FleetPalette.accent)
-                }
-
-                if !completedTrips.isEmpty {
-                    tripGroup(title: "Completed", trips: completedTrips, tint: FleetPalette.success)
-                }
+            HStack(spacing: 12) {
+                quickActionCard(title: "Logbook", iconName: "book.pages.fill", tintColor: Color.purple)
+                quickActionCard(title: "Fuel", iconName: "fuelpump.fill", tintColor: Color.orange)
+                quickActionCard(title: "SOS", iconName: "light.beacon.max.fill", tintColor: Color.red)
             }
         }
     }
 
-    private func tripGroup(title: String, trips: [Trip], tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title.uppercased())
-                .font(.title3.weight(.heavy))
-                .foregroundStyle(Color(hex: 0x607086))
-                .padding(.horizontal, 2)
+    private func quickActionCard(title: String, iconName: String, tintColor: Color) -> some View {
+        Button(action: {}) {
+            VStack(spacing: 12) {
+                Image(systemName: iconName)
+                    .font(.system(size: 24))
+                    .foregroundStyle(tintColor)
 
-            LazyVStack(spacing: 14) {
-                ForEach(trips) { trip in
-                    TripCardView(
-                        trip: trip,
-                        vehicle: vehicle(for: trip.vehicleId),
-                        onAccept: { Task { await acceptTrip(trip) } },
-                        onReject: {
-                            selectedTripForReject = trip
-                        },
-                        onStart: {
-                            tripToStart = trip
-                            showPreTripAlert = true
-                        },
-                        onEnd: {
-                            tripToEnd = trip
-                            showPostTripAlert = true
-                        }
-                    )
+                Text(title)
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.black)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func activeTripCard(trip: Trip) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 8, height: 8)
+                    Text(trip.status == .inProgress ? "ON ROUTE" : "ACCEPTED")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.black.opacity(0.2))
+                .clipShape(Capsule())
+
+                Spacer()
+
+                Text(Date().formatted(date: .omitted, time: .shortened))
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Next Stop")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+
+                Text(trip.endLocation)
+                    .font(.system(size: 24, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+
+                Text("Destination")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.black.opacity(0.2))
+                    .frame(height: 6)
+
+                Capsule()
+                    .fill(Color.white)
+                    .frame(width: 140, height: 6)
+            }
+
+            HStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("ETA")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.8))
+                    Text(trip.startTime, style: .time)
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                }
+                Spacer()
+                VStack(alignment: .center, spacing: 4) {
+                    Text("REMAINING")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.8))
+                    Text("2h 15m")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("DISTANCE")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.8))
+                    Text("24.5 km")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                }
+            }
+
+            Button {
+                if trip.status == .inProgress {
+                    navigatingTrip = trip
+                    showNavigation = true
+                } else {
+                    tripToStart = trip
+                    showPreTripAlert = true
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "location.fill")
+                    Text(trip.status == .inProgress ? "Open Navigation" : "Start Trip")
+                }
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.black.opacity(0.2))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+
+            if trip.status == .inProgress {
+                Button {
+                    tripToEnd = trip
+                    showPostTripAlert = true
+                } label: {
+                    Text("End Trip")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.red.opacity(0.8))
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+            }
+        }
+        .padding(20)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: 0x0A66C2), Color(hex: 0x2244CC)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: Color(hex: 0x0A66C2).opacity(0.3), radius: 15, x: 0, y: 10)
+    }
+
+    private func safetyBlock(trip: Trip) -> some View {
+        Button(action: {
+            tripToStart = trip
+            showPreTripAlert = true
+        }) {
+            HStack(spacing: 16) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.red.opacity(0.15))
+                        .frame(width: 50, height: 50)
+
+                    Image(systemName: "exclamationmark.shield.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(Color.red)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("SAFETY BLOCK")
+                        .font(.system(size: 10, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Color.red)
+
+                    Text("Pre-Trip Inspection Required")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.black)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(Color.gray.opacity(0.5))
+            }
+            .padding(16)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func tripGroup(trips: [Trip]) -> some View {
+        LazyVStack(spacing: 14) {
+            ForEach(trips) { trip in
+                TripCardView(
+                    trip: trip,
+                    vehicle: vehicle(for: trip.vehicleId),
+                    onAccept: { Task { await acceptTrip(trip) } },
+                    onReject: {
+                        selectedTripForReject = trip
+                    },
+                    onStart: {
+                        tripToStart = trip
+                        showPreTripAlert = true
+                    },
+                    onEnd: {
+                        tripToEnd = trip
+                        showPostTripAlert = true
+                    }
+                )
             }
         }
     }
@@ -322,15 +484,6 @@ struct DriverDashboardView: View {
         } catch {
             errorMessage = error.localizedDescription
             return false
-        }
-    }
-
-    private var timeOfDay: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 5..<12: return "Morning"
-        case 12..<17: return "Afternoon"
-        default: return "Evening"
         }
     }
 }

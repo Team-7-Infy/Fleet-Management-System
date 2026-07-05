@@ -5,10 +5,11 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
     var make: String
     var model: String
     var year: Int
-    var licencePlate: String
+    @FormattedLicencePlate var licencePlate: String
     var status: VehicleStatus
     var vehicleType: String
     var driverId: UUID?
+    var fuelType: String?
     var addedToFleetAt: Date?
 
     enum CodingKeys: String, CodingKey {
@@ -20,6 +21,50 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
         case status
         case vehicleType = "vehicletype"
         case driverId = "driverid"
+        case fuelType = "fuel_type"
         case addedToFleetAt = "added_to_fleet_at"
     }
+    
+    var formattedLicencePlate: String { licencePlate }
 }
+
+@propertyWrapper
+struct FormattedLicencePlate: Codable, Hashable, Sendable {
+    private var value: String
+    
+    var wrappedValue: String {
+        get {
+            let raw = value.replacingOccurrences(of: " ", with: "").uppercased()
+            // e.g. KA01AB1234 -> KA 01 AB 1234
+            let pattern = "^([A-Z]{2})(\\d{1,2})([A-Z]{1,3})?(\\d{1,4})$"
+            if let regex = try? NSRegularExpression(pattern: pattern),
+               let match = regex.firstMatch(in: raw, range: NSRange(raw.startIndex..., in: raw)) {
+                var parts = [String]()
+                for i in 1...4 {
+                    if let range = Range(match.range(at: i), in: raw) {
+                        parts.append(String(raw[range]))
+                    }
+                }
+                return parts.joined(separator: " ")
+            }
+            return value
+        }
+        set { value = newValue }
+    }
+    
+    init(wrappedValue: String) {
+        self.value = wrappedValue
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self.value = try container.decode(String.self)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(value)
+    }
+}
+
+

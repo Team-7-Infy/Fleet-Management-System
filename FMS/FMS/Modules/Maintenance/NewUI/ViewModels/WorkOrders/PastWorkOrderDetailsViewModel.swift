@@ -3,22 +3,47 @@ import Combine
 
 final class PastWorkOrderDetailsViewModel: ObservableObject {
     @Published private(set) var workOrder: WorkOrder?
+    @Published private(set) var vehicle: Vehicle?
+    @Published private(set) var reportedBy: UserProfile?
+    @Published private(set) var assignedBy: UserProfile?
     @Published private(set) var state: LoadableState<Void> = .idle
     
     private let workOrderID: WorkOrder.ID
     private let workOrderService: any WorkOrderServicing
+    private let vehicleService: any VehicleServicing
+    private let authService: any AuthServicing
     
     init(workOrderID: WorkOrder.ID, dependencies: AppDependencyContainer) {
         self.workOrderID = workOrderID
         self.workOrderService = dependencies.workOrderService
+        self.vehicleService = dependencies.vehicleService
+        self.authService = dependencies.authService
     }
     
     func load() async {
         state = .loading
         do {
             let fetched = try await workOrderService.workOrder(id: workOrderID)
+            var fetchedVehicle: Vehicle?
+            if let vinString = fetched.taskVehicles?.first?.vin, let vin = UUID(uuidString: vinString.uuidString) {
+                fetchedVehicle = try? await vehicleService.vehicle(id: vin)
+            }
+            
+            var scheduledByUser: UserProfile?
+            if let scheduledBy = fetched.scheduledBy {
+                scheduledByUser = try? await authService.getUserProfile(by: scheduledBy)
+            }
+            
+            var executedByUser: UserProfile?
+            if let executedBy = fetched.executedBy {
+                executedByUser = try? await authService.getUserProfile(by: executedBy)
+            }
+            
             await MainActor.run {
                 self.workOrder = fetched
+                self.vehicle = fetchedVehicle
+                self.reportedBy = executedByUser // Mechanic who completed/reported it
+                self.assignedBy = scheduledByUser // Fleet manager who assigned it
                 self.state = .loaded(())
             }
         } catch let error as AppError {
@@ -43,21 +68,38 @@ final class PastWorkOrderDetailsViewModel: ObservableObject {
         }
     }
     
-    var formattedTotalCost: String {
+    var formattedPartsCost: String {
         guard let order = workOrder else { return "₹0" }
-        
-        let laborCost = Decimal(0)
-        
         let parts = order.mappedParts.isEmpty ? order.usedParts : order.mappedParts
         let partsCost = parts.reduce(Decimal(0)) { $0 + ($1.unitPrice * Decimal($1.quantity)) }
-        let total = laborCost + partsCost
-        
-        let numberFormatter = NumberFormatter()
-        numberFormatter.numberStyle = .currency
-        numberFormatter.currencySymbol = "₹"
-        numberFormatter.maximumFractionDigits = 0
-        
-        return numberFormatter.string(from: NSDecimalNumber(decimal: total)) ?? "₹0"
+        return formatCurrency(partsCost)
+    }
+    
+    var formattedLaborCost: String {
+        guard let order = workOrder else { return "₹0" }
+        let parts = order.mappedParts.isEmpty ? order.usedParts : order.mappedParts
+        let partsCost = parts.reduce(Double(0)) { $0 + (Double(truncating: $1.unitPrice as NSNumber) * Double($1.quantity)) }
+        let total = order.totalCostDB ?? 0.0
+        let labor = max(0, total - partsCost)
+        return formatCurrency(Decimal(labor))
+    }
+    
+    var formattedTotalCost: String {
+        guard let order = workOrder else { return "₹0" }
+        if let total = order.totalCostDB {
+            return formatCurrency(Decimal(total))
+        }
+        let parts = order.mappedParts.isEmpty ? order.usedParts : order.mappedParts
+        let partsCost = parts.reduce(Decimal(0)) { $0 + ($1.unitPrice * Decimal($1.quantity)) }
+        return formatCurrency(partsCost)
+    }
+
+    private func formatCurrency(_ value: Decimal) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencySymbol = "₹"
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSDecimalNumber(decimal: value)) ?? "₹0"
     }
     
     var usedParts: [PartItem] {

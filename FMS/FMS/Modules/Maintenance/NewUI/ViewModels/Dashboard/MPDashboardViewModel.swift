@@ -52,7 +52,7 @@ final class MPDashboardViewModel: ObservableObject {
             if let currentUser = try? await authService.currentUser() {
                 user = currentUser
             }
-            vehicles = try await vehicleService.vehiclesNeedingAttention()
+            vehicles = try await vehicleService.allVehicles()
             let allWorkOrders = try await workOrderService.assignedWorkOrders()
             
             // Only show work orders assigned to the current user
@@ -69,7 +69,8 @@ final class MPDashboardViewModel: ObservableObject {
                     subtitle: subtitle,
                     date: order.dueDate,
                     status: order.status,
-                    elapsedTime: order.elapsedTime
+                    elapsedTime: order.elapsedTime,
+                    vehicleType: vehicle?.vehicleType
                 )
             }.sorted { $0.date > $1.date }
             
@@ -82,31 +83,55 @@ final class MPDashboardViewModel: ObservableObject {
         }
     }
     
-    var inProgressCount: Int {
-        workOrders.filter { $0.status == .inProgress }.count
+    var todayWorkOrders: [DashboardWorkOrder] {
+        activeDashboardOrders.filter {
+            let startOfToday = Calendar.current.startOfDay(for: Date())
+            let startOfTomorrow = Calendar.current.startOfDay(for: Date().addingTimeInterval(86400))
+            let isScheduledToday = $0.workOrder.dueDate >= startOfToday && $0.workOrder.dueDate < startOfTomorrow
+            return isScheduledToday || $0.workOrder.status == .inProgress
+        }.sorted(by: sortDashboardOrders)
     }
     
-    var completedCount: Int {
-        workOrders.filter { $0.status == .completed }.count
-    }
-    
-    var remainingCount: Int {
-        workOrders.filter { $0.status.isStartable }.count
+    var pendingWorkOrders: [DashboardWorkOrder] {
+        activeDashboardOrders.filter {
+            let startOfToday = Calendar.current.startOfDay(for: Date())
+            return $0.workOrder.dueDate < startOfToday && $0.workOrder.status != .inProgress
+        }.sorted(by: sortDashboardOrders)
     }
     
     var upcomingWorkOrders: [DashboardWorkOrder] {
-        let activeOrders = workOrders.filter { $0.status.isStartable }
+        activeDashboardOrders.filter {
+            let startOfTomorrow = Calendar.current.startOfDay(for: Date().addingTimeInterval(86400))
+            return $0.workOrder.dueDate >= startOfTomorrow && $0.workOrder.status != .inProgress
+        }.sorted(by: sortDashboardOrders)
+    }
+    
+    private var activeDashboardOrders: [DashboardWorkOrder] {
+        let activeOrders = workOrders.filter { $0.status.isStartable || $0.status == .inProgress }
         return activeOrders.map { order in
             let vehicle = vehicles.first(where: { $0.id.uuidString == order.vehicleID })
             return DashboardWorkOrder(workOrder: order, vehicle: vehicle)
+        }
+    }
+    
+    // Sort logic: In-Progress first, then by oldest due date
+    private func sortDashboardOrders(_ a: DashboardWorkOrder, _ b: DashboardWorkOrder) -> Bool {
+        if a.workOrder.status == .inProgress && b.workOrder.status != .inProgress {
+            return true
+        } else if a.workOrder.status != .inProgress && b.workOrder.status == .inProgress {
+            return false
+        } else {
+            return a.workOrder.dueDate < b.workOrder.dueDate
+        }
+    }
+    
+    var completedWorkOrders: [DashboardWorkOrder] {
+        let completedOrders = workOrders.filter { $0.status == .completed || $0.status == .fake }
+        return completedOrders.map { order in
+            let vehicle = vehicles.first(where: { $0.id.uuidString == order.vehicleID })
+            return DashboardWorkOrder(workOrder: order, vehicle: vehicle)
         }.sorted { 
-            if $0.workOrder.isUrgent == true && $1.workOrder.isUrgent != true {
-                return true
-            } else if $0.workOrder.isUrgent != true && $1.workOrder.isUrgent == true {
-                return false
-            } else {
-                return $0.workOrder.dueDate < $1.workOrder.dueDate
-            }
+            $0.workOrder.dueDate > $1.workOrder.dueDate
         }
     }
 }

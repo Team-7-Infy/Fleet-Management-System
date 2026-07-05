@@ -23,6 +23,8 @@ final class AppServices {
         userManagementService = UserManagementService(supabase: supabase)
         fleetNotificationService = FleetNotificationService(supabase: supabase)
         notificationService = NotificationService(supabase: supabase)
+
+        ThresholdStore.shared.configure(supabase: supabase)
     }
 }
 
@@ -72,7 +74,7 @@ struct AppRouter: View {
             FleetManagerDashboardView(services: services, onLogout: logout)
 
         case .maintenancePersonnel:
-            MaintenanceTabRouter(onLogout: logout, supabaseClient: services.supabase.client)
+            MaintenanceTabRouter(onLogout: logout, supabaseClient: services.supabase.client, notificationService: services.notificationService)
 
         case .driver(let user):
             DriverDashboardView(services: services, user: user, onLogout: logout)

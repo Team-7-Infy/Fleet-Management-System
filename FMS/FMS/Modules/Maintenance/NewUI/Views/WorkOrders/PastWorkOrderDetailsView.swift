@@ -7,6 +7,9 @@ struct PastWorkOrderDetailsView: View {
     
     @StateObject private var viewModel: PastWorkOrderDetailsViewModel
     
+    @State private var selectedPhotoUrl: String?
+    @State private var isShowingPhoto = false
+    
     init(workOrderID: WorkOrder.ID, dependencies: AppDependencyContainer, navigation: TabNavigationState) {
         self.workOrderID = workOrderID
         self.dependencies = dependencies
@@ -33,70 +36,107 @@ struct PastWorkOrderDetailsView: View {
         .task {
             await viewModel.load()
         }
+        .fullScreenCover(isPresented: $isShowingPhoto) {
+            if let url = selectedPhotoUrl {
+                PhotoViewer(photoUrl: url, isPresented: $isShowingPhoto)
+            }
+        }
     }
     
     private func summaryCards(for workOrder: WorkOrder) -> some View {
         VStack(spacing: 16) {
-            // Card 1: Work Order Name & Status
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("WORK ORDER")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color.gray)
+            
+            // Card 1: Title & Description
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top) {
                     Text(workOrder.title)
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(AppColor.textPrimary)
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(workOrder.status == .completed ? "COMPLETED" : (workOrder.status == .fake ? "FAKE" : workOrder.status.title.uppercased()))
+                            .font(.system(size: 10, weight: .bold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(workOrder.status == .fake ? Color.red.opacity(0.15) : Color.green.opacity(0.15))
+                            .foregroundStyle(workOrder.status == .fake ? Color.red : Color.green)
+                            .clipShape(Capsule())
+                        
+                        if workOrder.isUrgent == true {
+                            Text("URGENT")
+                                .font(.system(size: 10, weight: .bold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Color.red.opacity(0.15))
+                                .foregroundStyle(Color.red)
+                                .clipShape(Capsule())
+                        }
+                    }
                 }
-                Spacer()
-                Text(workOrder.status == .completed ? "COMPLETED" : workOrder.status.title.uppercased())
-                    .font(.system(size: 10, weight: .bold))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(AppColor.inProgress.opacity(0.1))
-                    .foregroundStyle(AppColor.inProgress)
-                    .clipShape(Capsule())
+                
+                Text(workOrder.description)
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(16)
             .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
-            .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
-
-            // Card 2: Labor & Parts
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+            
+            // Card 2: Service Details
             VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Image(systemName: "clock")
-                        .foregroundStyle(AppColor.inProgress)
-                    Text("Labor Time")
-                        .font(.system(size: 14, weight: .semibold))
-                    Spacer()
-                    Text(viewModel.formattedLaborTime)
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(Color.gray)
-                }
+                Text("Service Details")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(AppColor.textPrimary)
                 
-                let parts = viewModel.usedParts
-                if !parts.isEmpty {
-                    Divider()
-                    HStack {
-                        Image(systemName: "wrench.adjustable")
-                            .foregroundStyle(AppColor.inProgress)
-                        Text("Parts Used")
-                            .font(.system(size: 14, weight: .semibold))
+                Divider()
+                
+                VStack(spacing: 12) {
+                    if let vehicle = viewModel.vehicle {
+                        detailRow(title: "Vehicle", value: "\(vehicle.licencePlate)\n\(vehicle.make) \(vehicle.model)")
+                    } else {
+                        detailRow(title: "Vehicle", value: workOrder.vehicleName)
                     }
                     
+                    if let assignedBy = viewModel.assignedBy {
+                        detailRow(title: "Assigned By", value: assignedBy.fullName)
+                    } else {
+                        detailRow(title: "Assigned By", value: "Fleet Manager")
+                    }
+                    
+                    if let completedAt = workOrder.completedAt {
+                        detailRow(title: workOrder.status == .fake ? "Reported Date" : "Completion Date", value: formatDateTime(completedAt))
+                    }
+                }
+                
+                
+                let photosToShow = workOrder.status == .fake ? (workOrder.fakeReportPhotoUrls ?? workOrder.photoUrls) : workOrder.photoUrls
+                
+                if let photoUrls = photosToShow, !photoUrls.isEmpty {
+                    Divider()
+                    
+                    Text(workOrder.status == .fake ? "Report Photos" : "Photos")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppColor.textPrimary)
+                    
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(parts, id: \.id) { part in
-                                HStack(spacing: 4) {
-                                    Image(systemName: "gearshape")
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(AppColor.inProgress)
-                                    Text("\(part.name) x\(part.quantity)")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(Color.black.opacity(0.7))
+                        HStack(spacing: 12) {
+                            ForEach(photoUrls, id: \.self) { urlString in
+                                AsyncImage(url: URL(string: urlString)) { image in
+                                    image
+                                        .resizable()
+                                        .scaledToFill()
+                                } placeholder: {
+                                    Color.gray.opacity(0.2)
                                 }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color.gray.opacity(0.1))
-                                .clipShape(Capsule())
+                                .frame(width: 80, height: 80)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .onTapGesture {
+                                    selectedPhotoUrl = urlString
+                                    isShowingPhoto = true
+                                }
                             }
                         }
                     }
@@ -104,30 +144,142 @@ struct PastWorkOrderDetailsView: View {
             }
             .padding(16)
             .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
-            .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
-
-            // Card 3: Total Cost
-            HStack {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(AppColor.inProgress.opacity(0.1))
-                            .frame(width: 32, height: 32)
-                        Image(systemName: "banknote")
-                            .foregroundStyle(AppColor.inProgress)
-                            .font(.system(size: 14))
-                    }
-                    Text("Total Cost")
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+            
+            // Card 3: Service Summary (Only for completed)
+            if workOrder.status != .fake {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Service Summary")
                         .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(AppColor.textPrimary)
+                    
+                    Divider()
+                    
+                    VStack(spacing: 12) {
+                        detailRow(title: "Time Taken", value: viewModel.formattedLaborTime)
+                        
+                        if !viewModel.usedParts.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text("Parts Used")
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(Color.gray)
+                                    Spacer()
+                                }
+                                
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    ForEach(viewModel.usedParts, id: \.id) { part in
+                                        Text("\(part.name) (x\(part.quantity))")
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundStyle(AppColor.textPrimary)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                            }
+                        }
+                        
+                        detailRow(title: "Total Cost", value: viewModel.formattedTotalCost, valueColor: AppColor.inProgress)
+                    }
+                    
+                    if let remarks = workOrder.remarks, !remarks.isEmpty {
+                        Divider()
+                        
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Remarks")
+                                .font(.system(size: 14))
+                                .foregroundStyle(Color.gray)
+                            Text(remarks)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(AppColor.textPrimary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                 }
-                Spacer()
-                Text(viewModel.formattedTotalCost)
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(AppColor.inProgress)
+                .padding(16)
+                .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+            } else {
+                if let remarks = workOrder.remarks, !remarks.isEmpty {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Reason")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(AppColor.textPrimary)
+                        
+                        Divider()
+                        
+                        Text(remarks)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(AppColor.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(16)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                }
             }
-            .padding(16)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
-            .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
+        }
+    }
+    
+    private func detailRow(title: String, value: String, valueColor: Color = AppColor.textPrimary) -> some View {
+        HStack(alignment: .top) {
+            Text(title)
+                .font(.system(size: 14))
+                .foregroundStyle(Color.gray)
+            
+            Spacer()
+            
+            Text(value)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(valueColor)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+    
+    private func formatDateTime(_ isoString: String) -> String {
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        var date = isoFormatter.date(from: isoString)
+        if date == nil {
+            let fallback = DateFormatter()
+            fallback.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            date = fallback.date(from: isoString)
+        }
+        
+        if let validDate = date {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "dd MMM HH:mm"
+            return formatter.string(from: validDate)
+        }
+        return isoString
+    }
+}
+
+struct PhotoViewer: View {
+    let photoUrl: String
+    @Binding var isPresented: Bool
+    
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Color.black.ignoresSafeArea()
+            
+            AsyncImage(url: URL(string: photoUrl)) { image in
+                image
+                    .resizable()
+                    .scaledToFit()
+            } placeholder: {
+                ProgressView()
+                    .tint(.white)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            Button {
+                isPresented = false
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 32))
+                    .foregroundStyle(Color.white, Color.gray.opacity(0.5))
+                    .padding()
+            }
         }
     }
 }

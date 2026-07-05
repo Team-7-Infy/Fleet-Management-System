@@ -1,5 +1,14 @@
 import Foundation
 import Combine
+import Combine
+
+struct WorkOrderDraft: Codable {
+    let elapsedTime: TimeInterval
+    let remarks: String
+    let laborCost: String
+    let usedParts: [PartItem]
+    let timestamp: Date
+}
 
 final class CompleteWorkOrderViewModel: ObservableObject {
     @Published private(set) var workOrder: WorkOrder?
@@ -13,10 +22,8 @@ final class CompleteWorkOrderViewModel: ObservableObject {
     @Published var laborCost: String = ""
     @Published var remarks: String = ""
     
-    private var timer: Timer?
-    private var isTimerRunning = false
+    private var startTime: Date?
     var wasCompleted = false
-    var wasExplicitlyPaused = false
     
     // Mock parts exactly matching the design
     @Published var usedParts: [PartItem] = []
@@ -46,7 +53,10 @@ final class CompleteWorkOrderViewModel: ObservableObject {
         vehicleService = dependencies.vehicleService
     }
 
+    private var isLoaded = false
+    
     func load() async {
+        if isLoaded { return }
         state = .loading
         do {
             workOrder = try await workOrderService.workOrder(id: workOrderID)
@@ -69,9 +79,42 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                     } else {
                         self.usedParts = []
                     }
+                    self.remarks = wo.remarks ?? ""
+                    
+                    if let totalCostDB = wo.totalCostDB {
+                        let partsCost = self.usedParts.reduce(0.0) { $0 + (Double(truncating: $1.unitPrice as NSNumber) * Double($1.quantity)) }
+                        let calculatedLabor = totalCostDB - partsCost
+                        if calculatedLabor > 0 {
+                            self.laborCost = String(format: "%.2f", calculatedLabor)
+                        } else {
+                            self.laborCost = ""
+                        }
+                    }
+                    
+                    // Check for local draft
+                    let draftKey = "draft_wo_\(self.workOrderID)"
+                    if let data = UserDefaults.standard.data(forKey: draftKey),
+                       let draft = try? JSONDecoder().decode(WorkOrderDraft.self, from: data) {
+                        
+                        // Merge draft if it has data
+                        if draft.elapsedTime > self.elapsedTime {
+                            self.elapsedTime = draft.elapsedTime
+                        }
+                        if !draft.remarks.isEmpty {
+                            self.remarks = draft.remarks
+                        }
+                        if !draft.laborCost.isEmpty {
+                            self.laborCost = draft.laborCost
+                        }
+                        if !draft.usedParts.isEmpty {
+                            self.usedParts = draft.usedParts
+                        }
+                    }
+                    
                     self.currentVehicleType = fetchedVehicleType
                 }
-                startTimer()
+                self.startTime = Date()
+                self.isLoaded = true
                 state = .loaded(())
             }
             // Mark task as in-progress immediately when the view loads
@@ -80,7 +123,9 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                     id: workOrderID,
                     status: .inProgress,
                     elapsedTime: elapsedTime,
-                    parts: usedParts
+                    parts: usedParts,
+                    remarks: nil,
+                    totalCost: nil
                 )
             }
         } catch let error as AppError {
@@ -90,62 +135,20 @@ final class CompleteWorkOrderViewModel: ObservableObject {
         }
     }
     
-    func pauseAndExit() async {
-        stopTimer()
-        wasExplicitlyPaused = true
-        
-        // Save parts to database on pause
-        do {
-            try await workOrderService.updateWorkOrder(
-                id: workOrderID,
-                status: .inProgress,
-                elapsedTime: elapsedTime,
-                parts: usedParts
-            )
-            
-            if let wo = workOrder {
-                let activity = Activity(
-                    id: UUID().uuidString,
-                    title: wo.title,
-                    subtitle: "For \(wo.vehicleName)",
-                    date: Date(),
-                    status: .inProgress,
-                    elapsedTime: self.elapsedTime
-                )
-                try await activityService.logActivity(activity)
-            }
-        } catch {
-            print("Failed to save work order state: \(error)")
-        }
-        NotificationCenter.default.post(name: NSNotification.Name("WorkOrderUpdated"), object: nil)
-    }
-    
-    func saveWorkProgress() async {
-        do {
-            try await workOrderService.updateWorkOrder(
-                id: workOrderID,
-                status: .inProgress,
-                elapsedTime: elapsedTime,
-                parts: usedParts
-            )
-        } catch {
-            print("Failed to save work progress: \(error)")
-        }
-        NotificationCenter.default.post(name: NSNotification.Name("WorkOrderUpdated"), object: nil)
-    }
-    
     func completeWorkOrder() async {
-        stopTimer()
         wasCompleted = true
-        
+        if let start = startTime {
+            elapsedTime += Date().timeIntervalSince(start)
+        }
 
-        
         do {
             try await workOrderService.updateWorkOrder(
                 id: workOrderID,
                 status: .completed,
                 elapsedTime: elapsedTime,
-                parts: usedParts
+                parts: usedParts,
+                remarks: remarks,
+                totalCost: totalCost
             )
             
             if let wo = workOrder {
@@ -159,25 +162,53 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                 )
                 try await activityService.logActivity(activity)
             }
+            
+            // Clear local draft upon completion
+            UserDefaults.standard.removeObject(forKey: "draft_wo_\(workOrderID)")
+            
+            NotificationCenter.default.post(name: NSNotification.Name("WorkOrderUpdated"), object: nil)
         } catch {
-            print("Failed to complete work order: \(error)")
-        }
-        NotificationCenter.default.post(name: NSNotification.Name("WorkOrderUpdated"), object: nil)
-    }
-    
-    func startTimer() {
-        guard !isTimerRunning else { return }
-        isTimerRunning = true
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            self.elapsedTime += 1
+            await MainActor.run {
+                self.errorMessage = "Failed to complete work order: \(error.localizedDescription)"
+                self.showError = true
+            }
         }
     }
     
-    func stopTimer() {
-        timer?.invalidate()
-        timer = nil
-        isTimerRunning = false
+    func pauseWorkOrder() {
+        if wasCompleted { return }
+        
+        var currentElapsedTime = elapsedTime
+        if let start = startTime {
+            currentElapsedTime += Date().timeIntervalSince(start)
+        }
+        
+        let partsToSave = usedParts
+        let currentRemarks = remarks
+        let currentCost = totalCost
+        
+        // Save local draft
+        let draft = WorkOrderDraft(
+            elapsedTime: currentElapsedTime,
+            remarks: currentRemarks,
+            laborCost: laborCost,
+            usedParts: partsToSave,
+            timestamp: Date()
+        )
+        if let data = try? JSONEncoder().encode(draft) {
+            UserDefaults.standard.set(data, forKey: "draft_wo_\(workOrderID)")
+        }
+        
+        Task {
+            try? await workOrderService.updateWorkOrder(
+                id: workOrderID,
+                status: .inProgress,
+                elapsedTime: currentElapsedTime,
+                parts: partsToSave,
+                remarks: currentRemarks.isEmpty ? nil : currentRemarks,
+                totalCost: currentCost
+            )
+        }
     }
     
     func incrementPart(id: String) {

@@ -6,6 +6,11 @@ enum AppRoute: Hashable {
     case completeWorkOrder(workOrderID: WorkOrder.ID)
     case workOrderSuccess(workOrderID: WorkOrder.ID, elapsedTime: TimeInterval, parts: [PartItem], laborCost: Decimal)
     case upcomingMaintenanceList
+    case allUpcomingWorkOrders
+    case allUnfinishedWorkOrders
+    case allHistoryWorkOrders
     case vehicleDetails(vehicleID: String)
     case pastWorkOrderDetails(workOrderID: WorkOrder.ID)
+    case vehicleWorkOrderDetails(vehicleID: String, workOrderID: WorkOrder.ID)
+    case vehicleServiceHistory(vehicleID: String)
 }

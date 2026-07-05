@@ -33,7 +33,7 @@ struct MyJobsView: View {
             .padding(AppSpacing.large)
         }
         .background(AppColor.background.ignoresSafeArea())
-        .navigationTitle(AppTab.myJobs.title)
+        .navigationTitle("On Going")
         .onAppear {
             Task {
                 await viewModel.load()

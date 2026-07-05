@@ -2,13 +2,27 @@ import SwiftUI
 
 struct AppRootView: View {
     let dependencies: AppDependencyContainer
+    let notificationService: NotificationServiceProtocol
 
     var body: some View {
-        RootTabView(dependencies: dependencies)
+        RootTabView(dependencies: dependencies, notificationService: notificationService)
             .tint(AppColor.brand)
     }
 }
 
 #Preview {
-    AppRootView(dependencies: .mock())
+    let mock = PreviewNotificationService()
+    AppRootView(dependencies: .mock(), notificationService: mock)
+}
+
+private actor PreviewNotificationService: NotificationServiceProtocol {
+    func fetchNotifications(for recipientId: UUID?) async throws -> [AppNotification] { [] }
+    func markAsRead(id: UUID) async throws {}
+    func markAllAsRead(for recipientId: UUID?) async throws {}
+    func subscribeToRealtime(for recipientId: UUID?) -> AsyncStream<AppNotification> {
+        AsyncStream { $0.finish() }
+    }
+    func subscribeToTripsRealtime(forDriverId driverId: UUID) -> AsyncStream<Trip> {
+        AsyncStream { $0.finish() }
+    }
 }

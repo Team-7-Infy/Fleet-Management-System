@@ -12,6 +12,7 @@ struct InventoryPart: Identifiable, Codable, Hashable, Sendable {
     var unit: String?
     var reorderLevel: Int?
     var unitCost: Double?
+    var threshold: Int
 
     enum CodingKeys: String, CodingKey {
         case id = "partid"
@@ -25,5 +26,6 @@ struct InventoryPart: Identifiable, Codable, Hashable, Sendable {
         case unit
         case reorderLevel = "reorderlevel"
         case unitCost = "unitcost"
+        case threshold
     }
 }
