@@ -11,10 +11,18 @@ struct EndTripView: View {
     @State private var endOdometer: String = ""
     @State private var endFuel: Double = 50.0
     @State private var needsMaintenance: Bool = false
+    @State private var maintenanceTitle: String = ""
+    @State private var maintenanceDescription: String = ""
     @State private var isSubmitting: Bool = false
 
     private var isFormValid: Bool {
-        !endOdometer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let baseValid = !endOdometer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if needsMaintenance {
+            return baseValid &&
+                   !maintenanceTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                   !maintenanceDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        return baseValid
     }
 
     var body: some View {
@@ -159,7 +167,7 @@ struct EndTripView: View {
                                     .tracking(1.0)
                             }
                             
-                            Toggle(isOn: $needsMaintenance) {
+                            Toggle(isOn: $needsMaintenance.animation()) {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Needs Maintenance")
                                         .font(.subheadline)
@@ -171,6 +179,36 @@ struct EndTripView: View {
                                 }
                             }
                             .tint(.orange)
+                            
+                            if needsMaintenance {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Maintenance Title *")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.primary)
+                                    TextField("e.g. Brake noise, Flat tire", text: $maintenanceTitle)
+                                        .font(.subheadline)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 10)
+                                        .background(Color(.systemGray6))
+                                        .cornerRadius(8)
+                                }
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Maintenance Description *")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.primary)
+                                    TextField("Describe the issue in detail", text: $maintenanceDescription)
+                                        .font(.subheadline)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 10)
+                                        .background(Color(.systemGray6))
+                                        .cornerRadius(8)
+                                }
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
                         }
                         .padding(20)
                         .background(Color(UIColor.secondarySystemGroupedBackground))
@@ -242,8 +280,8 @@ struct EndTripView: View {
                     
                     let maintenanceTask = MaintenanceTask(
                         id: UUID(),
-                        title: "Post-trip Defect",
-                        description: "Post-trip inspection flagged for maintenance. Odometer: \(odoDouble) km, Fuel Level: \(Int(endFuel))%.",
+                        title: maintenanceTitle,
+                        description: maintenanceDescription,
                         scheduledDate: DateOnly(wrappedValue: Date()),
                         isUrgent: true,
                         scheduledBy: nil,

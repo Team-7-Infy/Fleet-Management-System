@@ -405,7 +405,7 @@ struct DashboardView: View {
                     )
                 }
             }
-            .fullScreenCover(isPresented: $showingInspectionSheet) {
+            .sheet(isPresented: $showingInspectionSheet) {
                 NavigationStack {
                     InspectionFlowView(
                         services: services,
@@ -417,7 +417,7 @@ struct DashboardView: View {
                     )
                 }
             }
-            .fullScreenCover(item: $selectedTripForPostInspection) { tripToInspect in
+            .sheet(item: $selectedTripForPostInspection) { tripToInspect in
                 EndTripView(
                     trip: tripToInspect,
                     services: services,
