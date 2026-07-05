@@ -300,24 +300,7 @@ struct DashboardView: View {
                     .padding(.bottom, 40)
                 }
 
-                if showingTripSuccess, let successTrip = completedTripForSuccess {
-                    TripCompletionSuccessView(
-                        trip: successTrip,
-                        distance: successDistance,
-                        durationMinutes: successDuration,
-                        onDismiss: {
-                            withAnimation(.spring()) {
-                                showingTripSuccess = false
-                            }
-                            completedTripForSuccess = nil
-                            Task {
-                                await onRefreshData?()
-                            }
-                        }
-                    )
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .zIndex(200)
-                }
+
 
                 if notificationViewModel.showBanner, let banner = notificationViewModel.currentBanner {
                     NotificationBannerView(
@@ -402,6 +385,23 @@ struct DashboardView: View {
                         tripId: liveTrip?.id.uuidString ?? "TRP-8472",
                         startLocation: liveTrip?.startLocation ?? "Yard",
                         endLocation: liveTrip?.endLocation ?? "Destination"
+                    )
+                }
+            }
+            .sheet(isPresented: $showingTripSuccess, onDismiss: {
+                completedTripForSuccess = nil
+                Task {
+                    await onRefreshData?()
+                }
+            }) {
+                if let successTrip = completedTripForSuccess {
+                    TripCompletionSuccessView(
+                        trip: successTrip,
+                        distance: successDistance,
+                        durationMinutes: successDuration,
+                        onDismiss: {
+                            showingTripSuccess = false
+                        }
                     )
                 }
             }
