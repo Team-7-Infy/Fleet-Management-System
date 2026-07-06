@@ -227,7 +227,18 @@ struct ActiveTrackingView: View {
                 )
             }
             .sheet(isPresented: $showingFuelSheet) {
-                TripFuelHistoryView()
+                NavigationStack {
+                    TripFuelHistoryView(
+                        isReadOnly: false,
+                        activeTripId: activeTripId,
+                        vehicleNumber: "",
+                        expenseService: services?.expenseService,
+                        driverId: driver?.id,
+                        vehicleId: nil,
+                        vehicleFuelType: nil
+                    )
+                    .environmentObject(localStore)
+                }
             }
             .sheet(isPresented: $showingTripDetailsSheet) {
                 ActiveTripDetailView(

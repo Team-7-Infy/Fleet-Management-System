@@ -18,6 +18,10 @@ struct ExpenseEntry: Identifiable, Codable, Hashable, Sendable {
     var notes: String?
     var createdAt: Date
 
+    var quantityUnit: String {
+        fuelType == "cng" ? "kg" : "L"
+    }
+
     enum CodingKeys: String, CodingKey {
         case id
         case tripId = "trip_id"

@@ -533,7 +533,7 @@ struct CompletedTripDetailView: View {
                                     .foregroundColor(.primary)
                                 Spacer()
                                 if let volume = refill.volumeFilled {
-                                    Text("\(volume, specifier: "%.1f") L")
+                                    Text("\(volume, specifier: "%.1f") \(refill.refillUnit)")
                                         .font(.footnote)
                                         .fontWeight(.semibold)
                                 }

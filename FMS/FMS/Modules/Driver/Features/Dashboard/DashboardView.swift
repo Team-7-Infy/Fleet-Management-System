@@ -431,7 +431,18 @@ struct DashboardView: View {
                 )
             }
             .sheet(isPresented: $showingFuelSheet) {
-                TripFuelHistoryView()
+                NavigationStack {
+                    TripFuelHistoryView(
+                        isReadOnly: false,
+                        activeTripId: viewModel.activeTripId,
+                        vehicleNumber: "",
+                        expenseService: services.expenseService,
+                        driverId: driver?.id,
+                        vehicleId: liveTrip?.vehicleId,
+                        vehicleFuelType: nil
+                    )
+                    .environmentObject(localStore)
+                }
             }
             .sheet(isPresented: $showingLogbookSheet) {
                 NavigationStack {
@@ -1197,7 +1208,7 @@ struct FuelLogView: View {
                 }.padding(.horizontal)
 
                 Button("Save Fuel Entry") {
-                    let fuelType: FuelRecord.FuelType = selectedType == "Petrol" ? .petrol : selectedType == "EV Charging" ? .ev : .diesel
+                    let fuelType: FuelRecord.FuelType = selectedType == "Petrol" ? .petrol : selectedType == "CNG" ? .cng : .diesel
                     localStore.submitFuelRequest(vehicleId: "", fuelType: fuelType, amount: Double(fuelAmount) ?? 0, currentLevel: 0)
                     dismiss()
                 }

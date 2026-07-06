@@ -21,6 +21,27 @@ final actor ExpenseService: ExpenseServiceProtocol {
             .value
     }
 
+    func fetchExpensesByDriver(driverId: UUID) async throws -> [ExpenseEntry] {
+        try await supabase.client
+            .from("expense_entries")
+            .select()
+            .eq("driver_id", value: driverId.uuidString)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    func fetchFuelExpenses(driverId: UUID) async throws -> [ExpenseEntry] {
+        try await supabase.client
+            .from("expense_entries")
+            .select()
+            .eq("driver_id", value: driverId.uuidString)
+            .eq("expense_type", value: "fuel")
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
     func createExpense(_ entry: ExpenseEntry) async throws -> ExpenseEntry {
         try await supabase.client
             .from("expense_entries")

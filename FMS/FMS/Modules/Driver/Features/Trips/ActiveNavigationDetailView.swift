@@ -551,8 +551,18 @@ struct ActiveNavigationDetailView: View {
                         }
                         .accessibilityLabel("Add Fuel")
                         .sheet(isPresented: $showingFuelSheet) {
-                            FuelRequestView(assignedVehicle: assignedVehicle)
+                            NavigationStack {
+                                TripFuelHistoryView(
+                                    isReadOnly: false,
+                                    activeTripId: viewModel.tripId,
+                                    vehicleNumber: assignedVehicle,
+                                    expenseService: services.expenseService,
+                                    driverId: trip.driverId,
+                                    vehicleId: trip.vehicleId,
+                                    vehicleFuelType: nil
+                                )
                                 .environmentObject(localStore)
+                            }
                         }
                         
                         // 4. SOS Button
