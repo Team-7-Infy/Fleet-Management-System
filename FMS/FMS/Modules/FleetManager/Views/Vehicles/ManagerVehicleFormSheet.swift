@@ -112,7 +112,7 @@ struct ManagerVehicleFormSheet: View {
             FleetFormFieldLabel("Fuel Type")
             Picker(selection: $form.fuelType) {
                 Text("None").tag("")
-                ForEach(["petrol", "diesel", "cng", "ev"], id: \.self) { type in
+                ForEach(["petrol", "diesel", "cng"], id: \.self) { type in
                     Text(type.capitalized).tag(type)
                 }
             } label: {
