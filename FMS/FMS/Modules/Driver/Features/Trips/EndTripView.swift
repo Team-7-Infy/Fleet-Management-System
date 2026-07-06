@@ -355,6 +355,18 @@ struct EndTripView: View {
                         try await services.maintenanceService.addTaskVehicle(taskVehicle)
                     }
 
+                    let postTripNotification = AppNotification(
+                        id: UUID(),
+                        title: "Post-trip Inspection Failed",
+                        message: "\(failedItems.count) defect(s) found on \(vehicle.licencePlate). Work order(s) created for: \(failedItems.map(\.name).joined(separator: ", ")).",
+                        type: "work_order_assigned",
+                        isRead: false,
+                        referenceId: trip.id,
+                        recipientId: nil,
+                        createdAt: Date()
+                    )
+                    _ = try? await services.notificationService.createNotification(postTripNotification)
+
                     vehicle.status = .inMaintenance
                     vehicle.driverId = nil
                 }

@@ -892,6 +892,7 @@ struct ActiveNavigationDetailView: View {
         .onAppear {
             self.isTripStopped = UserDefaults.standard.bool(forKey: "trip_\(trip.id.uuidString)_paused")
             locationService.requestPermission()
+            locationService.notificationService = services.notificationService
             locationService.startTracking(
                 tripId: trip.id,
                 vehicleId: trip.vehicleId,

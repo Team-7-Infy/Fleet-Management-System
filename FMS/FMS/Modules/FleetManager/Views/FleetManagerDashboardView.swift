@@ -158,6 +158,46 @@ struct FleetManagerDashboardView: View {
                 type: "user_created"
             )
         }
+        .onChange(of: tripsViewModel.successMessage) { _, message in
+            guard let message else { return }
+            if message.hasPrefix("Trip created") {
+                let title = message.contains("assigned to") ? "Trip Assigned" : "Trip Created"
+                notificationViewModel.addLocalNotification(
+                    title: title,
+                    message: message,
+                    type: "trip_assignment"
+                )
+            } else if message.hasPrefix("Rejection approved") {
+                notificationViewModel.addLocalNotification(
+                    title: "Trip Reassigned",
+                    message: message,
+                    type: "trip_assignment"
+                )
+            } else if message.hasPrefix("Rejection denied") {
+                notificationViewModel.addLocalNotification(
+                    title: "Rejection Denied",
+                    message: message,
+                    type: "trip_assignment"
+                )
+            }
+        }
+        .onChange(of: maintenanceViewModel.successMessage) { _, message in
+            guard let message else { return }
+            if message == "Task assigned." {
+                notificationViewModel.addLocalNotification(
+                    title: "Work Order Assigned",
+                    message: "A maintenance task has been assigned to personnel.",
+                    type: "work_order_assigned"
+                )
+            } else if message.hasPrefix("Task marked") {
+                let status = message.replacingOccurrences(of: "Task marked ", with: "").replacingOccurrences(of: ".", with: "")
+                notificationViewModel.addLocalNotification(
+                    title: "Work Order \(status.capitalized)",
+                    message: message,
+                    type: "work_order_assigned"
+                )
+            }
+        }
         .sheet(item: $addSheet) { sheet in
             ManagerAddSheetView(
                 sheet: sheet,
@@ -252,6 +292,9 @@ struct FleetManagerDashboardView: View {
                 vehiclesViewModel: vehiclesViewModel,
                 usersViewModel: usersViewModel,
                 inventoryService: services.inventoryService,
+                onNotification: { title, message, type in
+                    notificationViewModel.addLocalNotification(title: title, message: message, type: type)
+                },
                 openMaintenanceRequest: {
                     maintenanceVehicleId = nil
                     addSheet = .maintenanceRequest

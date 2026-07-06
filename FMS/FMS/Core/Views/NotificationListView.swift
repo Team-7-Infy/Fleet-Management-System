@@ -76,6 +76,15 @@ struct NotificationListView: View {
                                             .tint(.blue)
                                         }
                                     }
+                                    .swipeActions(edge: .trailing) {
+                                        Button(role: .destructive) {
+                                            Task {
+                                                await viewModel.deleteNotification(item)
+                                            }
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -87,14 +96,24 @@ struct NotificationListView: View {
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if !viewModel.notifications.isEmpty && viewModel.unreadCount > 0 {
+            if !viewModel.notifications.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Mark All Read") {
-                        Task {
-                            await viewModel.markAllAsRead()
+                    Menu {
+                        if viewModel.unreadCount > 0 {
+                            Button {
+                                Task { await viewModel.markAllAsRead() }
+                            } label: {
+                                Label("Mark All Read", systemImage: "envelope.open")
+                            }
                         }
+                        Button(role: .destructive) {
+                            Task { await viewModel.clearAllNotifications() }
+                        } label: {
+                            Label("Clear All", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
-                    .font(.subheadline)
                 }
             }
         }

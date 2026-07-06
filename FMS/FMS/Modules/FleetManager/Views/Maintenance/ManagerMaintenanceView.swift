@@ -13,6 +13,7 @@ struct ManagerMaintenanceView: View {
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
     var inventoryService: InventoryServiceProtocol
+    var onNotification: ((String, String, String) -> Void)?
     @State private var selectedSegment: MaintenanceSegment = .active
     @State private var searchText = ""
     var openMaintenanceRequest: () -> Void
@@ -101,7 +102,7 @@ struct ManagerMaintenanceView: View {
                     }
                 }
                 NavigationLink {
-                    ManagerInventoryView(inventoryService: inventoryService)
+                    ManagerInventoryView(inventoryService: inventoryService, onNotification: onNotification)
                 } label: {
                     Image(systemName: "shippingbox")
                 }
@@ -214,6 +215,7 @@ private struct UrgentTag: View {
 
 private struct ManagerInventoryView: View {
     var inventoryService: InventoryServiceProtocol
+    var onNotification: ((String, String, String) -> Void)?
     @State private var parts: [InventoryPart] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -368,6 +370,14 @@ private struct ManagerInventoryView: View {
                 isImporting = false
                 importResult = nil
                 await loadParts()
+                let lowStockCount = lowStockParts.count
+                if lowStockCount > 0 {
+                    onNotification?(
+                        "Low Stock Alert",
+                        "\(lowStockCount) item(s) are at or below reorder level. Review Low Stock Quotation for details.",
+                        "inventory_alert"
+                    )
+                }
             } catch {
                 importSuccessMessage = nil
                 importResult = CSVImportResult(validRows: [], errors: [

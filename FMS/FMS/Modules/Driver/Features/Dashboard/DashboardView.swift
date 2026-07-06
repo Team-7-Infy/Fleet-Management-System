@@ -583,6 +583,17 @@ struct DashboardView: View {
     private func rejectTrip(_ trip: Trip, reason: String) async {
         do {
             try await services.tripService.updateTripStatus(id: trip.id, status: .rejectionPending, rejectionReason: reason)
+            let notification = AppNotification(
+                id: UUID(),
+                title: "Trip Rejected by Driver",
+                message: "Driver rejected trip from \(trip.startLocation) to \(trip.endLocation). Reason: \(reason)",
+                type: "trip_assignment",
+                isRead: false,
+                referenceId: trip.id,
+                recipientId: nil,
+                createdAt: Date()
+            )
+            _ = try? await services.notificationService.createNotification(notification)
             await onRefreshData?()
         } catch {
             print("Failed to reject trip: \(error)")

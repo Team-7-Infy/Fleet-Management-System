@@ -536,6 +536,18 @@ struct InspectionView: View {
                     try await services.maintenanceService.addTaskVehicle(taskVehicle)
                 }
                 
+                let inspectionNotification = AppNotification(
+                    id: UUID(),
+                    title: "\(isPostTrip ? "Post-trip" : "Pre-trip") Inspection Failed",
+                    message: "\(failedItems.count) defect(s) found on \(vehicle.licencePlate). Work order(s) created for: \(failedItems.map(\.name).joined(separator: ", ")).",
+                    type: "work_order_assigned",
+                    isRead: false,
+                    referenceId: tripUuid,
+                    recipientId: nil,
+                    createdAt: Date()
+                )
+                _ = try? await services.notificationService.createNotification(inspectionNotification)
+                
                 // 4. Update the vehicle status to .maintenance and clear its driver in DB
                 var updatedVehicle = vehicle
                 updatedVehicle.status = .inMaintenance

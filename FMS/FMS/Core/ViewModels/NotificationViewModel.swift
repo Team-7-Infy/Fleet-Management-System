@@ -105,6 +105,40 @@ final class NotificationViewModel: ObservableObject {
         }
     }
 
+    func deleteNotification(_ notification: AppNotification) async {
+        do {
+            try await notificationService.deleteNotification(id: notification.id)
+        } catch {
+            print("Failed to delete notification from server: \(error.localizedDescription)")
+        }
+        await MainActor.run {
+            notifications.removeAll { $0.id == notification.id }
+            localNotifications.removeAll { $0.id == notification.id }
+            unreadCount = notifications.filter { !$0.isRead }.count
+        }
+    }
+
+    func clearAllNotifications() async {
+        guard let userId = recipientId else {
+            await MainActor.run {
+                notifications.removeAll()
+                localNotifications.removeAll()
+                unreadCount = 0
+            }
+            return
+        }
+        do {
+            try await notificationService.clearAllNotifications(for: userId)
+        } catch {
+            print("Failed to clear all notifications from server: \(error.localizedDescription)")
+        }
+        await MainActor.run {
+            notifications.removeAll()
+            localNotifications.removeAll()
+            unreadCount = 0
+        }
+    }
+
     func addLocalNotification(title: String, message: String, type: String = "system") {
         let notification = AppNotification(
             id: UUID(),

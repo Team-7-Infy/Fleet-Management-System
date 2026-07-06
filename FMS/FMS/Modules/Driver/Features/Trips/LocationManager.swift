@@ -20,6 +20,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private var activeVehicleId: UUID?
     private var activeDriverId: UUID?
     private var tripService: TripServiceProtocol?
+    var notificationService: NotificationServiceProtocol?
     private var lastAlertTime: Date?
 
     private var isStationary: Bool = false
@@ -234,6 +235,20 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                     tripId: tripId
                 )
                 _ = try await service.createDeviationAlert(alert)
+
+                if let notificationService {
+                    let notification = AppNotification(
+                        id: UUID(),
+                        title: "Route Deviation Detected",
+                        message: "Vehicle has deviated from planned route by \(String(format: "%.0f", distance)) meters.",
+                        type: "geofence_exit",
+                        isRead: false,
+                        referenceId: tripId,
+                        recipientId: nil,
+                        createdAt: Date()
+                    )
+                    _ = try? await notificationService.createNotification(notification)
+                }
             } catch {
                 print("Failed to report deviation alert: \(error.localizedDescription)")
             }
