@@ -310,6 +310,8 @@ struct ActiveNavigationDetailView: View {
     
     // Map tracking locks
     @State private var isTrackingVehicle = true
+    @State private var zoomMeters: Double = 600.0
+    @State private var isSimulationStarted = false
     
     // Sliding bottom sheet state variables
     @State private var sheetOffset: CGFloat = 0.0
@@ -362,8 +364,8 @@ struct ActiveNavigationDetailView: View {
         let center = simulatedCoordinate ?? locationService.location?.coordinate ?? viewModel.startCoordinate
         let region = MKCoordinateRegion(
             center: center,
-            latitudinalMeters: 600,
-            longitudinalMeters: 600
+            latitudinalMeters: zoomMeters,
+            longitudinalMeters: zoomMeters
         )
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
             cameraPosition = .region(region)
@@ -428,6 +430,11 @@ struct ActiveNavigationDetailView: View {
                 }
             }
             .onMapCameraChange { (context: MapCameraUpdateContext) in
+                let latMeters = context.region.span.latitudeDelta * 111_000
+                if latMeters > 50 {
+                    zoomMeters = latMeters
+                }
+                
                 if let simulatedCoord = simulatedCoordinate {
                     let mapCenter = context.region.center
                     let centerLoc = CLLocation(latitude: mapCenter.latitude, longitude: mapCenter.longitude)
@@ -683,6 +690,7 @@ struct ActiveNavigationDetailView: View {
                                 HapticManager.shared.triggerImpact(style: .medium)
                                 withAnimation(.spring()) {
                                     isTripStopped.toggle()
+                                    UserDefaults.standard.set(isTripStopped, forKey: "trip_\(trip.id.uuidString)_paused")
                                 }
                             }) {
                                 ZStack {
@@ -722,6 +730,7 @@ struct ActiveNavigationDetailView: View {
                             TripCompletionFormView(
                                 activeTripId: trip.id.uuidString,
                                 trip: trip,
+                                previousOdometer: vehicles.first(where: { $0.id == trip.vehicleId })?.odometer ?? 0.0,
                                 onComplete: { finalOdometer, finalFuelLevel, needsMaintenance, driverNote in
                                     Task {
                                         var updatedTrip = trip
@@ -733,6 +742,12 @@ struct ActiveNavigationDetailView: View {
                                         updatedTrip.endTime = Date()
                                         updatedTrip.driverNote = driverNote
                                         _ = try? await services.tripService.updateTrip(updatedTrip)
+                                        
+                                        // Update vehicle odometer in DB
+                                        if var vehicleModel = try? await services.vehicleService.fetchVehicle(id: trip.vehicleId) {
+                                            vehicleModel.odometer = finalOdo
+                                            _ = try? await services.vehicleService.updateVehicle(vehicleModel)
+                                        }
                                         
                                         let startOdoVal = startOdo > 0 ? startOdo : (finalOdo - 12.4)
                                         let dist = max(1.2, finalOdo - startOdoVal)
@@ -801,15 +816,34 @@ struct ActiveNavigationDetailView: View {
                 title: Text("EMERGENCY SOS"),
                 message: Text("Triggering SOS will instantly broadcast your live coordinates and alert fleet dispatch."),
                 primaryButton: .destructive(Text("CONFIRM EMERGENCY SOS")) {
-                    print("Emergency SOS Triggered!")
                     Task {
-                        try? await services.tripService.updateTripStatus(
-                            id: trip.id,
-                            status: .rejected,
-                            rejectionReason: "SOS Emergency: Automatically cancelled via emergency SOS alert during active navigation."
-                        )
+                        do {
+                            try await services.tripService.updateTripStatus(
+                                id: trip.id,
+                                status: .cancelled,
+                                rejectionReason: "SOS Emergency: Automatically cancelled via emergency SOS alert during active navigation."
+                            )
+                            
+                            // Send notification to manager instantly
+                            let notification = AppNotification(
+                                id: UUID(),
+                                title: "CRITICAL: Driver SOS Emergency",
+                                message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation) during active navigation.",
+                                type: "geofence_exit",
+                                isRead: false,
+                                referenceId: trip.id,
+                                recipientId: nil,
+                                createdAt: Date()
+                            )
+                            _ = try? await services.notificationService.createNotification(notification)
+                            
+                            await MainActor.run {
+                                onBack()
+                            }
+                        } catch {
+                            print("Failed to cancel trip on SOS: \(error)")
+                        }
                     }
-                    onBack()
                 },
                 secondaryButton: .cancel()
             )
@@ -820,10 +854,11 @@ struct ActiveNavigationDetailView: View {
             }
             if didConfirmCancel {
                 HapticManager.shared.triggerNotification(type: .success)
+                UserDefaults.standard.removeObject(forKey: "trip_\(trip.id.uuidString)_paused")
                 Task {
                     try? await services.tripService.updateTripStatus(
                         id: trip.id,
-                        status: .rejected,
+                        status: .cancelled,
                         rejectionReason: cancelComments.isEmpty ? cancelReason : "\(cancelReason): \(cancelComments)"
                     )
                 }
@@ -837,6 +872,7 @@ struct ActiveNavigationDetailView: View {
             )
         }
         .onAppear {
+            self.isTripStopped = UserDefaults.standard.bool(forKey: "trip_\(trip.id.uuidString)_paused")
             locationService.requestPermission()
             locationService.startTracking()
             
@@ -861,12 +897,14 @@ struct ActiveNavigationDetailView: View {
             locationService.startMonitoringRoute(
                 tripId: trip.id,
                 vehicleId: trip.vehicleId,
+                driverId: trip.driverId ?? UUID(),
                 waypoints: waypoints,
                 service: services.tripService
             )
         }
         .onReceive(viewModel.$routeCoordinates) { coords in
-            guard !coords.isEmpty else { return }
+            guard !coords.isEmpty && !isSimulationStarted else { return }
+            isSimulationStarted = true
             simulationTimer?.invalidate()
             simulatedIndex = 0
             simulatedCoordinate = coords.first
@@ -883,9 +921,14 @@ struct ActiveNavigationDetailView: View {
                     let kmLeft = calculateRemainingDistance(from: simulatedIndex, coordinates: coords)
                     liveDistanceRemaining = String(format: "%.1f km", kmLeft)
                     
+                    if let simCoord = simulatedCoordinate {
+                        let loc = CLLocation(latitude: simCoord.latitude, longitude: simCoord.longitude)
+                        locationService.updateLocation(loc)
+                    }
+                    
                     if isTrackingVehicle, let simulatedCoord = simulatedCoordinate {
                         withAnimation {
-                            cameraPosition = .region(MKCoordinateRegion(center: simulatedCoord, latitudinalMeters: 600, longitudinalMeters: 600))
+                            cameraPosition = .region(MKCoordinateRegion(center: simulatedCoord, latitudinalMeters: zoomMeters, longitudinalMeters: zoomMeters))
                         }
                     }
                 } else {

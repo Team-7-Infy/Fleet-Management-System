@@ -23,7 +23,9 @@ struct AllUpcomingWorkOrdersView: View {
                     VStack(spacing: 0) {
                         ForEach(Array(viewModel.upcomingWorkOrders.enumerated()), id: \.element.id) { index, item in
                             Button {
-                                // push to summary
+                                let vehicleIdStr = item.vehicle?.id.uuidString
+                                let vId = vehicleIdStr ?? item.workOrder.vehicleID
+                                navigation.push(.vehicleWorkOrderDetails(vehicleID: vId, workOrderID: item.workOrder.id))
                             } label: {
                                 workOrderRow(for: item, isLast: index == viewModel.upcomingWorkOrders.count - 1, showDate: true)
                             }

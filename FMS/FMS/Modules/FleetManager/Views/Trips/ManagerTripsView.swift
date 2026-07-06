@@ -221,6 +221,13 @@ private struct ManagerTripGroupSection: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            Task { await viewModel.delete(trip) }
+                        } label: {
+                            Label("Cancel / Delete Trip", systemImage: "trash")
+                        }
+                    }
                 }
             }
         }
@@ -406,6 +413,22 @@ private struct ManagerTripCard: View {
                 }
                 .padding(.top, 2)
             }
+
+            if let reason = trip.rejectionReason, !reason.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.subheadline)
+                        .foregroundColor(.orange)
+                    Text(reason)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.orange.opacity(0.08))
+                .cornerRadius(10)
+            }
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -581,6 +604,13 @@ struct ManagerTripDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarHidden(isMapFullScreen)
         .toolbar(isMapFullScreen ? .hidden : .automatic, for: .tabBar)
+        .toolbar {
+            if !isMapFullScreen {
+                ToolbarItem(placement: .topBarTrailing) {
+                    TripActionMenu(trip: currentTrip, viewModel: viewModel)
+                }
+            }
+        }
     }
 
     private var fullScreenMapView: some View {
@@ -588,7 +618,9 @@ struct ManagerTripDetailView: View {
             RouteMapPreview(
                 startLocation: currentTrip.startLocation,
                 endLocation: currentTrip.endLocation,
-                isLive: isLive
+                isLive: isLive,
+                driverId: currentTrip.driverId,
+                viewModel: viewModel
             )
             .ignoresSafeArea()
 
@@ -631,7 +663,9 @@ struct ManagerTripDetailView: View {
             RouteMapPreview(
                 startLocation: currentTrip.startLocation,
                 endLocation: currentTrip.endLocation,
-                isLive: isLive
+                isLive: isLive,
+                driverId: currentTrip.driverId,
+                viewModel: viewModel
             )
             .frame(height: 330)
 
@@ -803,11 +837,15 @@ private struct RouteMapPreview: View {
     var startLocation: String
     var endLocation: String
     var isLive: Bool
+    var driverId: UUID?
+    var viewModel: TripManagementViewModel
+    
     @State private var pickup: TripPlace?
     @State private var destination: TripPlace?
     @State private var estimate: TripRouteEstimate?
     @State private var position: MapCameraPosition = .automatic
     @State private var isLoading = false
+    @State private var liveLocation: CLLocationCoordinate2D? = nil
 
     var body: some View {
         Map(position: $position) {
@@ -824,6 +862,11 @@ private struct RouteMapPreview: View {
             if let destination {
                 Marker("Destination", systemImage: "flag.checkered", coordinate: destination.coordinate)
                     .tint(FleetPalette.accent)
+            }
+            
+            if isLive, let liveLocation {
+                Marker("Driver Location", systemImage: "car.fill", coordinate: liveLocation)
+                    .tint(.blue)
             }
         }
         .overlay {
@@ -842,7 +885,7 @@ private struct RouteMapPreview: View {
                 .foregroundStyle(FleetPalette.textSecondary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(.ultraThinMaterial, in: Capsule())
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -857,6 +900,21 @@ private struct RouteMapPreview: View {
         }
         .task(id: "\(startLocation)|\(endLocation)") {
             await loadRoute()
+        }
+        .task(id: driverId) {
+            guard isLive, let driverId else { return }
+            while !Task.isCancelled {
+                if let telemetry = try? await viewModel.fetchTelemetry(driverId: driverId) {
+                    await MainActor.run {
+                        let coord = CLLocationCoordinate2D(latitude: telemetry.latitude, longitude: telemetry.longitude)
+                        self.liveLocation = coord
+                        withAnimation {
+                            self.position = .region(MKCoordinateRegion(center: coord, latitudinalMeters: 1000, longitudinalMeters: 1000))
+                        }
+                    }
+                }
+                try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            }
         }
     }
 

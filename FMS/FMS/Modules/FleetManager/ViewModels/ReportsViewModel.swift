@@ -3,32 +3,42 @@ import Combine
 import SwiftUI
 
 enum PeriodPreset: String, CaseIterable, Identifiable, Hashable, Sendable {
-    case oneMonth = "1M"
-    case threeMonths = "3M"
-    case sixMonths = "6M"
+    case twoMonths = "2M"
+    case fourMonths = "4M"
+    case eightMonths = "8M"
     case oneYear = "1Y"
 
     var id: String { rawValue }
 
     var calendarMonths: Int {
         switch self {
-        case .oneMonth: return 1
-        case .threeMonths: return 3
-        case .sixMonths: return 6
+        case .twoMonths: return 2
+        case .fourMonths: return 4
+        case .eightMonths: return 8
         case .oneYear: return 12
         }
     }
 
-    var dateRange: Range<Date> {
+    var monthStarts: [Date] {
+        let calendar = Calendar.current
         let now = Date()
-        let start = Calendar.current.date(byAdding: .month, value: -calendarMonths, to: now) ?? now
-        return start..<now
+        let currentMonthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
+        return (0..<calendarMonths).reversed().compactMap { i in
+            calendar.date(byAdding: .month, value: -i, to: currentMonthStart)
+        }
+    }
+
+    var dateRange: Range<Date> {
+        guard let start = monthStarts.first else {
+            return Date()..<Date()
+        }
+        return start..<Date()
     }
 }
 
 @MainActor
 final class ReportsViewModel: ObservableObject {
-    @Published var selectedPeriod: PeriodPreset = .oneMonth
+    @Published var selectedPeriod: PeriodPreset = .twoMonths
 
     let tripsViewModel: TripManagementViewModel
     let vehiclesViewModel: VehicleViewModel
@@ -50,7 +60,10 @@ final class ReportsViewModel: ObservableObject {
     // MARK: - Period Helpers
 
     private var currentMonthRange: Range<Date> {
-        PeriodPreset.oneMonth.dateRange
+        let calendar = Calendar.current
+        let now = Date()
+        let start = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
+        return start..<now
     }
 
     var periodRange: Range<Date> {
@@ -94,7 +107,7 @@ final class ReportsViewModel: ObservableObject {
     }
 
     var overdueMaintenanceCount: Int {
-        maintenanceViewModel.tasks.filter { $0.status != .completed }.count
+        maintenanceViewModel.tasks.filter { $0.status.isOpen }.count
     }
 
     var vehiclesInMaintenanceCount: Int {
@@ -106,7 +119,7 @@ final class ReportsViewModel: ObservableObject {
     }
 
     var urgentTasksCount: Int {
-        maintenanceViewModel.tasks.filter { $0.isUrgent && $0.status != .completed }.count
+        maintenanceViewModel.tasks.filter { $0.isUrgent && $0.status.isOpen }.count
     }
 
     var currentMonthMaintenanceCost: Double {
@@ -178,23 +191,15 @@ final class ReportsViewModel: ObservableObject {
 
     var filteredTripsByMonth: [TripMonthData] {
         let calendar = Calendar.current
-        let range = periodRange
-        var result: [TripMonthData] = []
-
-        var monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: range.lowerBound))!
-        let endMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: range.upperBound))!
-        let endMonthStart = calendar.date(byAdding: .month, value: 1, to: endMonth)!
-
-        while monthStart < endMonthStart {
+        let starts = selectedPeriod.monthStarts
+        return starts.enumerated().map { (index, monthStart) in
             let nextMonth = calendar.date(byAdding: .month, value: 1, to: monthStart)!
+            let upperBound = (index == starts.count - 1) ? Date() : min(nextMonth, Date())
             let count = tripsViewModel.trips.filter {
-                $0.startTime >= monthStart && $0.startTime < nextMonth
+                $0.startTime >= monthStart && $0.startTime < upperBound
             }.count
-            result.append(TripMonthData(monthStart: monthStart, count: count))
-            monthStart = nextMonth
+            return TripMonthData(monthStart: monthStart, count: count)
         }
-
-        return result
     }
 
     // MARK: - Expenditure Breakdown
@@ -237,24 +242,16 @@ final class ReportsViewModel: ObservableObject {
 
     var fleetUtilizationByMonth: [FleetUtilizationMonthData] {
         let calendar = Calendar.current
-        let range = periodRange
-        var result: [FleetUtilizationMonthData] = []
-
-        var monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: range.lowerBound))!
-        let endMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: range.upperBound))!
-        let endMonthStart = calendar.date(byAdding: .month, value: 1, to: endMonth)!
-
-        while monthStart < endMonthStart {
+        let starts = selectedPeriod.monthStarts
+        return starts.enumerated().map { (index, monthStart) in
             let nextMonth = calendar.date(byAdding: .month, value: 1, to: monthStart)!
+            let upperBound = (index == starts.count - 1) ? Date() : min(nextMonth, Date())
             let tripsInMonth = tripsViewModel.trips.filter {
-                $0.startTime >= monthStart && $0.startTime < nextMonth
+                $0.startTime >= monthStart && $0.startTime < upperBound
             }
             let used = Set(tripsInMonth.map(\.vehicleId)).count
-            result.append(FleetUtilizationMonthData(monthStart: monthStart, vehiclesUsed: used))
-            monthStart = nextMonth
+            return FleetUtilizationMonthData(monthStart: monthStart, vehiclesUsed: used)
         }
-
-        return result
     }
 
     var filteredTripsByWeek: [(weekStart: Date, count: Int)] {
@@ -439,7 +436,7 @@ final class ReportsViewModel: ObservableObject {
                 maintenanceViewModel.vehicles(for: t).contains { $0.vin == v.id }
             }
             let overdueTask = vehicleTasks
-                .filter { $0.status != .completed }
+                .filter { $0.status.isOpen }
                 .sorted {
                     let leftDays = calendar.dateComponents([.day], from: $0.reportedOrScheduledDate, to: now).day ?? 0
                     let rightDays = calendar.dateComponents([.day], from: $1.reportedOrScheduledDate, to: now).day ?? 0

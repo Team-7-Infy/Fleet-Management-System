@@ -11,6 +11,7 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
     var driverId: UUID?
     var fuelType: String?
     var addedToFleetAt: Date?
+    var odometer: Double?
 
     enum CodingKeys: String, CodingKey {
         case id = "vin"
@@ -23,6 +24,7 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
         case driverId = "driverid"
         case fuelType = "fuel_type"
         case addedToFleetAt = "added_to_fleet_at"
+        case odometer
     }
     
     var formattedLicencePlate: String { licencePlate }

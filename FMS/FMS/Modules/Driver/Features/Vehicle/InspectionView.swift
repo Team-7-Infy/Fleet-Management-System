@@ -18,6 +18,7 @@ struct InspectionView: View {
     @State private var animationMessage = ""
     @State private var pulseScale: CGFloat = 1.0
     @State private var replacementVehicle: Vehicle? = nil
+    @State private var vehicle: Vehicle? = nil
 
     @StateObject private var viewModel = InspectionViewModel()
     @Environment(\.dismiss) var dismiss
@@ -30,6 +31,10 @@ struct InspectionView: View {
         let seed = trip.tripId.filter { "0123456789".contains($0) }
         let number = (Int(seed) ?? 84) % 10000
         return 124000 + (number * 120)
+    }
+
+    private var previousOdometer: Double {
+        vehicle?.odometer ?? Double(currentOdometer)
     }
 
     private var currentFuelLevel: Int {
@@ -45,7 +50,7 @@ struct InspectionView: View {
         guard hasFailedDefect || viewModel.isComplete else { return false }
         
         let trimmedOdo = odometerInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedOdo.isEmpty, Int(trimmedOdo) != nil else { return false }
+        guard let odoVal = Double(trimmedOdo), odoVal >= previousOdometer else { return false }
         
         let trimmedFuel = fuelInput.trimmingCharacters(in: .whitespacesAndNewlines)
         if let fuelVal = Int(trimmedFuel), fuelVal >= 0 && fuelVal <= 100 {
@@ -63,76 +68,46 @@ struct InspectionView: View {
                 }
 
             VStack(spacing: 0) {
-                // Gradient Header extending under safe area
-                VStack(spacing: 16) {
-                    // Top Bar: Centered title and Close button
+                // Header View
+                VStack(spacing: 8) {
                     ZStack {
-                        Text(isPostTrip ? "Post-Trip Inspection" : "Inspection")
+                        Text(isPostTrip ? "Post-Trip Inspection" : "Pre-Trip Inspection")
                             .font(.headline)
                             .fontWeight(.bold)
                             .foregroundColor(.white)
                         
                         HStack {
                             Spacer()
-                            Button(action: {
-                                if let onBack = onBack {
-                                    onBack()
-                                } else {
-                                    dismiss()
-                                }
-                            }) {
-                                textClose
+                            Button(action: { dismiss() }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.white.opacity(0.85))
                             }
                         }
                     }
                     .padding(.horizontal)
-                    .padding(.top, 44) // Safety space for notch / top screen
+                    .padding(.top, 16)
                     
-                    // Vehicle Info row
-                    HStack(spacing: 12) {
-                        Image(systemName: "shield.fill")
-                            .font(.title2)
-                            .foregroundColor(.white)
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(isPostTrip ? "Post-Trip Safety Inspection" : "Daily Safety Inspection")
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                            Text("Vehicle: \(vehicleNumber)")
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.85))
-                        }
-                        Spacer()
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 20)
+                    Text("Verify vehicle safety before starting trip")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.8))
+                        .padding(.bottom, 16)
                 }
                 .background(
-                    LinearGradient(
-                        colors: [Color(red: 0.0, green: 0.5, blue: 1.0), Color(red: 0.05, green: 0.15, blue: 0.7)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
+                    LinearGradient(colors: [Color(hex: 0x1E3A8A), Color(hex: 0x2563EB)], startPoint: .top, endPoint: .bottom)
+                        .ignoresSafeArea(edges: .top)
                 )
-                .ignoresSafeArea(edges: .top)
 
-                // 2. Interactive Checklist
                 ScrollView {
                     VStack(spacing: 16) {
                         
                         // Odometer & Fuel Level Required Inputs Card
                         VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Image(systemName: "square.and.pencil")
-                                    .foregroundColor(.blue)
-                                    .font(.headline)
-                                Text("REQUIRED METER READINGS")
-                                    .font(.system(size: 11, weight: .black))
-                                    .foregroundColor(.secondary)
-                                    .tracking(1.0)
-                            }
-                            .padding(.bottom, 4)
+                            Text("VEHICLE READINGS")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.secondary)
+                                .padding(.bottom, 4)
                             
                             // Odometer Input Field
                             VStack(alignment: .leading, spacing: 8) {
@@ -146,7 +121,7 @@ struct InspectionView: View {
                                 }
                                 
                                 HStack(spacing: 6) {
-                                    TextField("e.g. \(currentOdometer)", text: $odometerInput)
+                                    TextField("e.g. \(Int(previousOdometer))", text: $odometerInput)
                                         .keyboardType(.numberPad)
                                         .font(.subheadline)
                                         .padding(.horizontal, 12)
@@ -156,6 +131,13 @@ struct InspectionView: View {
                                     Text("km")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
+                                }
+                                
+                                if let val = Double(odometerInput), val < previousOdometer {
+                                    Text("Odometer must be at least \(Int(previousOdometer)) km")
+                                        .font(.caption)
+                                        .foregroundColor(.red)
+                                        .padding(.top, 2)
                                 }
                             }
                             
@@ -367,6 +349,13 @@ struct InspectionView: View {
                 }
             )
         }
+        .task {
+            if let tripUuid = UUID(uuidString: trip.tripId),
+               let tripModel = try? await services.tripService.fetchTrip(id: tripUuid),
+               let fetchedVehicle = try? await services.vehicleService.fetchVehicle(id: tripModel.vehicleId) {
+                self.vehicle = fetchedVehicle
+            }
+        }
     }
 
     private var textClose: some View {
@@ -394,6 +383,20 @@ struct InspectionView: View {
 
         guard !failedItems.isEmpty else {
             // No defects found, proceed normally
+            Task {
+                do {
+                    guard let tripUuid = UUID(uuidString: trip.tripId) else { return }
+                    let tripModel = try await services.tripService.fetchTrip(id: tripUuid)
+                    var vehicleModel = try await services.vehicleService.fetchVehicle(id: tripModel.vehicleId)
+                    if let odoVal = Double(odometerInput) {
+                        vehicleModel.odometer = odoVal
+                        _ = try await services.vehicleService.updateVehicle(vehicleModel)
+                    }
+                } catch {
+                    print("Failed to update vehicle odometer: \(error)")
+                }
+            }
+            
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 viewModel.isSubmitting = false
                 if !isPostTrip {
@@ -440,6 +443,10 @@ struct InspectionView: View {
                     let prefix = isPostTrip ? "Post-trip" : "Pre-trip"
                     let description = "\(prefix) inspection failed for \(item.name) on vehicle \(vehicle.licencePlate) (VIN: \(vehicle.id.uuidString)). Odometer: \(odometerInput) km, Fuel: \(fuelInput)%. Details: \(item.failDescription)"
                     
+                    // Fetch active maintenance personnel to assign
+                    let personnelList = try? await services.userManagementService.fetchMaintenancePersonnel()
+                    let activePersonnel = personnelList?.first(where: { $0.status == .active })
+                    
                     let maintenanceTask = MaintenanceTask(
                         id: UUID(),
                         title: item.name,
@@ -447,8 +454,8 @@ struct InspectionView: View {
                         scheduledDate: DateOnly(wrappedValue: Date()),
                         isUrgent: true,
                         scheduledBy: nil,
-                        executedBy: nil,
-                        status: .scheduled,
+                        executedBy: activePersonnel?.id,
+                        status: activePersonnel != nil ? .assigned : .scheduled,
                         reportedDate: nil,
                         completedAt: nil,
                         timeTakenHours: nil,
@@ -465,9 +472,13 @@ struct InspectionView: View {
                     try await services.maintenanceService.addTaskVehicle(taskVehicle)
                 }
                 
-                // 3. Update the vehicle status to .maintenance in DB
+                // 3. Update the vehicle status to .maintenance and clear its driver in DB
                 var updatedVehicle = vehicle
                 updatedVehicle.status = .maintenance
+                updatedVehicle.driverId = nil
+                if let odoVal = Double(odometerInput) {
+                    updatedVehicle.odometer = odoVal
+                }
                 _ = try await services.vehicleService.updateVehicle(updatedVehicle)
                 
                 // 4. Scan for an available active vehicle of the same type
@@ -485,6 +496,11 @@ struct InspectionView: View {
                 }
                 
                 if let replacement = replacementVehicle {
+                    // Update replacement vehicle to assign the driver in DB
+                    var repVehicle = replacement
+                    repVehicle.driverId = tripModel.driverId
+                    _ = try await services.vehicleService.updateVehicle(repVehicle)
+                    
                     // Update trip to use the replacement vehicle in DB
                     var updatedTrip = tripModel
                     updatedTrip.vehicleId = replacement.id

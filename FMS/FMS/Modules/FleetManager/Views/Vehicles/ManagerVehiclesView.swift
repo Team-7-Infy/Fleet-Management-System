@@ -93,6 +93,13 @@ struct ManagerVehiclesView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        Task { await viewModel.delete(vehicle) }
+                                    } label: {
+                                        Label("Delete Vehicle", systemImage: "trash")
+                                    }
+                                }
 
                                 if index < filteredVehicles.count - 1 {
                                     Divider()

@@ -6,7 +6,7 @@ struct VehicleHealthDetailView: View {
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
 
-    @State private var localPeriod: PeriodPreset = .oneMonth
+    @State private var localPeriod: PeriodPreset = .twoMonths
 
     var body: some View {
         ScrollView {

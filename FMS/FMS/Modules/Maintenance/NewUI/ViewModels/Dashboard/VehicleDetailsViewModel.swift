@@ -24,7 +24,7 @@ final class VehicleDetailsViewModel: ObservableObject {
         state = .loading
         do {
             vehicle = try await vehicleService.vehicle(id: vehicleID)
-            let allWorkOrders = try await workOrderService.assignedWorkOrders().filter { $0.vehicleID == vehicleID.uuidString }
+            let allWorkOrders = try await workOrderService.assignedWorkOrders().filter { $0.vehicleID.caseInsensitiveCompare(vehicleID.uuidString) == .orderedSame }
             
             await MainActor.run {
                 self.assignedWorkOrders = allWorkOrders.filter { $0.status != .completed && $0.status != .fake }

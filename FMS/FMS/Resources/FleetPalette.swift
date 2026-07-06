@@ -86,6 +86,8 @@ enum FleetPalette {
             return inProgress
         case .completed:
             return success
+        case .fake:
+            return danger
         }
     }
 }

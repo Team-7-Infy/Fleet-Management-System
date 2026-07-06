@@ -9,17 +9,26 @@ import SwiftUI
 struct TripActionMenu: View {
     var trip: Trip
     @ObservedObject var viewModel: TripManagementViewModel
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         Menu {
-            Button {
+            Button(role: .destructive) {
+                showDeleteConfirm = true
             } label: {
-                Label("Trips cannot be deleted", systemImage: "lock")
+                Label("Delete / Cancel Trip", systemImage: "trash")
             }
-            .disabled(true)
         } label: {
             Image(systemName: "ellipsis.circle")
         }
         .accessibilityLabel("Trip actions")
+        .alert("Delete Trip?", isPresented: $showDeleteConfirm) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                Task { await viewModel.delete(trip) }
+            }
+        } message: {
+            Text("Are you sure you want to delete/cancel this trip? This will unassign the driver from the vehicle.")
+        }
     }
 }

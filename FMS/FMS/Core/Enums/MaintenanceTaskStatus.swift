@@ -5,4 +5,12 @@ enum MaintenanceTaskStatus: String, Codable, CaseIterable {
     case assigned = "assigned"
     case inProgress = "in_progress"
     case completed = "completed"
+    case fake = "fake"
+
+    var isOpen: Bool {
+        switch self {
+        case .scheduled, .assigned, .inProgress: return true
+        case .completed, .fake: return false
+        }
+    }
 }

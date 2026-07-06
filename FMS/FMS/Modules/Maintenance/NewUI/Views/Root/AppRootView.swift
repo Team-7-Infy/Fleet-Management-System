@@ -17,6 +17,7 @@ struct AppRootView: View {
 
 private actor PreviewNotificationService: NotificationServiceProtocol {
     func fetchNotifications(for recipientId: UUID?, driverId: UUID?) async throws -> [AppNotification] { [] }
+    func createNotification(_ notification: AppNotification) async throws -> AppNotification { notification }
     func markAsRead(id: UUID) async throws {}
     func markAllAsRead(for recipientId: UUID?, driverId: UUID?) async throws {}
     func subscribeToRealtime(for recipientId: UUID?, driverId: UUID?) -> AsyncStream<AppNotification> {

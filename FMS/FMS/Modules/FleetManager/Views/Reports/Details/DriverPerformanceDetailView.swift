@@ -5,7 +5,7 @@ struct DriverPerformanceDetailView: View {
     @ObservedObject var reportsViewModel: ReportsViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
 
-    @State private var localPeriod: PeriodPreset = .oneMonth
+    @State private var localPeriod: PeriodPreset = .twoMonths
 
     var body: some View {
         ScrollView {

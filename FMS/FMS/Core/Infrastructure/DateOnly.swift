@@ -35,3 +35,22 @@ struct DateOnly: Codable, Hashable, Sendable {
         return f
     }()
 }
+
+struct AnyCodingKey: CodingKey {
+    var stringValue: String
+    var intValue: Int?
+    
+    init?(stringValue: String) {
+        self.stringValue = stringValue
+    }
+    
+    init?(intValue: Int) {
+        self.stringValue = "\(intValue)"
+        self.intValue = intValue
+    }
+    
+    init(stringValue: String, intValue: Int? = nil) {
+        self.stringValue = stringValue
+        self.intValue = intValue
+    }
+}

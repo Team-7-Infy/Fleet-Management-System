@@ -19,7 +19,7 @@ struct MPDashboardView: View {
         _notificationViewModel = StateObject(wrappedValue: NotificationViewModel(
             notificationService: notificationService,
             recipientId: nil,
-            role: .manager
+            role: .maintenance
         ))
         self.dependencies = dependencies
         self.navigation = navigation
@@ -75,9 +75,8 @@ struct MPDashboardView: View {
                                     if dashboardOrder.workOrder.status == .completed || dashboardOrder.workOrder.status == .fake {
                                         navigation.push(.pastWorkOrderDetails(workOrderID: dashboardOrder.workOrder.id))
                                     } else {
-                                        if let vehicleId = dashboardOrder.vehicle?.id {
-                                            navigation.push(.vehicleWorkOrderDetails(vehicleID: vehicleId.uuidString, workOrderID: dashboardOrder.workOrder.id))
-                                        }
+                                        let vId = dashboardOrder.vehicle?.id.uuidString ?? dashboardOrder.workOrder.vehicleID
+                                        navigation.push(.vehicleWorkOrderDetails(vehicleID: vId, workOrderID: dashboardOrder.workOrder.id))
                                     }
                                 } label: {
                                     whiteThemeCard(for: dashboardOrder)
@@ -101,9 +100,8 @@ struct MPDashboardView: View {
                                     if dashboardOrder.workOrder.status == .completed || dashboardOrder.workOrder.status == .fake {
                                         navigation.push(.pastWorkOrderDetails(workOrderID: dashboardOrder.workOrder.id))
                                     } else {
-                                        if let vehicleId = dashboardOrder.vehicle?.id {
-                                            navigation.push(.vehicleWorkOrderDetails(vehicleID: vehicleId.uuidString, workOrderID: dashboardOrder.workOrder.id))
-                                        }
+                                        let vId = dashboardOrder.vehicle?.id.uuidString ?? dashboardOrder.workOrder.vehicleID
+                                        navigation.push(.vehicleWorkOrderDetails(vehicleID: vId, workOrderID: dashboardOrder.workOrder.id))
                                     }
                                 } label: {
                                     whiteThemeCard(for: dashboardOrder)
@@ -123,13 +121,17 @@ struct MPDashboardView: View {
         }
         .background(Color(hex: 0xF4F5F9).ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $isShowingProfile) {
+        .navigationDestination(isPresented: $isShowingProfile) {
             MPProfileView(dependencies: dependencies, onLogout: onLogout)
         }
-        .sheet(isPresented: $isShowingNotifications) {
+        .navigationDestination(isPresented: $isShowingNotifications) {
             NotificationListView(viewModel: notificationViewModel)
         }
         .task {
+            await viewModel.load()
+            if let userId = viewModel.user?.id {
+                notificationViewModel.setRecipientId(userId)
+            }
             await notificationViewModel.loadNotifications()
             notificationViewModel.subscribeToRealtime()
         }
@@ -397,6 +399,7 @@ struct MPDashboardView: View {
 
 private actor PreviewNotificationService: NotificationServiceProtocol {
     func fetchNotifications(for recipientId: UUID?, driverId: UUID?) async throws -> [AppNotification] { [] }
+    func createNotification(_ notification: AppNotification) async throws -> AppNotification { notification }
     func markAsRead(id: UUID) async throws {}
     func markAllAsRead(for recipientId: UUID?, driverId: UUID?) async throws {}
     func subscribeToRealtime(for recipientId: UUID?, driverId: UUID?) -> AsyncStream<AppNotification> {

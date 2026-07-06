@@ -39,6 +39,38 @@ final actor NotificationService: NotificationServiceProtocol {
         }
     }
 
+    func createNotification(_ notification: AppNotification) async throws -> AppNotification {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withColonSeparatorInTimeZone]
+
+        var payload: [String: AnyJSON] = [
+            "id": .string(notification.id.uuidString),
+            "title": .string(notification.title),
+            "message": .string(notification.message),
+            "type": .string(notification.type),
+            "is_read": .bool(notification.isRead),
+            "recipient_id": notification.recipientId.map { .string($0.uuidString) } ?? .null,
+            "created_at": .string(formatter.string(from: notification.createdAt))
+        ]
+
+        if let referenceId = notification.referenceId {
+            payload["reference_id"] = .string(referenceId.uuidString)
+        }
+
+        try await supabase.client
+            .from("notifications")
+            .insert(payload)
+            .execute()
+
+        return try await supabase.client
+            .from("notifications")
+            .select()
+            .eq("id", value: notification.id.uuidString)
+            .single()
+            .execute()
+            .value
+    }
+
     func markAsRead(id: UUID) async throws {
         try await supabase.client
             .from("notifications")

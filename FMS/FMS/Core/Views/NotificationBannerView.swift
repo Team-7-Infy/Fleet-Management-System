@@ -9,6 +9,7 @@ struct NotificationBannerView: View {
 
     private var systemImageName: String {
         switch notification.type {
+        case "user_created": return "person.badge.plus.fill"
         case "trip_assignment": return "map.fill"
         case "geofence_exit": return "exclamationmark.triangle.fill"
         case "vehicle_assigned": return "truck.box.fill"
@@ -25,6 +26,7 @@ struct NotificationBannerView: View {
     private var iconColor: Color {
         switch notification.type {
         case "geofence_exit", "trip_delay": return .red
+        case "user_created": return .green
         case "trip_assignment", "vehicle_assigned", "work_order_assigned": return .blue
         case "trip_started", "trip_completed": return .green
         default: return .orange

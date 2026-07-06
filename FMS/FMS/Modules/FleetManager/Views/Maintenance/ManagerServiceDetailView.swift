@@ -85,6 +85,16 @@ struct ManagerServiceDetailView: View {
         .fleetScreenBackground()
         .navigationTitle(currentTask.status == .completed ? "Completed Service" : "Service Details")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                MaintenanceActionMenu(
+                    task: currentTask,
+                    personnel: usersViewModel.maintenancePersonnel.filter { $0.status == .active },
+                    usersViewModel: usersViewModel,
+                    viewModel: viewModel
+                )
+            }
+        }
     }
 
     private var serviceDetails: some View {

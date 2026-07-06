@@ -1,34 +1,10 @@
 import SwiftUI
 
-private enum ManagerServiceFilter: String, CaseIterable, Identifiable {
-    case type
-    case assigned
-    case inProgress
-    case completed
-
+private enum MaintenanceSegment: String, CaseIterable, Identifiable {
+    case active = "Active"
+    case history = "History"
+    
     var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .type: return "Type"
-        case .assigned: return "Assigned"
-        case .inProgress: return "In Progress"
-        case .completed: return "Completed"
-        }
-    }
-
-    func includes(_ task: MaintenanceTask) -> Bool {
-        switch self {
-        case .type:
-            return true
-        case .assigned:
-            return task.status == .assigned
-        case .inProgress:
-            return task.status == .inProgress
-        case .completed:
-            return task.status == .completed
-        }
-    }
 }
 
 struct ManagerMaintenanceView: View {
@@ -36,52 +12,56 @@ struct ManagerMaintenanceView: View {
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
     var inventoryService: InventoryServiceProtocol
-    @State private var filter: ManagerServiceFilter = .type
+    @State private var selectedSegment: MaintenanceSegment = .active
+    @State private var searchText = ""
     var openMaintenanceRequest: () -> Void
 
     private var filteredTasks: [MaintenanceTask] {
-        viewModel.tasks
-            .filter { filter.includes($0) }
-            .sorted {
-                if $0.isUrgent != $1.isUrgent {
-                    return $0.isUrgent && !$1.isUrgent
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let filtered = viewModel.tasks
+            .filter { task in
+                switch selectedSegment {
+                case .active:
+                    return task.status != .completed
+                case .history:
+                    return task.status == .completed
                 }
-                return $0.reportedOrScheduledDate > $1.reportedOrScheduledDate
             }
+            .filter { task in
+                guard query.isEmpty == false else { return true }
+                let vehicle = viewModel.vehicles(for: task).first.flatMap { tv in
+                    vehiclesViewModel.vehicle(for: tv.vin)
+                }
+                let searchable = [
+                    task.displayTitle,
+                    task.description,
+                    task.status.title,
+                    vehicle?.licencePlate,
+                    vehicle.map { "\($0.make) \($0.model)" }
+                ]
+                return searchable.compactMap { $0 }.contains { $0.localizedCaseInsensitiveContains(query) }
+            }
+        return filtered.sorted {
+            if $0.isUrgent != $1.isUrgent {
+                return $0.isUrgent && !$1.isUrgent
+            }
+            return $0.reportedOrScheduledDate > $1.reportedOrScheduledDate
+        }
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Workshop")
-                        .font(.largeTitle.weight(.heavy))
-                        .foregroundStyle(FleetPalette.textPrimary)
-
-                    Spacer()
-
-                    NavigationLink("View Inventory") {
-                        ManagerInventoryView(inventoryService: inventoryService)
-                    }
-                    .font(.subheadline.weight(.semibold))
-                }
+                FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
 
                 if viewModel.tasks.isEmpty {
-                    GlassPanel(hasBorder: false) {
-                        ContentUnavailableView(
-                            "No work orders",
-                            systemImage: "doc.text.magnifyingglass",
-                            description: Text("Request maintenance and assign registered personnel.")
-                        )
-                    }
+                    ContentUnavailableView(
+                        "No work orders",
+                        systemImage: "doc.text.magnifyingglass",
+                        description: Text("Request maintenance and assign registered personnel.")
+                    )
                 } else if filteredTasks.isEmpty {
-                    GlassPanel(hasBorder: false) {
-                        ContentUnavailableView(
-                            "No matching work orders",
-                            systemImage: "line.3.horizontal.decrease",
-                            description: Text("Change the service filter to see more work orders.")
-                        )
-                    }
+                    ContentUnavailableView.search
                 } else {
                     LazyVStack(spacing: 14) {
                         ForEach(filteredTasks) { task in
@@ -107,31 +87,35 @@ struct ManagerMaintenanceView: View {
             .padding()
         }
         .fleetScreenBackground()
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Workshop")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search tasks")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                ServiceFilterMenu(filter: $filter)
-                Button("Request Maintenance", systemImage: "plus", action: openMaintenanceRequest)
+                Menu("Filter", systemImage: "line.3.horizontal.decrease") {
+                    Picker("Service Status", selection: $selectedSegment) {
+                        ForEach(MaintenanceSegment.allCases) { segment in
+                            Text(segment.rawValue).tag(segment)
+                        }
+                    }
+                }
+                NavigationLink {
+                    ManagerInventoryView(inventoryService: inventoryService)
+                } label: {
+                    Image(systemName: "shippingbox")
+                }
+                Button("Request Workshop", systemImage: "plus", action: openMaintenanceRequest)
             }
+        }
+        .task {
+            await viewModel.load()
+            await vehiclesViewModel.load()
+            await usersViewModel.load()
         }
         .refreshable {
             await viewModel.load()
             await vehiclesViewModel.load()
             await usersViewModel.load()
-        }
-    }
-}
-
-private struct ServiceFilterMenu: View {
-    @Binding var filter: ManagerServiceFilter
-
-    var body: some View {
-        Menu("Filter", systemImage: "line.3.horizontal.decrease") {
-            Picker("Service status", selection: $filter) {
-                ForEach(ManagerServiceFilter.allCases) { option in
-                    Text(option.title).tag(option)
-                }
-            }
         }
     }
 }

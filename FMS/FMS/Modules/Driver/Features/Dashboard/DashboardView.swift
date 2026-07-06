@@ -8,6 +8,7 @@ struct DashboardView: View {
     let driver: Driver?
     let trips: [Trip]
     let vehicles: [Vehicle]
+    let onLogout: () -> Void
     var onRefreshData: (() async -> Void)? = nil
 
     @StateObject private var viewModel: DashboardViewModel
@@ -15,13 +16,14 @@ struct DashboardView: View {
     @EnvironmentObject var locationService: LocationManager
     @EnvironmentObject var localStore: LocalDataStore
 
-    init(showingProfile: Binding<Bool>, services: AppServices, user: User, driver: Driver?, trips: [Trip], vehicles: [Vehicle], onRefreshData: (() async -> Void)? = nil) {
+    init(showingProfile: Binding<Bool>, services: AppServices, user: User, driver: Driver?, trips: [Trip], vehicles: [Vehicle], onLogout: @escaping () -> Void, onRefreshData: (() async -> Void)? = nil) {
         self._showingProfile = showingProfile
         self.services = services
         self.user = user
         self.driver = driver
         self.trips = trips
         self.vehicles = vehicles
+        self.onLogout = onLogout
         self.onRefreshData = onRefreshData
         self._viewModel = StateObject(wrappedValue: DashboardViewModel(services: services, driver: driver, user: user))
         self._notificationViewModel = StateObject(
@@ -110,7 +112,8 @@ struct DashboardView: View {
                             notificationViewModel: notificationViewModel,
                             showingNotifications: $showingNotifications,
                             firstName: user.fName,
-                            lastName: user.lName
+                            lastName: user.lName,
+                            avatarImageURL: user.avatarImageURL
                         )
 
                         // --- 1. Active/Post-Trip Section (Highest Priority) ---
@@ -135,6 +138,7 @@ struct DashboardView: View {
                                 VStack(alignment: .leading, spacing: 10) {
                                     SectionHeader(title: "Active Trip")
                                     ActiveRouteCard(
+                                        tripId: active.id.uuidString,
                                         startLocation: active.startLocation,
                                         endLocation: active.endLocation,
                                         distanceCovered: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? "120 km" : "0 km",
@@ -343,8 +347,16 @@ struct DashboardView: View {
             .onDisappear {
                 notificationViewModel.unsubscribeRealtime()
             }
-            .sheet(isPresented: $showingNotifications) {
+            .navigationDestination(isPresented: $showingNotifications) {
                 NotificationListView(viewModel: notificationViewModel)
+            }
+            .navigationDestination(isPresented: $showingProfile) {
+                ProfileHubView(
+                    services: services,
+                    driver: driver,
+                    user: user,
+                    onLogout: onLogout
+                )
             }
             .onChange(of: showingActiveNavigation) { _, newValue in
                 if !newValue {
@@ -366,11 +378,36 @@ struct DashboardView: View {
             .alert(isPresented: $showingSOSAlert) {
                 Alert(
                     title: Text("EMERGENCY SOS"),
-                    message: Text("Are you sure you want to trigger an SOS? This will instantly alert dispatch and share your live location."),
+                    message: Text("Are you sure you want to trigger an SOS? This will instantly cancel your active trip and alert the fleet manager."),
                     primaryButton: .destructive(Text("Trigger SOS")) {
-                        print("SOS Triggered!")
-                        if let _ = viewModel.activeTripId {
-                            // Alert shown, cancellation handled elsewhere
+                        let tripToCancel = trips.first(where: { $0.status == .inProgress }) ?? trips.first(where: { $0.status == .accepted }) ?? trips.first(where: { $0.status == .scheduled })
+                        if let trip = tripToCancel {
+                            Task {
+                                do {
+                                    try await services.tripService.updateTripStatus(
+                                        id: trip.id,
+                                        status: .cancelled,
+                                        rejectionReason: "SOS Emergency: Cancelled via emergency SOS alert."
+                                    )
+                                    
+                                    let notification = AppNotification(
+                                        id: UUID(),
+                                        title: "CRITICAL: Driver SOS Emergency",
+                                        message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation).",
+                                        type: "geofence_exit",
+                                        isRead: false,
+                                        referenceId: trip.id,
+                                        recipientId: nil,
+                                        createdAt: Date()
+                                    )
+                                    _ = try? await services.notificationService.createNotification(notification)
+                                    
+                                    await viewModel.fetchDashboardData()
+                                    await onRefreshData?()
+                                } catch {
+                                    print("Failed to cancel trip on SOS: \(error)")
+                                }
+                            }
                         }
                     },
                     secondaryButton: .cancel()
@@ -503,6 +540,7 @@ struct HomeHeaderView: View {
     @Binding var showingNotifications: Bool
     let firstName: String
     let lastName: String
+    let avatarImageURL: URL?
 
     private var initials: String {
         let f = firstName.first.map { String($0).uppercased() } ?? ""
@@ -540,9 +578,26 @@ struct HomeHeaderView: View {
                         .frame(width: 36, height: 36)
                         .shadow(color: Color.blue.opacity(0.2), radius: 4, x: 0, y: 2)
 
-                    Text(initials)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                    if let avatarImageURL {
+                        AsyncImage(url: avatarImageURL) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 36, height: 36)
+                                    .clipShape(Circle())
+                            default:
+                                Text(initials)
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                    } else {
+                        Text(initials)
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                    }
                 }
             }
         }
@@ -550,6 +605,7 @@ struct HomeHeaderView: View {
 }
 // MARK: - 2. Active Route Card
 struct ActiveRouteCard: View {
+    let tripId: String
     let startLocation: String
     let endLocation: String
     let distanceCovered: String
@@ -686,7 +742,7 @@ struct ActiveRouteCard: View {
                 Button(action: onNavigationTap) {
                     HStack {
                         Image(systemName: "location.north.line.fill")
-                        Text("Open Navigation")
+                        Text(UserDefaults.standard.bool(forKey: "trip_\(tripId)_paused") ? "Continue" : "Open Navigation")
                     }
                     .font(.headline).fontWeight(.bold).frame(maxWidth: .infinity).padding(.vertical, 16)
                     .background(Color(red: 0.12, green: 0.26, blue: 0.55))
@@ -1828,22 +1884,43 @@ struct UpcomingLiveTripCard: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             } else if !isInspected {
-                Button(action: {
-                    HapticManager.shared.triggerImpact(style: .medium)
-                    onPerformInspection()
-                }) {
-                    HStack {
-                        Spacer()
-                        Text("Perform Pre-Trip Inspection")
-                            .font(.headline)
-                            .fontWeight(.bold)
-                        Spacer()
+                if isInspectionEnabled {
+                    Button(action: {
+                        HapticManager.shared.triggerImpact(style: .medium)
+                        onPerformInspection()
+                    }) {
+                        HStack {
+                            Spacer()
+                            Text("Perform Pre-Trip Inspection")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                            Spacer()
+                        }
+                        .padding(.vertical, 16)
+                        .background(Color.orange)
+                        .foregroundColor(.white)
+                        .cornerRadius(14)
+                        .shadow(color: Color.orange.opacity(0.35), radius: 8, x: 0, y: 4)
                     }
-                    .padding(.vertical, 16)
-                    .background(Color.orange)
-                    .foregroundColor(.white)
-                    .cornerRadius(14)
-                    .shadow(color: Color.orange.opacity(0.35), radius: 8, x: 0, y: 4)
+                } else {
+                    VStack(spacing: 8) {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "lock.fill")
+                            Text("Pre-Trip Inspection Locked")
+                                .fontWeight(.bold)
+                            Spacer()
+                        }
+                        .padding(.vertical, 16)
+                        .background(Color.white.opacity(0.15))
+                        .foregroundColor(.white.opacity(0.6))
+                        .cornerRadius(14)
+
+                        Text("Available 3 hours before scheduled departure.")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.6))
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
                 }
             } else {
                 Button(action: {

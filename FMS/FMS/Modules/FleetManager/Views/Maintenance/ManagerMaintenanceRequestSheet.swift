@@ -13,12 +13,31 @@ struct ManagerMaintenanceRequestSheet: View {
     @ObservedObject var viewModel: MaintenanceViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
+    @ObservedObject var tripsViewModel: TripManagementViewModel
     @State private var form = FleetManagerMaintenanceTaskForm()
     var initialVehicleId: UUID?
     var currentUserId: UUID?
 
     private var hasRegisteredPersonnel: Bool {
         usersViewModel.maintenancePersonnel.contains { $0.status == .active }
+    }
+
+    private var availableVehicles: [Vehicle] {
+        var list = vehiclesViewModel.vehicles.filter { $0.status == .active }
+        list = list.filter { vehicle in
+            let isAssignedToActiveTrip = tripsViewModel.activeTrips.contains { $0.vehicleId == vehicle.id }
+            return !isAssignedToActiveTrip
+        }
+        return list
+    }
+
+    private var availablePersonnel: [MaintenancePersonnel] {
+        var list = usersViewModel.maintenancePersonnel.filter { $0.status == .active }
+        list = list.filter { person in
+            let hasOpenTask = viewModel.openTasks.contains { $0.executedBy == person.id }
+            return !hasOpenTask
+        }
+        return list
     }
 
     var body: some View {
@@ -35,7 +54,7 @@ struct ManagerMaintenanceRequestSheet: View {
                 } else {
                     Picker("Vehicle", selection: $form.vehicleId) {
                         Text("Select vehicle").tag(Optional<UUID>.none)
-                        ForEach(vehiclesViewModel.vehicles) { vehicle in
+                        ForEach(availableVehicles) { vehicle in
                             Text(vehicle.licencePlate).tag(Optional(vehicle.id))
                         }
                     }
@@ -48,7 +67,7 @@ struct ManagerMaintenanceRequestSheet: View {
                         .lineLimit(2...4)
                         .fleetField()
 
-                    DatePicker("Scheduled date", selection: $form.scheduledDate, displayedComponents: .date)
+                    DatePicker("Scheduled date", selection: $form.scheduledDate, in: Calendar.current.startOfDay(for: Date())..., displayedComponents: .date)
                         .fleetField()
 
                     Toggle("Urgent", isOn: $form.isUrgent)
@@ -56,7 +75,7 @@ struct ManagerMaintenanceRequestSheet: View {
 
                     Picker("Assign To", selection: $form.executedBy) {
                         Text("Unassigned").tag(Optional<UUID>.none)
-                        ForEach(usersViewModel.maintenancePersonnel) { person in
+                        ForEach(availablePersonnel) { person in
                             let user = usersViewModel.user(for: person.userId)
                             Text(user?.displayName ?? person.id.uuidString)
                                 .tag(Optional(person.id))
@@ -97,7 +116,7 @@ struct ManagerMaintenanceRequestSheet: View {
         .navigationTitle("Request Maintenance")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            form.vehicleId = form.vehicleId ?? initialVehicleId ?? vehiclesViewModel.vehicles.first?.id
+            form.vehicleId = form.vehicleId ?? initialVehicleId ?? availableVehicles.first?.id
             form.executedBy = form.executedBy ?? usersViewModel.maintenancePersonnel.first(where: { $0.status == .active })?.id
             form.title = form.title.isEmpty ? "Engine oil and filter change" : form.title
             form.description = form.description.isEmpty ? "Replace engine oil, oil filter, and inspect for leakage before the next trip." : form.description

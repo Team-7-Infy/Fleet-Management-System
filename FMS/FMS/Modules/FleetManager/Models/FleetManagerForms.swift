@@ -529,6 +529,8 @@ extension MaintenanceTaskStatus: Identifiable {
             return "In Progress"
         case .completed:
             return "Completed"
+        case .fake:
+            return "Flagged"
         }
     }
 }

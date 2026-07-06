@@ -17,7 +17,7 @@ struct ManagerOverviewView: View {
     private var activeTrips: [Trip] {
         tripsViewModel.trips
             .filter { $0.status == .accepted || $0.status == .inProgress }
-            .sorted { $0.startTime < $1.startTime }
+            .sorted { $0.startTime > $1.startTime }
     }
 
     private var pendingTrips: [Trip] {
@@ -75,6 +75,9 @@ struct ManagerOverviewView: View {
         }
         .fleetScreenBackground()
         .refreshable {
+            await refresh()
+        }
+        .task {
             await refresh()
         }
     }

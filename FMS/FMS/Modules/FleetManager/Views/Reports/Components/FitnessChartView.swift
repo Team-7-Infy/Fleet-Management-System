@@ -104,6 +104,15 @@ struct FitnessMonthlyBarChart: View {
     let data: [TripMonthData]
     let color: Color
 
+    private var chartDomain: ClosedRange<Date> {
+        guard let first = data.first?.monthStart, let last = data.last?.monthStart else {
+            return Date()...Date()
+        }
+        let calendar = Calendar.current
+        let endOfLast = calendar.date(byAdding: .month, value: 1, to: last)!
+        return first...endOfLast
+    }
+
     var body: some View {
         Chart(data) { item in
             BarMark(
@@ -113,6 +122,7 @@ struct FitnessMonthlyBarChart: View {
             .clipShape(RoundedRectangle(cornerRadius: 4))
             .foregroundStyle(color.gradient)
         }
+        .chartXScale(domain: chartDomain)
         .chartXAxis {
             AxisMarks(values: .stride(by: .month)) { _ in
                 AxisGridLine().foregroundStyle(.quaternary)
@@ -290,6 +300,13 @@ struct FitnessLineChart: View {
     let totalVehicles: Int
     let color: Color
 
+    private var chartDomain: ClosedRange<Date> {
+        guard let first = data.first?.monthStart, let last = data.last?.monthStart else {
+            return Date()...Date()
+        }
+        return first...last
+    }
+
     var body: some View {
         Chart(data) { item in
             LineMark(
@@ -306,6 +323,7 @@ struct FitnessLineChart: View {
             .foregroundStyle(color)
             .symbolSize(24)
         }
+        .chartXScale(domain: chartDomain)
         .chartXAxis {
             AxisMarks(values: .stride(by: .month)) { _ in
                 AxisGridLine().foregroundStyle(.quaternary)

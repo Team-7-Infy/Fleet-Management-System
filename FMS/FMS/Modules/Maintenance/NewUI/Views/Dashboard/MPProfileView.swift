@@ -24,7 +24,6 @@ struct MPProfileView: View {
                     VStack(spacing: 24) {
                         ProfileHeaderCard(viewModel: viewModel, user: user)
 
-                        // 1. Performance Summary Card
                         ProfilePerformanceSummary(
                             completionRate: viewModel.completionRate,
                             completedJobs: "\(viewModel.completedWorkOrdersCount)",
@@ -32,7 +31,6 @@ struct MPProfileView: View {
                             nextDueJobDate: viewModel.nextDueJobDate
                         )
 
-                        // 2. Contact & Personal Info Cards
                         ProfileInfoSection(title: "Contact Details", rows: [
                             ProfileInfoRow(title: "Mobile", value: user.contactNumber, icon: "phone.fill"),
                             ProfileInfoRow(title: "Email", value: user.email, icon: "envelope.fill")
@@ -43,7 +41,6 @@ struct MPProfileView: View {
                             ProfileInfoRow(title: "Current Address", value: user.address, icon: "mappin.and.ellipse")
                         ])
 
-                        // Sign Out Button
                         Button(role: .destructive) {
                             HapticManager.shared.triggerNotification(type: .warning)
                             showingLogoutAlert = true

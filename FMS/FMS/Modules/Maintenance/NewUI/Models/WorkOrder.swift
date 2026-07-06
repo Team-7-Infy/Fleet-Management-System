@@ -55,8 +55,28 @@ struct WorkOrder: Identifiable, Codable, Hashable {
     var scheduledByRelation: FleetManagerRelation? = nil
     
     // UI Helpers for backward compatibility
-    var vehicleID: String { taskVehicles?.first?.vin.uuidString ?? UUID().uuidString }
-    var vehicleName: String { taskVehicles?.first?.vin.uuidString.prefix(8).uppercased() ?? "Vehicle" }
+    var vehicleID: String {
+        if let vin = taskVehicles?.first?.vin.uuidString {
+            return vin
+        }
+        // Fallback: Parse from description if it contains "(VIN: <UUID>)"
+        if let range = description.range(of: "(VIN: ") {
+            let start = range.upperBound
+            let substring = description[start...]
+            if let endRange = substring.range(of: ")") {
+                let vinString = String(substring[..<endRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if UUID(uuidString: vinString) != nil {
+                    return vinString
+                }
+            }
+        }
+        return UUID().uuidString
+    }
+    
+    var vehicleName: String {
+        let id = vehicleID
+        return id.prefix(8).uppercased()
+    }
     var title: String { taskTitle ?? description }
     var status: JobStatus { JobStatus(rawValue: statusString ?? "") ?? .pending }
     var priority: Priority { isUrgent == true ? .high : .medium }
@@ -155,5 +175,45 @@ struct TaskPartResponse: Codable, Hashable {
     struct InventoryResponse: Codable, Hashable {
         let partid: UUID
         let partname: String?
+    }
+}
+
+extension WorkOrder {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.taskTitle = try container.decodeIfPresent(String.self, forKey: .taskTitle)
+        self.description = try container.decode(String.self, forKey: .description)
+        self.scheduledDate = try container.decodeIfPresent(String.self, forKey: .scheduledDate)
+        self.scheduledBy = try container.decodeIfPresent(UUID.self, forKey: .scheduledBy)
+        self.executedBy = try container.decodeIfPresent(UUID.self, forKey: .executedBy)
+        self.isUrgent = try container.decodeIfPresent(Bool.self, forKey: .isUrgent)
+        self.statusString = try container.decodeIfPresent(String.self, forKey: .statusString)
+        self.totalCostDB = try container.decodeIfPresent(Double.self, forKey: .totalCostDB)
+        self.photoUrls = try container.decodeIfPresent([String].self, forKey: .photoUrls)
+        self.fakeReportPhotoUrls = try container.decodeIfPresent([String].self, forKey: .fakeReportPhotoUrls)
+        self.elapsedTime = try container.decodeIfPresent(TimeInterval.self, forKey: .elapsedTime)
+        self.remarks = try container.decodeIfPresent(String.self, forKey: .remarks)
+        self.completedAt = try container.decodeIfPresent(String.self, forKey: .completedAt)
+        self.scheduledByRelation = try container.decodeIfPresent(FleetManagerRelation.self, forKey: .scheduledByRelation)
+        
+        // Handle taskVehicles robustly
+        if let tv = try? container.decodeIfPresent([MpTaskVehicle].self, forKey: .taskVehicles) {
+            self.taskVehicles = tv
+        } else {
+            let anyContainer = try decoder.container(keyedBy: AnyCodingKey.self)
+            self.taskVehicles = (try? anyContainer.decodeIfPresent([MpTaskVehicle].self, forKey: AnyCodingKey(stringValue: "taskVehicles"))) ??
+                                (try? anyContainer.decodeIfPresent([MpTaskVehicle].self, forKey: AnyCodingKey(stringValue: "task_vehicles")))
+        }
+        
+        // Handle taskParts robustly
+        if let tp = try? container.decodeIfPresent([TaskPartResponse].self, forKey: .taskParts) {
+            self.taskParts = tp
+        } else {
+            let anyContainer = try decoder.container(keyedBy: AnyCodingKey.self)
+            self.taskParts = (try? anyContainer.decodeIfPresent([TaskPartResponse].self, forKey: AnyCodingKey(stringValue: "taskParts"))) ??
+                             (try? anyContainer.decodeIfPresent([TaskPartResponse].self, forKey: AnyCodingKey(stringValue: "maintenance_task_parts"))) ??
+                             (try? anyContainer.decodeIfPresent([TaskPartResponse].self, forKey: AnyCodingKey(stringValue: "maintenanceTaskParts")))
+        }
     }
 }

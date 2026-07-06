@@ -25,6 +25,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     
     private var activeTripId: UUID?
     private var activeVehicleId: UUID?
+    private var activeDriverId: UUID?
     private var tripService: TripServiceProtocol?
     private var lastAlertTime: Date?
     
@@ -51,9 +52,10 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         stopMonitoringRoute()
     }
     
-    func startMonitoringRoute(tripId: UUID, vehicleId: UUID, waypoints: [RouteWaypoint], service: TripServiceProtocol) {
+    func startMonitoringRoute(tripId: UUID, vehicleId: UUID, driverId: UUID, waypoints: [RouteWaypoint], service: TripServiceProtocol) {
         self.activeTripId = tripId
         self.activeVehicleId = vehicleId
+        self.activeDriverId = driverId
         self.waypoints = waypoints
         self.tripService = service
     }
@@ -61,6 +63,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     func stopMonitoringRoute() {
         self.activeTripId = nil
         self.activeVehicleId = nil
+        self.activeDriverId = nil
         self.waypoints = []
         self.tripService = nil
     }
@@ -75,15 +78,41 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let latestLocation = locations.last else { return }
+        updateLocation(latestLocation)
+    }
+
+    func updateLocation(_ newLocation: CLLocation) {
         DispatchQueue.main.async {
-            self.location = latestLocation
+            self.location = newLocation
             self.region = MKCoordinateRegion(
-                center: latestLocation.coordinate,
+                center: newLocation.coordinate,
                 span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
             )
         }
         
-        checkRouteDeviation(currentLocation: latestLocation)
+        checkRouteDeviation(currentLocation: newLocation)
+        uploadLiveTelemetry(currentLocation: newLocation)
+    }
+
+    private func uploadLiveTelemetry(currentLocation: CLLocation) {
+        guard let driverId = activeDriverId, let service = tripService else { return }
+        
+        Task {
+            do {
+                let telemetry = Telemetry(
+                    id: UUID(),
+                    timestamp: Date(),
+                    speed: currentLocation.speed >= 0 ? currentLocation.speed * 3.6 : nil,
+                    driverId: driverId,
+                    latitude: currentLocation.coordinate.latitude,
+                    longitude: currentLocation.coordinate.longitude
+                )
+                _ = try await service.logTelemetry(telemetry)
+                print("Uploaded telemetry to DB: (\(telemetry.latitude), \(telemetry.longitude))")
+            } catch {
+                print("Failed to log live location telemetry: \(error.localizedDescription)")
+            }
+        }
     }
 
     private func checkRouteDeviation(currentLocation: CLLocation) {

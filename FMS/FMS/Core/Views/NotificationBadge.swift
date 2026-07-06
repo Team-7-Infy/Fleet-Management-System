@@ -12,7 +12,7 @@ struct NotificationBadge: View {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "bell")
                     .font(.system(size: 20))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
                     .frame(width: 38, height: 38)
                     .background(Color(UIColor.secondarySystemBackground))
                     .clipShape(Circle())
@@ -23,13 +23,14 @@ struct NotificationBadge: View {
                             .fill(Color.red)
                         Text("\(unreadCount)")
                             .font(.system(size: 9, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                     }
                     .frame(width: 16, height: 16)
                     .offset(x: 4, y: -4)
                 }
             }
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(.plain)
+        .accessibilityLabel("Notifications")
     }
 }
