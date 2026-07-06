@@ -5,10 +5,19 @@ final class ProfileViewModel: ObservableObject {
     @Published private(set) var userProfile: UserProfile?
     @Published private(set) var state: LoadableState<Void> = .idle
 
+    // Statistics for the Performance Card
+    @Published var completedWorkOrdersCount: Int = 0
+    @Published var activeWorkOrdersCount: Int = 0
+    @Published var totalWorkOrdersCount: Int = 0
+    @Published var completionRate: Int = 0
+    @Published var nextDueJobDate: String = "N/A"
+
     private let authService: any AuthServicing
+    private let workOrderService: any WorkOrderServicing
 
     init(dependencies: AppDependencyContainer) {
         authService = dependencies.authService
+        workOrderService = dependencies.workOrderService
     }
 
     func load() async {
@@ -16,10 +25,39 @@ final class ProfileViewModel: ObservableObject {
         do {
             userProfile = try await authService.currentUser()
             state = .loaded(())
+            await loadStats()
         } catch let error as AppError {
             state = .failed(error)
         } catch {
             state = .failed(.unknown(error.localizedDescription))
+        }
+    }
+    
+    func loadStats() async {
+        guard let personnelId = userProfile?.personnelId else { return }
+        do {
+            let allWorkOrders = try await workOrderService.assignedWorkOrders()
+            let assignedOrders = allWorkOrders.filter { $0.executedBy == personnelId }
+            
+            let completed = assignedOrders.filter { $0.status == .completed || $0.status == .fake }
+            let active = assignedOrders.filter { $0.status == .pending || $0.status == .assigned || $0.status == .inProgress }
+            
+            await MainActor.run {
+                self.completedWorkOrdersCount = completed.count
+                self.activeWorkOrdersCount = active.count
+                self.totalWorkOrdersCount = assignedOrders.count
+                self.completionRate = assignedOrders.isEmpty ? 0 : Int(Double(completed.count) / Double(assignedOrders.count) * 100)
+                
+                if let nextOrder = active.min(by: { $0.dueDate < $1.dueDate }) {
+                    let f = DateFormatter()
+                    f.dateFormat = "dd MMM, yyyy"
+                    self.nextDueJobDate = f.string(from: nextOrder.dueDate)
+                } else {
+                    self.nextDueJobDate = "N/A"
+                }
+            }
+        } catch {
+            print("Failed to load work orders stats: \(error)")
         }
     }
     
@@ -90,5 +128,20 @@ final class ProfileViewModel: ObservableObject {
         let contact = Int64(editContact) // Convert to Int64 if valid
         userProfile = try await authService.updateProfile(firstName: editFirstName, lastName: editLastName, contact: contact, address: editAddress)
         NotificationCenter.default.post(name: NSNotification.Name("UserProfileUpdated"), object: nil)
+        await loadStats()
+    }
+
+    @MainActor
+    func updateProfile(firstName: String, lastName: String, contact: String, address: String, newProfileImageData: Data?) async throws {
+        self.editFirstName = firstName
+        self.editLastName = lastName
+        self.editContact = contact
+        self.editAddress = address
+        
+        if let data = newProfileImageData {
+            await updateProfileImage(with: data)
+        }
+        
+        try await updateProfileDetails()
     }
 }

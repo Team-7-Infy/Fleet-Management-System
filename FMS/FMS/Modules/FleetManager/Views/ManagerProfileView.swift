@@ -1,118 +1,112 @@
 import SwiftUI
 import PhotosUI
-internal import PostgREST
 
-struct MPProfileView: View {
+struct ManagerProfileView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var viewModel: ProfileViewModel
+    @StateObject private var viewModel: ManagerProfileViewModel
     @State private var showingLogoutAlert = false
     @State private var showingEditSheet = false
     private let onLogout: () -> Void
 
-    init(dependencies: AppDependencyContainer, onLogout: @escaping () -> Void = {}) {
-        _viewModel = StateObject(wrappedValue: ProfileViewModel(dependencies: dependencies))
+    init(services: AppServices, user: User, onLogout: @escaping () -> Void = {}) {
+        _viewModel = StateObject(wrappedValue: ManagerProfileViewModel(services: services, user: user))
         self.onLogout = onLogout
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            Color(hex: 0xF4F5F9).ignoresSafeArea()
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    ProfileHeaderCard(viewModel: viewModel)
 
-            if viewModel.state.isLoading {
-                LoadingView(title: "Loading profile")
-            } else if let user = viewModel.userProfile {
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
+                    // 1. Performance / System Overview Card
+                    ProfilePerformanceSummary(
+                        activeTripRatio: viewModel.activeTripRatio,
+                        totalVehicles: "\(viewModel.totalVehicles)",
+                        totalDrivers: "\(viewModel.totalDrivers)",
+                        activeTripsCount: "\(viewModel.activeTripsCount)"
+                    )
 
-                        heroCard(for: user)
+                    // 2. Contact & Personal Info Cards
+                    ProfileInfoSection(title: "Contact Details", rows: viewModel.contactDetails)
+                    ProfileInfoSection(title: "Personal Details", rows: viewModel.personalDetails)
 
-                        VStack(alignment: .leading, spacing: 8) {
-                            sectionHeader("PERSONAL INFORMATION")
-                            personalInfoCard(for: user)
-                        }
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            sectionHeader("IDENTITY VERIFICATION")
-                            identityVerificationCard(for: user)
-                        }
-
-                        if !isEditing {
-                            VStack(alignment: .leading, spacing: 8) {
-                                sectionHeader("ACCOUNT")
-                                signOutButton
-                            }
-                        }
+                    // 3. Contact History Archive (if not empty)
+                    if !viewModel.contactHistory.isEmpty {
+                        ProfileHistorySection(history: viewModel.contactHistory)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 40)
-                    .padding(.top, 8)
-                }
-            } else {
-                MPEmptyStateView(title: "Profile Unavailable", message: "Could not load user data.", systemImage: "person.crop.circle.badge.exclamationmark")
-            }
-        }
-        .navigationTitle("Profile")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button(isEditing ? "Save" : "Edit") {
-                    handleEditButton()
-                }
-                .bold()
-            }
-        }
-        .task {
-            await viewModel.load()
-        }
-        .onChange(of: selectedItem) { _, newItem in
-            Task {
-                if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                    await viewModel.updateProfileImage(with: data)
-                }
-            }
-        }
-        .alert(isPresented: $showErrorAlert) {
-            Alert(
-                title: Text("Validation Error"),
-                message: Text(viewModel.validationError ?? "Please check your inputs and try again."),
-                dismissButton: .default(Text("OK"))
-            )
-        }
-    }
 
-    private func handleEditButton() {
-        if isEditing {
-            Task {
-                do {
-                    try await viewModel.updateProfileDetails()
-                    isEditing = false
-                } catch {
-                    showErrorAlert = true
+                    // Sign Out Button
+                    Button(role: .destructive) {
+                        HapticManager.shared.triggerNotification(type: .warning)
+                        showingLogoutAlert = true
+                    } label: {
+                        Label("Sign Out", systemImage: "arrow.right.square")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                    Text("App Version 2.4.1 (Build 2046)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.bottom, 12)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+            }
+            .background(Color(UIColor.systemGroupedBackground))
+            .navigationTitle("Profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        HapticManager.shared.triggerImpact(style: .light)
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        HapticManager.shared.triggerImpact(style: .light)
+                        showingEditSheet = true
+                    } label: {
+                        Text("Edit")
+                            .fontWeight(.semibold)
+                    }
                 }
             }
-        } else {
-            viewModel.populateEditFields()
-            isEditing = true
+            .sheet(isPresented: $showingEditSheet) {
+                EditManagerProfileView(viewModel: viewModel)
+            }
+            .alert("Sign Out?", isPresented: $showingLogoutAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Sign Out", role: .destructive) {
+                    dismiss()
+                    onLogout()
+                }
+            } message: {
+                Text("This will end your active manager portal session.")
+            }
+            .task {
+                await viewModel.loadStats()
+            }
         }
-    }
-
-    private func maskAadhaar(_ number: String) -> String {
-        let clean = number.replacingOccurrences(of: " ", with: "")
-        guard clean.count >= 4 else { return number }
-        let last4 = String(clean.suffix(4))
-        return "XXXX XXXX \(last4)"
     }
 }
 
 private struct ProfileHeaderCard: View {
-    @ObservedObject var viewModel: ProfileViewModel
-    let user: UserProfile
+    @ObservedObject var viewModel: ManagerProfileViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 16) {
                 ZStack {
-                    if let imageData = user.profileImageData, let uiImage = UIImage(data: imageData) {
+                    if let imageData = viewModel.profileImageData, let uiImage = UIImage(data: imageData) {
                         Image(uiImage: uiImage)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
@@ -131,7 +125,7 @@ private struct ProfileHeaderCard: View {
                             .frame(width: 76, height: 76)
                             .shadow(color: Color.blue.opacity(0.3), radius: 6, x: 0, y: 3)
 
-                        Text(initials(for: user.name))
+                        Text(viewModel.initials)
                             .font(.title2.weight(.bold))
                             .foregroundStyle(.white)
                     }
@@ -143,7 +137,7 @@ private struct ProfileHeaderCard: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
-                        Text(user.name)
+                        Text(viewModel.driverName)
                             .font(.title3.weight(.bold))
                             .foregroundStyle(.primary)
                             .lineLimit(2)
@@ -153,7 +147,7 @@ private struct ProfileHeaderCard: View {
                             .font(.subheadline)
                     }
 
-                    Text("Maintenance")
+                    Text("Fleet Manager")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
@@ -161,7 +155,7 @@ private struct ProfileHeaderCard: View {
                         Circle()
                             .fill(.green)
                             .frame(width: 6, height: 6)
-                        Text("Active")
+                        Text(viewModel.user.isActive ? "Active" : "Inactive")
                             .font(.caption.weight(.bold))
                             .foregroundStyle(.green)
                     }
@@ -176,26 +170,13 @@ private struct ProfileHeaderCard: View {
             Divider().opacity(0.6)
 
             HStack(spacing: 16) {
-                ProfileHeaderMetric(title: "Personnel ID", value: String(user.id.uuidString.prefix(8)).uppercased())
+                ProfileHeaderMetric(title: "Manager ID", value: viewModel.managerId)
                 Divider().frame(height: 32)
-                ProfileHeaderMetric(title: "Joined", value: formatDate(user.createdat))
+                ProfileHeaderMetric(title: "Joined", value: viewModel.dateOfJoining)
             }
         }
         .padding(20)
         .profileCardStyle()
-    }
-
-    private func initials(for name: String) -> String {
-        let parts = name.split(separator: " ")
-        let letters = parts.prefix(2).compactMap(\.first)
-        return letters.map(String.init).joined().uppercased()
-    }
-
-    private func formatDate(_ date: Date?) -> String {
-        guard let date else { return "N/A" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd MMM, yyyy"
-        return formatter.string(from: date)
     }
 }
 
@@ -220,15 +201,15 @@ private struct ProfileHeaderMetric: View {
 }
 
 private struct ProfilePerformanceSummary: View {
-    let completionRate: Int
-    let completedJobs: String
-    let activeJobs: String
-    let nextDueJobDate: String
+    let activeTripRatio: Int
+    let totalVehicles: String
+    let totalDrivers: String
+    let activeTripsCount: String
 
     var body: some View {
-        ProfileSectionContainer(title: "Performance") {
+        ProfileSectionContainer(title: "Fleet Overview") {
             HStack(spacing: 12) {
-                // Job completion rate gauge tile
+                // Trip ratio Circular progress gauge
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         ZStack {
@@ -236,21 +217,21 @@ private struct ProfilePerformanceSummary: View {
                                 .stroke(Color.blue.opacity(0.12), lineWidth: 4)
                                 .frame(width: 44, height: 44)
                             Circle()
-                                .trim(from: 0.0, to: CGFloat(completionRate) / 100.0)
+                                .trim(from: 0.0, to: CGFloat(activeTripRatio) / 100.0)
                                 .stroke(Color.blue, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                                 .frame(width: 44, height: 44)
                                 .rotationEffect(.degrees(-90))
-                            Text("\(completionRate)%")
-                                .font(.system(size: 10, weight: .bold))
+                            Text("\(activeTripRatio)%")
+                                .font(.system(size: 9, weight: .bold))
                                 .foregroundStyle(.blue)
                         }
                         Spacer()
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Completion Rate")
+                        Text("Active Trip Ratio")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.primary)
-                        Text("Completed vs assigned")
+                        Text("Trips active vs total")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -260,11 +241,11 @@ private struct ProfilePerformanceSummary: View {
                 .frame(height: 112)
                 .background(Color.blue.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-                ProfileScoreTile(title: "Completed", value: completedJobs, subtitle: "Resolved", icon: "wrench.fill")
-                ProfileScoreTile(title: "Active Jobs", value: activeJobs, subtitle: "Remaining", icon: "clock.fill")
+                ProfileScoreTile(title: "Vehicles", value: totalVehicles, subtitle: "Total registered", icon: "car.2.fill")
+                ProfileScoreTile(title: "Drivers", value: totalDrivers, subtitle: "Active roster", icon: "person.2.fill")
             }
 
-            ProfilePlainRow(icon: "calendar.badge.clock", title: "Next Due Job", value: nextDueJobDate)
+            ProfilePlainRow(icon: "point.topleft.down.curvedto.point.bottomright.up", title: "Total Active Trips", value: activeTripsCount)
                 .padding(.top, 4)
         }
     }
@@ -311,7 +292,7 @@ private struct ProfileInfoSection: View {
     var body: some View {
         ProfileSectionContainer(title: title) {
             ForEach(rows) { row in
-                ProfilePlainRow(icon: row.icon, title: row.title, value: row.value, allowsMultiline: row.title == "Current Address")
+                ProfilePlainRow(icon: row.icon, title: row.title, value: row.value, allowsMultiline: row.title == "Address")
                 if row.id != rows.last?.id {
                     Divider().padding(.leading, 46).opacity(0.4)
                 }
@@ -381,11 +362,10 @@ private struct ProfileIconBadge: View {
     var tint: Color {
         if let customTint { return customTint }
         switch icon {
-        case "phone.fill", "wrench.fill": return .green
-        case "envelope.fill", "clock.fill": return .orange
-        case "person.text.rectangle.fill": return .indigo
-        case "mappin.and.ellipse": return .blue
-        case "calendar.badge.clock": return .purple
+        case "phone.fill", "car.2.fill": return .green
+        case "envelope.fill", "person.2.fill": return .orange
+        case "mappin.and.ellipse", "point.topleft.down.curvedto.point.bottomright.up": return .blue
+        case "calendar", "clock.arrow.circlepath": return .purple
         default: return .blue
         }
     }
@@ -412,24 +392,24 @@ private extension View {
 }
 
 // MARK: - Edit Profile View
-enum EditMaintenanceProfileField: Hashable {
-    case firstName, lastName, phone, address
+enum EditManagerProfileField: Hashable {
+    case name, phone, email, address
 }
 
-struct EditMaintenanceProfileView: View {
+struct EditManagerProfileView: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject var viewModel: ProfileViewModel
+    @ObservedObject var viewModel: ManagerProfileViewModel
 
-    @State private var firstName: String = ""
-    @State private var lastName: String = ""
+    @State private var name: String = ""
     @State private var phone: String = ""
+    @State private var email: String = ""
     @State private var address: String = ""
     @State private var selectedItem: PhotosPickerItem? = nil
     @State private var profileImageData: Data? = nil
     @State private var showErrorAlert = false
     @State private var validationError: String? = nil
 
-    @FocusState private var focusedField: EditMaintenanceProfileField?
+    @FocusState private var focusedField: EditManagerProfileField?
 
     var body: some View {
         NavigationStack {
@@ -455,7 +435,7 @@ struct EditMaintenanceProfileView: View {
                                             )
                                         )
                                         .frame(width: 96, height: 96)
-                                    Text(initials(for: firstName + " " + lastName))
+                                    Text(viewModel.initials)
                                         .font(.system(size: 32, weight: .bold))
                                         .foregroundStyle(.white)
                                 }
@@ -513,25 +493,16 @@ struct EditMaintenanceProfileView: View {
                             .padding(.leading, 4)
 
                         VStack(spacing: 14) {
-                            EditMaintenanceProfileRow(
+                            EditManagerProfileRow(
                                 icon: "person.fill",
-                                title: "First Name",
-                                placeholder: "First Name",
-                                text: $firstName,
-                                focusField: .firstName,
+                                title: "Full Name",
+                                placeholder: "Alex Johnson",
+                                text: $name,
+                                focusField: .name,
                                 activeFocus: $focusedField
                             )
 
-                            EditMaintenanceProfileRow(
-                                icon: "person.fill",
-                                title: "Last Name",
-                                placeholder: "Last Name",
-                                text: $lastName,
-                                focusField: .lastName,
-                                activeFocus: $focusedField
-                            )
-
-                            EditMaintenanceProfileRow(
+                            EditProfileRow(
                                 icon: "phone.fill",
                                 title: "Mobile Number",
                                 placeholder: "+91 XXXXX XXXXX",
@@ -541,10 +512,21 @@ struct EditMaintenanceProfileView: View {
                                 activeFocus: $focusedField
                             )
 
-                            EditMaintenanceProfileRow(
+                            EditProfileRow(
+                                icon: "envelope.fill",
+                                title: "Email Address",
+                                placeholder: "alex@fleetops.com",
+                                text: $email,
+                                keyboardType: .emailAddress,
+                                autocapitalize: false,
+                                focusField: .email,
+                                activeFocus: $focusedField
+                            )
+
+                            EditProfileRow(
                                 icon: "mappin.and.ellipse",
-                                title: "Current Address",
-                                placeholder: "Home Address",
+                                title: "Home Address",
+                                placeholder: "Flat 402, Highrise Apartments",
                                 text: $address,
                                 isMultiline: true,
                                 focusField: .address,
@@ -574,10 +556,10 @@ struct EditMaintenanceProfileView: View {
                         Task {
                             do {
                                 try await viewModel.updateProfile(
-                                    firstName: firstName,
-                                    lastName: lastName,
-                                    contact: phone,
-                                    address: address,
+                                    newName: name,
+                                    newPhone: phone,
+                                    newEmail: email,
+                                    newAddress: address,
                                     newProfileImageData: profileImageData
                                 )
                                 await MainActor.run {
@@ -602,25 +584,17 @@ struct EditMaintenanceProfileView: View {
                 )
             }
             .onAppear {
-                if let user = viewModel.userProfile {
-                    firstName = user.f_name ?? ""
-                    lastName = user.l_name ?? ""
-                    phone = user.contact != nil ? String(user.contact!) : ""
-                    address = user.addressStr ?? ""
-                    profileImageData = user.profileImageData
-                }
+                name = viewModel.driverName
+                phone = viewModel.phone
+                email = viewModel.email
+                address = viewModel.address
+                profileImageData = viewModel.profileImageData
             }
         }
     }
-
-    private func initials(for name: String) -> String {
-        let parts = name.split(separator: " ")
-        let letters = parts.prefix(2).compactMap(\.first)
-        return letters.map(String.init).joined().uppercased()
-    }
 }
 
-private struct EditMaintenanceProfileRow: View {
+private struct EditManagerProfileRow: View {
     let icon: String
     let title: String
     let placeholder: String
@@ -629,8 +603,8 @@ private struct EditMaintenanceProfileRow: View {
     var autocapitalize = true
     var isMultiline = false
 
-    let focusField: EditMaintenanceProfileField
-    var activeFocus: FocusState<EditMaintenanceProfileField?>.Binding
+    let focusField: EditManagerProfileField
+    var activeFocus: FocusState<EditManagerProfileField?>.Binding
 
     var isFocused: Bool {
         activeFocus.wrappedValue == focusField
@@ -705,5 +679,130 @@ private struct EditMaintenanceProfileRow: View {
         )
         .shadow(color: isFocused ? Color.blue.opacity(0.04) : Color.clear, radius: 8, x: 0, y: 4)
         .animation(.easeInOut(duration: 0.2), value: isFocused)
+    }
+}
+
+// Fallback row style if not Full Name
+private struct EditProfileRow: View {
+    let icon: String
+    let title: String
+    let placeholder: String
+    @Binding var text: String
+    var keyboardType: UIKeyboardType = .default
+    var autocapitalize = true
+    var isMultiline = false
+
+    let focusField: EditManagerProfileField
+    var activeFocus: FocusState<EditManagerProfileField?>.Binding
+
+    var isFocused: Bool {
+        activeFocus.wrappedValue == focusField
+    }
+
+    var body: some View {
+        HStack(alignment: isMultiline ? .top : .center, spacing: 14) {
+            ProfileIconBadge(icon: icon)
+                .padding(.top, isMultiline ? 4 : 0)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(isFocused ? .blue : .secondary)
+                    .textCase(.uppercase)
+                    .tracking(1.0)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        if isMultiline {
+                            TextField(placeholder, text: $text, axis: .vertical)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.primary)
+                                .lineLimit(3)
+                                .focused(activeFocus, equals: focusField)
+                        } else {
+                            TextField(placeholder, text: $text)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.primary)
+                                .keyboardType(keyboardType)
+                                .textInputAutocapitalization(autocapitalize ? .words : .never)
+                                .focused(activeFocus, equals: focusField)
+                        }
+
+                        Spacer(minLength: 0)
+
+                        if isFocused {
+                            if !text.isEmpty {
+                                Button {
+                                    text = ""
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(Color(UIColor.tertiaryLabel))
+                                        .font(.subheadline)
+                                }
+                                .transition(.opacity)
+                            }
+                        } else {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .opacity(0.6)
+                        }
+                    }
+
+                    // Inset baseline layout border beneath inputs
+                    Rectangle()
+                        .fill(isFocused ? Color.blue : Color(UIColor.separator).opacity(0.3))
+                        .frame(height: isFocused ? 1.5 : 0.75)
+                        .padding(.top, 2)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(UIColor.secondarySystemGroupedBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(isFocused ? Color.blue : Color(UIColor.separator).opacity(0.15), lineWidth: isFocused ? 1.5 : 0.5)
+        )
+        .shadow(color: isFocused ? Color.blue.opacity(0.04) : Color.clear, radius: 8, x: 0, y: 4)
+        .animation(.easeInOut(duration: 0.2), value: isFocused)
+    }
+}
+
+private struct ProfileHistorySection: View {
+    let history: [ContactHistoryItem]
+
+    var body: some View {
+        ProfileSectionContainer(title: "Archived Contacts") {
+            ForEach(history) { item in
+                HStack(alignment: .top, spacing: 12) {
+                    ProfileIconBadge(icon: "clock.arrow.circlepath", customTint: .purple)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(item.field)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Text(item.date, style: .date)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Text(item.oldValue)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+                .padding(.vertical, 4)
+
+                if item.id != history.last?.id {
+                    Divider().padding(.leading, 46).opacity(0.4)
+                }
+            }
+        }
     }
 }
