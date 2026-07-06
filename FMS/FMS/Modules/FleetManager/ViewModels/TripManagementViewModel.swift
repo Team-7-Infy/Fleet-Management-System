@@ -114,7 +114,83 @@ final class TripManagementViewModel: ObservableObject {
     }
 
     func approveRejection(for trip: Trip) async {
-        await updateStatus(trip, status: .rejected)
+        do {
+            let rejectingDriverId = trip.driverId
+
+            // Free up old vehicle
+            if let oldVehicleId = trip.vehicleId {
+                try await vehicleService.unassignDriver(vehicleId: oldVehicleId)
+                try await vehicleService.setVehicleStatus(vehicleId: oldVehicleId, status: .available)
+            }
+
+            // Determine vehicle type: prefer vehicleTypeRequested, fall back to assigned vehicle
+            let vehicleType: String?
+            if let vt = trip.vehicleTypeRequested, vt.isEmpty == false {
+                vehicleType = vt
+            } else if let vid = trip.vehicleId,
+                      let vehicle = try? await vehicleService.fetchVehicle(id: vid) {
+                vehicleType = vehicle.vehicleType
+            } else {
+                vehicleType = nil
+            }
+
+            let tripEnd = trip.endTime ?? trip.startTime.addingTimeInterval(7200)
+
+            if let vehicleType, vehicleType.isEmpty == false,
+               let vehicle = try await fetchEligibleVehicles(for: vehicleType).first {
+                let eligible = try await fetchEligibleDrivers(
+                    for: vehicleType,
+                    tripStart: trip.startTime,
+                    tripEnd: tripEnd
+                )
+                let excludedIds = Set([rejectingDriverId].compactMap { $0 })
+                let candidates = try await rankDrivers(
+                    eligible.filter { excludedIds.contains($0.id) == false },
+                    tripStart: trip.startTime,
+                    tripEnd: tripEnd
+                )
+
+                if let bestDriver = candidates.first {
+                    var updatedTrip = trip
+                    updatedTrip.vehicleId = vehicle.id
+                    updatedTrip.driverId = bestDriver.id
+                    updatedTrip.status = .scheduled
+                    updatedTrip.rejectionReason = nil
+
+                    let saved = try await tripService.updateTrip(updatedTrip)
+                    try await vehicleService.assignDriver(vehicleId: vehicle.id, driverId: bestDriver.id)
+                    try await vehicleService.setVehicleStatus(vehicleId: vehicle.id, status: .assigned)
+
+                    if let index = trips.firstIndex(where: { $0.id == trip.id }) {
+                        trips[index] = saved
+                    }
+
+                    let driverName = await resolveDriverName(driverId: bestDriver.id)
+                    let vehiclePlate = await resolveVehiclePlate(vehicleId: vehicle.id)
+                    showSuccessMessage(
+                        "Rejection approved — reassigned to \(driverName) (\(vehiclePlate))."
+                    )
+                    errorMessage = nil
+                    return
+                }
+            }
+
+            // No replacement found — leave trip unassigned/pending
+            try await tripService.updateTripStatus(id: trip.id, status: .scheduled, rejectionReason: nil)
+            if let index = trips.firstIndex(where: { $0.id == trip.id }) {
+                trips[index].status = .scheduled
+                trips[index].vehicleId = nil
+                trips[index].driverId = nil
+                trips[index].rejectionReason = nil
+            }
+            showSuccessMessage(
+                "Rejection approved — no eligible replacement available. Trip left unassigned."
+            )
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+            clearSuccessMessage()
+        }
     }
 
     func denyRejection(for trip: Trip) async {
