@@ -66,4 +66,13 @@ final actor InventoryService: InventoryServiceProtocol {
             .rpc("adjust_inventory_quantity", params: params)
             .execute()
     }
+
+    func bulkImportFromCSV(validatedRows: [InventoryPart]) async throws -> Int {
+        var count = 0
+        for row in validatedRows {
+            _ = try await createPart(row)
+            count += 1
+        }
+        return count
+    }
 }
