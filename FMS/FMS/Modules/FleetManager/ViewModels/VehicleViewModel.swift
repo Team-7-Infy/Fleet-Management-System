@@ -7,6 +7,7 @@ final class VehicleViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var successMessage: String?
     @Published var errorMessage: String?
+    @Published private(set) var documents: [VehicleDocument] = []
 
     private let service: VehicleServiceProtocol
 
@@ -50,6 +51,37 @@ final class VehicleViewModel: ObservableObject {
             vehicles.insert(vehicle, at: 0)
             sortVehicles()
             successMessage = "\(vehicle.licencePlate) added."
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            successMessage = nil
+            return false
+        }
+    }
+
+    func updateVehicle(_ vehicle: Vehicle, form: FleetManagerVehicleForm) async -> Bool {
+        guard form.isValid else {
+            errorMessage = form.validationMessage ?? "Complete vehicle details."
+            successMessage = nil
+            return false
+        }
+
+        var updated = vehicle
+        updated.make = form.make.trimmingCharacters(in: .whitespacesAndNewlines)
+        updated.model = form.model.trimmingCharacters(in: .whitespacesAndNewlines)
+        updated.year = form.yearValue ?? vehicle.year
+        updated.licencePlate = form.normalizedLicencePlate
+        updated.status = form.status
+        updated.vehicleType = form.vehicleType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        updated.fuelType = form.fuelType.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : form.fuelType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        updated.maintenanceKmInterval = Int(form.maintenanceKmInterval.trimmingCharacters(in: .whitespacesAndNewlines))
+        updated.maintenanceMonthInterval = Int(form.maintenanceMonthInterval.trimmingCharacters(in: .whitespacesAndNewlines))
+
+        do {
+            let saved = try await service.updateVehicle(updated)
+            replace(saved)
+            successMessage = "\(saved.licencePlate) updated."
             errorMessage = nil
             return true
         } catch {
@@ -103,6 +135,57 @@ final class VehicleViewModel: ObservableObject {
     func vehicle(for id: UUID?) -> Vehicle? {
         guard let id else { return nil }
         return vehicles.first { $0.id == id }
+    }
+
+    // MARK: - Document Management
+
+    func loadDocuments(for vehicleId: UUID) async {
+        do {
+            documents = try await service.fetchVehicleDocuments(vehicleId: vehicleId)
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func addDocument(vehicleId: UUID, docType: String, docNumber: String, issueDate: Date, expiryDate: Date) async -> Bool {
+        do {
+            let document = VehicleDocument(
+                id: UUID(),
+                vehicleId: vehicleId,
+                docType: docType,
+                docNumber: docNumber,
+                issueDate: DateOnly(wrappedValue: issueDate),
+                expiryDate: DateOnly(wrappedValue: expiryDate),
+                fileUrl: nil,
+                deletedAt: nil,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            let saved = try await service.createVehicleDocument(document)
+            documents.append(saved)
+            successMessage = "\(docType.capitalized) document added."
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            successMessage = nil
+            return false
+        }
+    }
+
+    func removeDocument(id: UUID) async -> Bool {
+        do {
+            try await service.deleteVehicleDocument(id: id)
+            documents.removeAll { $0.id == id }
+            successMessage = "Document removed."
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            successMessage = nil
+            return false
+        }
     }
 
     private func replace(_ vehicle: Vehicle) {

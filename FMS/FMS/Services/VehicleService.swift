@@ -97,6 +97,17 @@ final actor VehicleService: VehicleServiceProtocol {
             .value
     }
 
+    func updateVehicleDocument(_ document: VehicleDocument) async throws -> VehicleDocument {
+        try await supabase.client
+            .from("vehicle_documents")
+            .update(document, returning: .representation)
+            .eq("id", value: document.id.uuidString)
+            .select()
+            .single()
+            .execute()
+            .value
+    }
+
     func deleteVehicleDocument(id: UUID) async throws {
         try await supabase.client
             .from("vehicle_documents")

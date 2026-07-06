@@ -206,6 +206,8 @@ struct ManagerVehicleDetailView: View {
     @ObservedObject var usersViewModel: UserManagementViewModel
     var openMaintenanceRequest: (UUID?) -> Void
 
+    @State private var showEditSheet = false
+
     private var currentVehicle: Vehicle {
         viewModel.vehicle(for: vehicle.id) ?? vehicle
     }
@@ -216,6 +218,7 @@ struct ManagerVehicleDetailView: View {
                 vehicleHeroSection
                 FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
                 vehicleDetails
+                complianceDocsSection
                 assignmentDetails
                 maintenanceDetails
             }
@@ -226,7 +229,19 @@ struct ManagerVehicleDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                VehicleActionMenu(vehicle: currentVehicle, viewModel: viewModel)
+                VehicleActionMenu(
+                    vehicle: currentVehicle,
+                    viewModel: viewModel,
+                    onEdit: { showEditSheet = true }
+                )
+            }
+        }
+        .sheet(isPresented: $showEditSheet) {
+            NavigationStack {
+                ManagerVehicleFormSheet(
+                    viewModel: viewModel,
+                    existingVehicle: currentVehicle
+                )
             }
         }
     }
@@ -244,16 +259,14 @@ struct ManagerVehicleDetailView: View {
                     .font(.headline)
                     .foregroundStyle(FleetPalette.textSecondary)
                     .multilineTextAlignment(.center)
-                
+
                 HStack(spacing: 8) {
-                    // Status Badge
                     StatusPill(
                         text: currentVehicle.status.title,
                         color: FleetPalette.vehicleStatus(currentVehicle.status),
                         dotSize: 8
                     )
-                    
-                    // Vehicle Type Badge
+
                     Text(currentVehicle.vehicleType.uppercased())
                         .font(.system(size: 9, weight: .black))
                         .foregroundColor(FleetPalette.accent)
@@ -261,8 +274,7 @@ struct ManagerVehicleDetailView: View {
                         .padding(.vertical, 3)
                         .background(FleetPalette.accent.opacity(0.12))
                         .clipShape(Capsule())
-                    
-                    // Health Score Badge
+
                     let healthScore = VehicleHealth.score(for: currentVehicle)
                     let healthColor = healthScore >= 80 ? FleetPalette.success : healthScore >= 50 ? FleetPalette.warning : FleetPalette.danger
                     Text("HEALTH \(healthScore)%")
@@ -282,7 +294,7 @@ struct ManagerVehicleDetailView: View {
     private var vehicleDetails: some View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Fleet Details")
-            
+
             GlassPanel(hasBorder: false) {
                 VStack(spacing: 12) {
                     InfoRow(title: "Plate Number", value: currentVehicle.licencePlate)
@@ -297,10 +309,27 @@ struct ManagerVehicleDetailView: View {
                     Divider()
                     InfoRow(title: "Type", value: currentVehicle.vehicleType.capitalized)
                     Divider()
+                    InfoRow(title: "Fuel Type", value: currentVehicle.fuelType?.capitalized ?? "N/A")
+                    Divider()
                     InfoRow(title: "Status", value: currentVehicle.status.title)
+                    if let kmInterval = currentVehicle.maintenanceKmInterval {
+                        Divider()
+                        InfoRow(title: "Service Every", value: "\(kmInterval) km")
+                    }
+                    if let monthInterval = currentVehicle.maintenanceMonthInterval {
+                        Divider()
+                        InfoRow(title: "Service Every", value: "\(monthInterval) months")
+                    }
                 }
             }
         }
+    }
+
+    private var complianceDocsSection: some View {
+        VehicleComplianceDocsView(
+            viewModel: viewModel,
+            vehicleId: currentVehicle.id
+        )
     }
 
     private func formatVIN(_ id: String) -> String {
@@ -316,13 +345,13 @@ struct ManagerVehicleDetailView: View {
     private var assignmentDetails: some View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Assignment")
-            
+
             GlassPanel(hasBorder: false) {
                 if let driver = usersViewModel.driverUser(for: currentVehicle.driverId) {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 14) {
                             AvatarView(name: driver.displayName, role: .driver, size: 48, imageURL: driver.avatarImageURL)
-                            
+
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Assigned Driver")
                                     .font(.caption.weight(.bold))
@@ -332,10 +361,10 @@ struct ManagerVehicleDetailView: View {
                                     .foregroundColor(FleetPalette.textPrimary)
                             }
                         }
-                        
+
                         Divider()
                             .padding(.vertical, 4)
-                        
+
                         InfoRow(title: "Phone", value: "\(driver.contact)")
                         Divider()
                         InfoRow(title: "Email", value: driver.email)
@@ -354,7 +383,7 @@ struct ManagerVehicleDetailView: View {
     private var maintenanceDetails: some View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Maintenance")
-            
+
             GlassPanel(hasBorder: false) {
                 VStack(alignment: .leading, spacing: 12) {
                     if currentVehicle.status != .inMaintenance {

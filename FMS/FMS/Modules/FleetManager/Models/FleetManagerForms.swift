@@ -174,6 +174,9 @@ struct FleetManagerVehicleForm {
     var licencePlate = ""
     var status: VehicleStatus = .available
     var vehicleType = "van"
+    var fuelType = ""
+    var maintenanceKmInterval = ""
+    var maintenanceMonthInterval = ""
 
     private static let indianStateCodes: Set<String> = [
         "AN", "AP", "AR", "AS", "BR", "CH", "CG", "DD", "DL", "DN", "GA", "GJ",
@@ -278,7 +281,25 @@ struct FleetManagerVehicleForm {
             status: status,
             vehicleType: vehicleType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
             driverId: nil,
-            addedToFleetAt: Date()
+            fuelType: fuelType.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : fuelType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+            addedToFleetAt: Date(),
+            maintenanceKmInterval: Int(maintenanceKmInterval.trimmingCharacters(in: .whitespacesAndNewlines)),
+            maintenanceMonthInterval: Int(maintenanceMonthInterval.trimmingCharacters(in: .whitespacesAndNewlines))
+        )
+    }
+
+    static func form(from vehicle: Vehicle) -> FleetManagerVehicleForm {
+        FleetManagerVehicleForm(
+            vin: vehicle.id.uuidString,
+            make: vehicle.make,
+            model: vehicle.model,
+            year: String(vehicle.year),
+            licencePlate: vehicle.licencePlate,
+            status: vehicle.status,
+            vehicleType: vehicle.vehicleType,
+            fuelType: vehicle.fuelType ?? "",
+            maintenanceKmInterval: vehicle.maintenanceKmInterval.map(String.init) ?? "",
+            maintenanceMonthInterval: vehicle.maintenanceMonthInterval.map(String.init) ?? ""
         )
     }
 
