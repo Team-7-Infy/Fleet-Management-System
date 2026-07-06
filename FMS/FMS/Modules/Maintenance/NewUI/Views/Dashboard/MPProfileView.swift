@@ -15,84 +15,94 @@ struct MPProfileView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            Color(hex: 0xF4F5F9).ignoresSafeArea()
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                if viewModel.state.isLoading {
+                    ProgressView()
+                        .padding(.top, 40)
+                } else if let user = viewModel.userProfile {
+                    VStack(spacing: 24) {
+                        ProfileHeaderCard(viewModel: viewModel, user: user)
 
-            if viewModel.state.isLoading {
-                LoadingView(title: "Loading profile")
-            } else if let user = viewModel.userProfile {
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
+                        ProfilePerformanceSummary(
+                            completionRate: viewModel.completionRate,
+                            completedJobs: "\(viewModel.completedWorkOrdersCount)",
+                            activeJobs: "\(viewModel.activeWorkOrdersCount)",
+                            nextDueJobDate: viewModel.nextDueJobDate
+                        )
 
-                        heroCard(for: user)
+                        ProfileInfoSection(title: "Contact Details", rows: [
+                            ProfileInfoRow(title: "Mobile", value: user.contactNumber, icon: "phone.fill"),
+                            ProfileInfoRow(title: "Email", value: user.email, icon: "envelope.fill")
+                        ])
+                        
+                        ProfileInfoSection(title: "Personal Details", rows: [
+                            ProfileInfoRow(title: "Aadhaar Number", value: maskAadhaar(user.aadhaarNumber), icon: "person.text.rectangle.fill"),
+                            ProfileInfoRow(title: "Current Address", value: user.address, icon: "mappin.and.ellipse")
+                        ])
 
-                        VStack(alignment: .leading, spacing: 8) {
-                            sectionHeader("PERSONAL INFORMATION")
-                            personalInfoCard(for: user)
+                        Button(role: .destructive) {
+                            HapticManager.shared.triggerNotification(type: .warning)
+                            showingLogoutAlert = true
+                        } label: {
+                            Label("Sign Out", systemImage: "arrow.right.square")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 52)
                         }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-                        VStack(alignment: .leading, spacing: 8) {
-                            sectionHeader("IDENTITY VERIFICATION")
-                            identityVerificationCard(for: user)
-                        }
-
-                        if !isEditing {
-                            VStack(alignment: .leading, spacing: 8) {
-                                sectionHeader("ACCOUNT")
-                                signOutButton
-                            }
-                        }
+                        Text("App Version 2.4.1 (Build 2046)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .padding(.bottom, 12)
                     }
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 40)
-                    .padding(.top, 8)
-                }
-            } else {
-                MPEmptyStateView(title: "Profile Unavailable", message: "Could not load user data.", systemImage: "person.crop.circle.badge.exclamationmark")
-            }
-        }
-        .navigationTitle("Profile")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button(isEditing ? "Save" : "Edit") {
-                    handleEditButton()
-                }
-                .bold()
-            }
-        }
-        .task {
-            await viewModel.load()
-        }
-        .onChange(of: selectedItem) { _, newItem in
-            Task {
-                if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                    await viewModel.updateProfileImage(with: data)
+                    .padding(.top, 16)
+                } else {
+                    MPEmptyStateView(title: "Profile Unavailable", message: "Could not load user data.", systemImage: "person.crop.circle.badge.exclamationmark")
                 }
             }
-        }
-        .alert(isPresented: $showErrorAlert) {
-            Alert(
-                title: Text("Validation Error"),
-                message: Text(viewModel.validationError ?? "Please check your inputs and try again."),
-                dismissButton: .default(Text("OK"))
-            )
-        }
-    }
-
-    private func handleEditButton() {
-        if isEditing {
-            Task {
-                do {
-                    try await viewModel.updateProfileDetails()
-                    isEditing = false
-                } catch {
-                    showErrorAlert = true
+            .background(Color(UIColor.systemGroupedBackground))
+            .navigationTitle("Profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        HapticManager.shared.triggerImpact(style: .light)
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        HapticManager.shared.triggerImpact(style: .light)
+                        viewModel.populateEditFields()
+                        showingEditSheet = true
+                    } label: {
+                        Text("Edit")
+                            .fontWeight(.semibold)
+                    }
                 }
             }
-        } else {
-            viewModel.populateEditFields()
-            isEditing = true
+            .sheet(isPresented: $showingEditSheet) {
+                EditMaintenanceProfileView(viewModel: viewModel)
+            }
+            .alert("Sign Out?", isPresented: $showingLogoutAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Sign Out", role: .destructive) {
+                    dismiss()
+                    onLogout()
+                }
+            } message: {
+                Text("This will end your active maintenance portal session.")
+            }
+            .task {
+                await viewModel.load()
+            }
         }
     }
 
@@ -302,6 +312,13 @@ private struct ProfileScoreTile: View {
         .frame(height: 112)
         .background(tint.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
+}
+
+private struct ProfileInfoRow: Identifiable {
+    let id = UUID()
+    let title: String
+    let value: String
+    let icon: String
 }
 
 private struct ProfileInfoSection: View {

@@ -187,11 +187,16 @@ struct FleetManagerDashboardView: View {
                 onShowReportsHub: { isShowingReportsHub = true }
             )
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(isPresented: $isShowingProfile) {
-                ManagerAccountView(
-                    user: usersViewModel.user(for: currentUserId),
-                    onLogout: onLogout
-                )
+            .sheet(isPresented: $isShowingProfile) {
+                if let user = usersViewModel.user(for: currentUserId) {
+                    ManagerProfileView(
+                        services: services,
+                        user: user,
+                        onLogout: onLogout
+                    )
+                } else {
+                    ProgressView("Loading Profile...")
+                }
             }
             .navigationDestination(isPresented: $showingNotifications) {
                 NotificationListView(viewModel: notificationViewModel)
