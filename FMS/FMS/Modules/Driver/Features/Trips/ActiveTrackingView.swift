@@ -191,9 +191,37 @@ struct ActiveTrackingView: View {
             .alert(isPresented: $showingSOSAlert) {
                 Alert(
                     title: Text("EMERGENCY SOS"),
-                    message: Text("Are you sure you want to trigger an SOS? This will instantly alert dispatch and share your live location."),
+                    message: Text("Are you sure you want to trigger an SOS? This will instantly cancel your active trip and alert the fleet manager."),
                     primaryButton: .destructive(Text("Trigger SOS")) {
-                        print("SOS Triggered!")
+                        if let services = services, let activeTrip = trips.first(where: { $0.status == .inProgress }) {
+                            Task {
+                                do {
+                                    try await services.tripService.updateTripStatus(
+                                        id: activeTrip.id,
+                                        status: .cancelled,
+                                        rejectionReason: "SOS Emergency: Cancelled via emergency SOS alert."
+                                    )
+                                    
+                                    let notification = AppNotification(
+                                        id: UUID(),
+                                        title: "CRITICAL: Driver SOS Emergency",
+                                        message: "Driver has triggered emergency SOS alert for Trip from \(activeTrip.startLocation) to \(activeTrip.endLocation).",
+                                        type: "geofence_exit",
+                                        isRead: false,
+                                        referenceId: activeTrip.id,
+                                        recipientId: nil,
+                                        createdAt: Date()
+                                    )
+                                    _ = try? await services.notificationService.createNotification(notification)
+                                    
+                                    await MainActor.run {
+                                        showingActiveNavigation = false
+                                    }
+                                } catch {
+                                    print("Failed to cancel trip on SOS: \(error)")
+                                }
+                            }
+                        }
                     },
                     secondaryButton: .cancel()
                 )

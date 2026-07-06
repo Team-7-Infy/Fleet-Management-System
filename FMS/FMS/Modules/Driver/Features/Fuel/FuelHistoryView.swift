@@ -246,7 +246,7 @@ struct TripFuelHistoryView: View {
             FuelFormField(title: priceTitle, placeholder: "0.00", text: $pricePerLiter, keyboardType: .decimalPad)
             FuelFormField(title: "Receipt Code", placeholder: "Receipt or pump code", text: $receiptCode, keyboardType: .default)
 
-            DatePicker("Date & Time", selection: $refillDate, displayedComponents: [.date, .hourAndMinute])
+            DatePicker("Date & Time", selection: $refillDate, in: Calendar.current.startOfDay(for: Date())..., displayedComponents: [.date, .hourAndMinute])
 
             PhotosPicker(selection: $selectedReceiptImage, matching: .images) {
                 HStack {

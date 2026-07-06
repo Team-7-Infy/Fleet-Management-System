@@ -522,7 +522,6 @@ struct EditProfileView: View {
                                     editAvatarPlaceholder
                                 }
 
-                                // Translucent EDIT overlay at the lower third of the avatar circle
                                 VStack(spacing: 1) {
                                     Image(systemName: "camera.fill")
                                         .font(.system(size: 10, weight: .bold))

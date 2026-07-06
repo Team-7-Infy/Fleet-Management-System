@@ -23,7 +23,9 @@ struct AllUnfinishedWorkOrdersView: View {
                     VStack(spacing: 0) {
                         ForEach(Array(viewModel.pendingWorkOrders.enumerated()), id: \.element.id) { index, item in
                             Button {
-                                // push to summary
+                                let vehicleIdStr = item.vehicle?.id.uuidString
+                                let vId = vehicleIdStr ?? item.workOrder.vehicleID
+                                navigation.push(.vehicleWorkOrderDetails(vehicleID: vId, workOrderID: item.workOrder.id))
                             } label: {
                                 workOrderRow(for: item, isLast: index == viewModel.pendingWorkOrders.count - 1)
                             }
@@ -92,9 +94,8 @@ struct AllUnfinishedWorkOrdersView: View {
                 Spacer()
                 
                 Button {
-                    if let vehicleId = vehicle?.id {
-                        navigation.push(.vehicleWorkOrderDetails(vehicleID: vehicleId.uuidString, workOrderID: workOrder.id))
-                    }
+                    let vId = vehicle?.id.uuidString ?? workOrder.vehicleID
+                    navigation.push(.vehicleWorkOrderDetails(vehicleID: vId, workOrderID: workOrder.id))
                 } label: {
                     ZStack {
                         Circle()

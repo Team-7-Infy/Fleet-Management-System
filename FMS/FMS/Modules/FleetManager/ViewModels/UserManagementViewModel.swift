@@ -129,11 +129,11 @@ final class UserManagementViewModel: ObservableObject {
 
     func updateUser(_ user: User) async -> Bool {
         do {
-            _ = try await service.updateUser(user)
+            let updated = try await service.updateUser(user)
             if let index = users.firstIndex(where: { $0.id == user.id }) {
-                users[index] = user
+                users[index] = updated
             }
-            successMessage = "\(user.displayName) updated."
+            successMessage = "\(updated.displayName) updated."
             errorMessage = nil
             return true
         } catch {

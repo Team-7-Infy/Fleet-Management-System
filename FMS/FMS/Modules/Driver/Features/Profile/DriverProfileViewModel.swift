@@ -172,25 +172,47 @@ final class DriverProfileViewModel: ObservableObject {
 
     private func uploadProfileImage(_ imageData: Data) async throws -> String {
         let uploadData = compressedImageData(from: imageData)
-        let path = "profile-avatars/\(user.id.uuidString)/avatar-\(Int(Date().timeIntervalSince1970)).jpg"
-        let storage = services.supabase.client.storage.from("maintenance")
+        let bucketId = "maintenance"
+        let path = "avatar-\(user.id.uuidString)-\(Int(Date().timeIntervalSince1970)).jpg"
 
-        try await storage.upload(
-            path,
-            data: uploadData,
-            options: FileOptions(contentType: "image/jpeg")
-        )
+        let publicURL = try services.supabase.client.storage
+            .from(bucketId)
+            .getPublicURL(path: path)
+            .absoluteString
 
-        return try storage.getPublicURL(path: path).absoluteString
+        let baseURL = EnvironmentConfig.supabaseURL
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            throw URLError(.badURL)
+        }
+        components.path = "/storage/v1/object/\(bucketId)/\(path)"
+        guard let uploadURL = components.url else {
+            throw URLError(.badURL)
+        }
+
+        var request = URLRequest(url: uploadURL)
+        request.httpMethod = "PUT"
+        request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
+        request.setValue("3600", forHTTPHeaderField: "cache-control")
+        request.setValue("true", forHTTPHeaderField: "x-upsert")
+        request.setValue(EnvironmentConfig.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        if let token = try? await services.supabase.client.auth.session.accessToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = uploadData
+
+        let (_, urlResponse) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = urlResponse as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+
+        return publicURL
     }
 
     private func compressedImageData(from data: Data) -> Data {
         guard let image = UIImage(data: data),
               let jpegData = image.jpegData(compressionQuality: 0.82)
-        else {
-            return data
-        }
-
+        else { return data }
         return jpegData
     }
 

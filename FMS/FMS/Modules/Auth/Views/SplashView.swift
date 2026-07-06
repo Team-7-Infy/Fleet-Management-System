@@ -10,9 +10,11 @@ struct SplashView: View {
         VStack(spacing: 16) {
             Spacer()
 
-            Image(systemName: "car.2.fill")
-                .font(.system(size: 72))
-                .foregroundStyle(FleetPalette.accent)
+            Image("SplashLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 120, height: 120)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
 
             Text("Fleet Manager")
                 .font(.largeTitle.bold())

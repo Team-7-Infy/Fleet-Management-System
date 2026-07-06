@@ -106,7 +106,7 @@ struct FleetManagerDashboardView: View {
                     .badge(tripsViewModel.rejectionRequests.count)
 
                 maintenanceTab
-                    .tabItem { Label("Service", systemImage: "wrench") }
+                    .tabItem { Label("Workshop", systemImage: "wrench.and.screwdriver") }
                     .tag(ManagerTab.maintenance)
             }
             .tint(FleetPalette.accent)
@@ -127,6 +127,7 @@ struct FleetManagerDashboardView: View {
         }
         .task {
             currentUserId = try? await authService.currentSession()?.id
+            notificationViewModel.setRecipientId(currentUserId)
             await refreshAll()
             await notificationViewModel.loadNotifications()
             notificationViewModel.subscribeToRealtime()
@@ -311,6 +312,7 @@ struct ManagerAddSheetView: View {
                     viewModel: maintenanceViewModel,
                     vehiclesViewModel: vehiclesViewModel,
                     usersViewModel: usersViewModel,
+                    tripsViewModel: tripsViewModel,
                     initialVehicleId: initialMaintenanceVehicleId,
                     currentUserId: currentUserId
                 )

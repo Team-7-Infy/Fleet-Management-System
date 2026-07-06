@@ -8,7 +8,7 @@ struct ExpenditureDetailView: View {
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
 
-    @State private var localPeriod: PeriodPreset = .oneMonth
+    @State private var localPeriod: PeriodPreset = .twoMonths
 
     var body: some View {
         ScrollView {

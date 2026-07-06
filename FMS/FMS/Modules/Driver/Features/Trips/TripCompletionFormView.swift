@@ -13,6 +13,7 @@ struct TripCompletionFormView: View {
 
     let activeTripId: String?
     let trip: Trip
+    let previousOdometer: Double
     var onComplete: (_ finalOdometer: String, _ finalFuelLevel: String, _ needsMaintenance: Bool, _ driverNote: String) -> Void
 
     @State private var finalOdometer: String = ""
@@ -46,13 +47,20 @@ struct TripCompletionFormView: View {
                 }
 
                 Section(header: Text("TRANSIT INPUTS (REQUIRED)")) {
-                    HStack {
-                        Text("Final Odometer")
-                        Spacer()
-                        TextField("Enter Odometer (km)", text: $finalOdometer)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 180)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Final Odometer")
+                            Spacer()
+                            TextField("Min \(Int(previousOdometer)) km", text: $finalOdometer)
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 180)
+                        }
+                        if let odoVal = Double(finalOdometer), odoVal < previousOdometer {
+                            Text("Odometer must be at least \(Int(previousOdometer)) km")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -206,7 +214,8 @@ struct TripCompletionFormView: View {
     }
 
     private var isFormValid: Bool {
-        !finalOdometer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        guard let odoVal = Double(finalOdometer), odoVal >= previousOdometer else { return false }
+        return true
     }
 
     private func submitCompletion() {

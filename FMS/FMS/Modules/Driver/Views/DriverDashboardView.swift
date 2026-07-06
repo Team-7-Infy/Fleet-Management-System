@@ -2,8 +2,14 @@ import SwiftUI
 
 struct DriverDashboardView: View {
     let services: AppServices
-    let user: User
     let onLogout: () -> Void
+    @State private var user: User
+
+    init(services: AppServices, user: User, onLogout: @escaping () -> Void) {
+        self.services = services
+        self._user = State(initialValue: user)
+        self.onLogout = onLogout
+    }
 
     @StateObject private var locationService = LocationManager()
     @State private var showingProfile = false
@@ -46,6 +52,11 @@ struct DriverDashboardView: View {
                         }
                     }
                 }
+                .onChange(of: showingProfile) { _, isShowing in
+                    if !isShowing {
+                        Task { await reloadCurrentUser() }
+                    }
+                }
             }
         }
     }
@@ -71,6 +82,15 @@ struct DriverDashboardView: View {
         } catch {
             print("Failed to reload realtime trips/vehicles: \(error)")
         }
+    }
+
+    private func reloadCurrentUser() async {
+        do {
+            let allUsers = try await services.userManagementService.fetchUsers()
+            if let refreshed = allUsers.first(where: { $0.id == user.id }) {
+                await MainActor.run { user = refreshed }
+            }
+        } catch {}
     }
 
     private func loadData() async {

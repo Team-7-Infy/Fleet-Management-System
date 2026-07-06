@@ -11,7 +11,7 @@ enum ManagerUserSegment: String, CaseIterable, Identifiable {
         case .drivers:
             return "Drivers"
         case .maintenance:
-            return "Maintenance"
+            return "Workshop"
         }
     }
 
@@ -20,7 +20,7 @@ enum ManagerUserSegment: String, CaseIterable, Identifiable {
         case .drivers:
             return "No drivers yet"
         case .maintenance:
-            return "No maintenance personnel yet"
+            return "No workshop personnel yet"
         }
     }
 }
@@ -220,6 +220,13 @@ private struct ManagerUserGroupSection: View {
                             ManagerUserCard(user: user, viewModel: viewModel)
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                Task { _ = await viewModel.deleteUser(user) }
+                            } label: {
+                                Label("Delete User", systemImage: "trash")
+                            }
+                        }
 
                         if user.id != users.last?.id {
                             Divider()
@@ -278,9 +285,9 @@ private struct ManagerUserCard: View {
             guard let driver = viewModel.drivers.first(where: { $0.userId == user.id }) else {
                 return "Driver"
             }
-            return "Driver - \(driver.vehicleType.capitalized)"
+            return driver.vehicleType.capitalized
         case .maintenancePersonnel:
-            return "Maintenance"
+            return "Workshop"
         case .fleetManager:
             return "Fleet Manager"
         }

@@ -23,6 +23,8 @@ final class NotificationViewModel: ObservableObject {
     @Published var unreadCount: Int = 0
     @Published var showBanner: Bool = false
     @Published var currentBanner: AppNotification?
+    
+    private var notifiedTripKeys = Set<String>()
 
     private var bannerQueue: [AppNotification] = []
     private var localNotifications: [AppNotification] = []
@@ -180,17 +182,25 @@ final class NotificationViewModel: ObservableObject {
                     NotificationCenter.default.post(name: NSNotification.Name("ReloadTrips"), object: nil)
                     
                     if trip.status == .scheduled || trip.status == .pending {
-                        triggerHapticFeedback()
-                        triggerLocalSystemNotification(
-                            title: "New Trip Assigned 🚚",
-                            body: "Route: \(trip.startLocation) to \(trip.endLocation)"
-                        )
+                        let key = "\(trip.id.uuidString)-assigned"
+                        if !notifiedTripKeys.contains(key) {
+                            notifiedTripKeys.insert(key)
+                            triggerHapticFeedback()
+                            triggerLocalSystemNotification(
+                                title: "New Trip Assigned 🚚",
+                                body: "Route: \(trip.startLocation) to \(trip.endLocation)"
+                            )
+                        }
                     } else if trip.status == .cancelled {
-                        triggerHapticFeedback()
-                        triggerLocalSystemNotification(
-                            title: "Trip Cancelled ❌",
-                            body: "Your trip to \(trip.endLocation) was cancelled by the manager."
-                        )
+                        let key = "\(trip.id.uuidString)-cancelled"
+                        if !notifiedTripKeys.contains(key) {
+                            notifiedTripKeys.insert(key)
+                            triggerHapticFeedback()
+                            triggerLocalSystemNotification(
+                                title: "Trip Cancelled ❌",
+                                body: "Your trip to \(trip.endLocation) was cancelled by the manager."
+                            )
+                        }
                     }
                 }
             }

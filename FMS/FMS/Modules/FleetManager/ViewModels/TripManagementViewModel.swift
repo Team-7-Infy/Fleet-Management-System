@@ -124,6 +124,10 @@ final class TripManagementViewModel: ObservableObject {
         return trips.first { $0.id == id }
     }
 
+    func fetchTelemetry(driverId: UUID) async throws -> Telemetry? {
+        return try await tripService.fetchTelemetry(driverId: driverId).first
+    }
+
     private func showSuccessMessage(_ message: String) {
         successMessage = message
         successClearTask?.cancel()

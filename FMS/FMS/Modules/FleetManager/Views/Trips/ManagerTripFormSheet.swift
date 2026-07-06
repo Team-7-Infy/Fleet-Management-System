@@ -137,11 +137,29 @@ struct ManagerTripFormSheet: View {
     }
 
     private var availableDrivers: [Driver] {
-        usersViewModel.drivers.filter { $0.status == .active }
+        var list = usersViewModel.drivers.filter { $0.status == .active }
+        list = list.filter { driver in
+            let isOnActiveTrip = viewModel.activeTrips.contains { $0.driverId == driver.id }
+            return !isOnActiveTrip
+        }
+        if let vehicleId = form.vehicleId,
+           let vehicle = vehiclesViewModel.vehicle(for: vehicleId) {
+            list = list.filter { $0.vehicleType.lowercased() == vehicle.vehicleType.lowercased() }
+        }
+        return list
     }
 
     private var availableVehicles: [Vehicle] {
-        vehiclesViewModel.vehicles.filter { $0.status == .active }
+        var list = vehiclesViewModel.vehicles.filter { $0.status == .active }
+        list = list.filter { vehicle in
+            let isAssignedToActiveTrip = viewModel.activeTrips.contains { $0.vehicleId == vehicle.id }
+            return !isAssignedToActiveTrip
+        }
+        if let driverId = form.driverId,
+           let driver = usersViewModel.driver(for: driverId) {
+            list = list.filter { $0.vehicleType.lowercased() == driver.vehicleType.lowercased() }
+        }
+        return list
     }
 
     private var selectedVehicleTitle: String? {

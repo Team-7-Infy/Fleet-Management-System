@@ -14,9 +14,11 @@ struct EndTripView: View {
     @State private var maintenanceTitle: String = ""
     @State private var maintenanceDescription: String = ""
     @State private var isSubmitting: Bool = false
+    @State private var previousOdometer: Double = 0.0
 
     private var isFormValid: Bool {
         let baseValid = !endOdometer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        guard let odoVal = Double(endOdometer), odoVal >= previousOdometer else { return false }
         if needsMaintenance {
             return baseValid &&
                    !maintenanceTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
@@ -113,6 +115,13 @@ struct EndTripView: View {
                                     Text("km")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
+                                }
+                                
+                                if let val = Double(endOdometer), val < previousOdometer {
+                                    Text("Odometer must be at least \(Int(previousOdometer)) km")
+                                        .font(.caption)
+                                        .foregroundColor(.red)
+                                        .padding(.top, 2)
                                 }
                             }
                         }
@@ -244,6 +253,11 @@ struct EndTripView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .task {
+            if let vehicle = try? await services.vehicleService.fetchVehicle(id: trip.vehicleId) {
+                previousOdometer = vehicle.odometer ?? 0.0
+            }
+        }
     }
 
     private var textClose: some View {
@@ -274,10 +288,17 @@ struct EndTripView: View {
                 updatedTrip.driverNote = note
                 
                 _ = try await services.tripService.updateTrip(updatedTrip)
+                UserDefaults.standard.removeObject(forKey: "trip_\(trip.id.uuidString)_paused")
+                
+                // Update vehicle odometer and status in DB
+                var vehicle = try await services.vehicleService.fetchVehicle(id: trip.vehicleId)
+                vehicle.odometer = odoDouble
+                if needsMaintenance {
+                    vehicle.status = .maintenance
+                }
+                _ = try await services.vehicleService.updateVehicle(vehicle)
                 
                 if needsMaintenance {
-                    let vehicle = try await services.vehicleService.fetchVehicle(id: trip.vehicleId)
-                    
                     let maintenanceTask = MaintenanceTask(
                         id: UUID(),
                         title: maintenanceTitle,
@@ -300,10 +321,6 @@ struct EndTripView: View {
                     
                     let taskVehicle = TaskVehicle(taskId: maintenanceTask.id, vin: vehicle.id)
                     try await services.maintenanceService.addTaskVehicle(taskVehicle)
-                    
-                    var updatedVehicle = vehicle
-                    updatedVehicle.status = .maintenance
-                    _ = try await services.vehicleService.updateVehicle(updatedVehicle)
                 }
                 
                 await MainActor.run {
