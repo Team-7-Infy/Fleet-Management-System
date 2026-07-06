@@ -14,10 +14,10 @@ class InspectionViewModel: ObservableObject {
     
     @Published var isSubmitting: Bool = false
     
-    // Check if every item has been marked as either passed or failed, and failed items have mandatory description filled
     var isComplete: Bool {
-        !items.contains(where: { 
-            $0.status == .untested || ($0.status == .failed && $0.failDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        !items.contains(where: {
+            $0.status == .untested ||
+            ($0.status == .failed && ($0.failDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.failImage == nil))
         })
     }
     

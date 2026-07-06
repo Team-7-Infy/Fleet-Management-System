@@ -1,4 +1,5 @@
 import SwiftUI
+import Supabase
 
 struct EndTripView: View {
     @Environment(\.dismiss) var dismiss
@@ -9,22 +10,20 @@ struct EndTripView: View {
     var onComplete: ((_ finalOdometer: String, _ notes: String) -> Void)? = nil
 
     @State private var endOdometer: String = ""
-    @State private var endFuel: Double = 50.0
-    @State private var needsMaintenance: Bool = false
-    @State private var maintenanceTitle: String = ""
-    @State private var maintenanceDescription: String = ""
+    @State private var endFuel: String = ""
     @State private var isSubmitting: Bool = false
     @State private var previousOdometer: Double = 0.0
+    @State private var showAlert = false
+    @State private var alertMessage = ""
+
+    @StateObject private var inspectionViewModel = InspectionViewModel()
 
     private var isFormValid: Bool {
-        let baseValid = !endOdometer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        guard let odoVal = Double(endOdometer), odoVal >= previousOdometer else { return false }
-        if needsMaintenance {
-            return baseValid &&
-                   !maintenanceTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-                   !maintenanceDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        }
-        return baseValid
+        let trimmedOdo = endOdometer.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let odoVal = Double(trimmedOdo), odoVal >= previousOdometer else { return false }
+        let trimmedFuel = endFuel.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let fuelVal = Int(trimmedFuel), fuelVal >= 0, fuelVal <= 100 else { return false }
+        return inspectionViewModel.isComplete
     }
 
     var body: some View {
@@ -92,24 +91,28 @@ struct EndTripView: View {
                                 Image(systemName: "speedometer")
                                     .foregroundColor(.blue)
                                     .font(.headline)
-                                Text("ODOMETER READING")
+                                Text("VEHICLE READINGS")
                                     .font(.system(size: 11, weight: .black))
                                     .foregroundColor(.secondary)
                                     .tracking(1.0)
                             }
                             
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Final Odometer *")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.primary)
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Image(systemName: "speedometer")
+                                        .foregroundColor(.secondary)
+                                    Text("Final Odometer *")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.primary)
+                                }
                                 
                                 HStack(spacing: 6) {
-                                    TextField("Enter ending odometer (km)", text: $endOdometer)
+                                    TextField("e.g. \(Int(previousOdometer))", text: $endOdometer)
                                         .keyboardType(.numberPad)
                                         .font(.subheadline)
                                         .padding(.horizontal, 12)
-                                        .padding(.vertical, 10)
+                                        .padding(.vertical, 8)
                                         .background(Color(.systemGray6))
                                         .cornerRadius(8)
                                     Text("km")
@@ -124,39 +127,41 @@ struct EndTripView: View {
                                         .padding(.top, 2)
                                 }
                             }
-                        }
-                        .padding(20)
-                        .background(Color(UIColor.secondarySystemGroupedBackground))
-                        .cornerRadius(16)
-                        .shadow(color: Color.black.opacity(0.02), radius: 8, y: 4)
 
-                        // 2. Fuel Level Readings Card
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Image(systemName: "fuelpump.fill")
-                                    .foregroundColor(.blue)
-                                    .font(.headline)
-                                Text("FUEL LEVEL")
-                                    .font(.system(size: 11, weight: .black))
-                                    .foregroundColor(.secondary)
-                                    .tracking(1.0)
-                            }
-                            
+                            Divider()
+
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
-                                    Text("Final Fuel Level")
+                                    Image(systemName: "fuelpump.fill")
+                                        .foregroundColor(.secondary)
+                                    Text("Final Fuel Level *")
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
                                         .foregroundColor(.primary)
-                                    Spacer()
-                                    Text("\(Int(endFuel))%")
-                                        .font(.subheadline.monospacedDigit())
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.blue)
                                 }
                                 
-                                Slider(value: $endFuel, in: 0...100, step: 1)
-                                    .accentColor(.blue)
+                                HStack(spacing: 8) {
+                                    TextField("e.g. 75", text: $endFuel)
+                                        .keyboardType(.numberPad)
+                                        .font(.subheadline)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(Color(.systemGray6))
+                                        .cornerRadius(8)
+                                    
+                                    Text("%")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                if !endFuel.isEmpty {
+                                    if let val = Int(endFuel), (val < 0 || val > 100) {
+                                        Text("Fuel level must be between 0 and 100")
+                                            .font(.caption2)
+                                            .foregroundColor(.red)
+                                            .padding(.top, 2)
+                                    }
+                                }
                             }
                         }
                         .padding(20)
@@ -164,65 +169,30 @@ struct EndTripView: View {
                         .cornerRadius(16)
                         .shadow(color: Color.black.opacity(0.02), radius: 8, y: 4)
 
-                        // 3. Maintenance Toggle Card
-                        VStack(alignment: .leading, spacing: 16) {
+                        // 2. Inspection Checklist
+                        VStack(alignment: .leading, spacing: 12) {
                             HStack {
-                                Image(systemName: "wrench.and.screwdriver.fill")
+                                Image(systemName: "checklist")
                                     .foregroundColor(.blue)
                                     .font(.headline)
-                                Text("MAINTENANCE STATUS")
+                                Text("VEHICLE INSPECTION CHECKLIST")
                                     .font(.system(size: 11, weight: .black))
                                     .foregroundColor(.secondary)
                                     .tracking(1.0)
                             }
-                            
-                            Toggle(isOn: $needsMaintenance.animation()) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Needs Maintenance")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.primary)
-                                    Text("Flag vehicle for technical inspection")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+
+                            ForEach(inspectionViewModel.items) { item in
+                                InspectionRow(item: item) { newStatus in
+                                    let generator = UIImpactFeedbackGenerator(style: .light)
+                                    generator.impactOccurred()
+                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                        inspectionViewModel.updateStatus(for: item.id, to: newStatus)
+                                    }
+                                } onDetailsChange: { desc, img in
+                                    inspectionViewModel.updateDetails(for: item.id, description: desc, image: img)
                                 }
-                            }
-                            .tint(.orange)
-                            
-                            if needsMaintenance {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Maintenance Title *")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.primary)
-                                    TextField("e.g. Brake noise, Flat tire", text: $maintenanceTitle)
-                                        .font(.subheadline)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 10)
-                                        .background(Color(.systemGray6))
-                                        .cornerRadius(8)
-                                }
-                                .transition(.opacity.combined(with: .move(edge: .top)))
-                                
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Maintenance Description *")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.primary)
-                                    TextField("Describe the issue in detail", text: $maintenanceDescription)
-                                        .font(.subheadline)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 10)
-                                        .background(Color(.systemGray6))
-                                        .cornerRadius(8)
-                                }
-                                .transition(.opacity.combined(with: .move(edge: .top)))
                             }
                         }
-                        .padding(20)
-                        .background(Color(UIColor.secondarySystemGroupedBackground))
-                        .cornerRadius(16)
-                        .shadow(color: Color.black.opacity(0.02), radius: 8, y: 4)
 
                         // Action Button
                         Button(action: submitTrip) {
@@ -259,6 +229,11 @@ struct EndTripView: View {
                 previousOdometer = vehicle.odometer ?? 0.0
             }
         }
+        .alert("Error", isPresented: $showAlert) {
+            Button("OK") { }
+        } message: {
+            Text(alertMessage)
+        }
     }
 
     private var textClose: some View {
@@ -275,68 +250,137 @@ struct EndTripView: View {
     private func submitTrip() {
         isSubmitting = true
         HapticManager.shared.triggerNotification(type: .success)
-        
+
+        let failedItems = inspectionViewModel.items.filter { $0.status == .failed }
+
         Task {
             do {
+                guard let vehicleId = trip.vehicleId else {
+                    await showError("No vehicle assigned to this trip. Cannot perform inspection.")
+                    return
+                }
+                guard let driverId = trip.driverId else {
+                    await showError("No driver assigned to this trip. Cannot perform inspection.")
+                    return
+                }
+
+                // 1. Persist inspection to Supabase
+                let inspection = VehicleInspection(
+                    id: UUID(),
+                    tripId: trip.id,
+                    vehicleId: vehicleId,
+                    driverId: driverId,
+                    type: "post_trip",
+                    status: failedItems.isEmpty ? "passed" : "failed",
+                    odometerReading: Double(endOdometer),
+                    fuelLevel: Double(endFuel),
+                    notes: nil,
+                    createdAt: Date()
+                )
+                let saved = try await services.inspectionService.createInspection(inspection)
+
+                for item in inspectionViewModel.items {
+                    let dbItem = InspectionItemDB(
+                        id: UUID(),
+                        inspectionId: saved.id,
+                        itemName: item.name,
+                        status: item.status == .passed ? "pass" : (item.status == .failed ? "fail" : "untested"),
+                        failDescription: item.failDescription.isEmpty ? nil : item.failDescription,
+                        failPhotoUrl: nil,
+                        createdAt: Date()
+                    )
+                    try await services.inspectionService.createInspectionItem(dbItem)
+                }
+
+                // 2. Complete the trip
                 var updatedTrip = trip
                 let odoDouble = Double(endOdometer) ?? 0.0
                 updatedTrip.finalOdometer = odoDouble
-                updatedTrip.finalFuelLevel = endFuel
+                updatedTrip.finalFuelLevel = Double(endFuel) ?? 50
                 updatedTrip.status = .completed
                 updatedTrip.endTime = Date()
-                
-                let note = needsMaintenance ? "Needs Maintenance" : "Post-trip check completed normally."
-                updatedTrip.driverNote = note
-                
+                updatedTrip.driverNote = failedItems.isEmpty ? "Post-trip check completed normally." : "Post-trip inspection failed."
+
                 _ = try await services.tripService.updateTrip(updatedTrip)
                 UserDefaults.standard.removeObject(forKey: "trip_\(trip.id.uuidString)_paused")
-                
-                // Update vehicle odometer and status in DB
-                if let vehicleId = trip.vehicleId {
-                    var vehicle = try await services.vehicleService.fetchVehicle(id: vehicleId)
-                    vehicle.odometer = odoDouble
-                    if needsMaintenance {
-                        vehicle.status = .inMaintenance
-                    }
-                    _ = try await services.vehicleService.updateVehicle(vehicle)
 
-                    if needsMaintenance {
+                // 3. Update vehicle odometer
+                var vehicle = try await services.vehicleService.fetchVehicle(id: vehicleId)
+                vehicle.odometer = odoDouble
+
+                if !failedItems.isEmpty {
+                    // Create work orders for failed items
+                    for item in failedItems {
+                        var photoUrls: [String] = []
+                        if let image = item.failImage,
+                           let imageData = image.jpegData(compressionQuality: 0.8) {
+                            let photoId = UUID()
+                            let storage = services.supabase.client.storage.from("maintenance")
+                            let pathName = "\(photoId.uuidString).jpg"
+                            do {
+                                try await storage.upload(path: pathName, file: imageData, options: FileOptions(contentType: "image/jpeg"))
+                                if let publicUrl = try? storage.getPublicURL(path: pathName).absoluteString {
+                                    photoUrls.append(publicUrl)
+                                }
+                            } catch {
+                                print("Failed to upload defect image: \(error)")
+                            }
+                        }
+
+                        let description = "Post-trip inspection failed for \(item.name) on vehicle \(vehicle.licencePlate) (VIN: \(vehicle.id.uuidString)). Odometer: \(endOdometer) km, Fuel: \(endFuel)%. Details: \(item.failDescription)"
+
+                        let personnelList = try? await services.userManagementService.fetchMaintenancePersonnel()
+                        let activePersonnel = personnelList?.first(where: { $0.status == .active })
+
                         let maintenanceTask = MaintenanceTask(
                             id: UUID(),
-                            title: maintenanceTitle,
-                            description: maintenanceDescription,
+                            title: item.name,
+                            description: description,
                             scheduledDate: DateOnly(wrappedValue: Date()),
                             isUrgent: true,
                             scheduledBy: nil,
-                            executedBy: nil,
-                            status: .scheduled,
+                            executedBy: activePersonnel?.id,
+                            status: activePersonnel != nil ? .assigned : .scheduled,
                             reportedDate: nil,
                             completedAt: nil,
                             timeTakenHours: nil,
                             partsSummary: nil,
                             totalCost: nil,
-                            photoUrls: nil,
+                            photoUrls: photoUrls.isEmpty ? nil : photoUrls,
                             elapsedTime: 0
                         )
-                        
                         _ = try await services.maintenanceService.createTask(maintenanceTask)
-                        
                         let taskVehicle = TaskVehicle(taskId: maintenanceTask.id, vin: vehicle.id)
                         try await services.maintenanceService.addTaskVehicle(taskVehicle)
                     }
+
+                    vehicle.status = .inMaintenance
+                    vehicle.driverId = nil
                 }
-                
+
+                _ = try await services.vehicleService.updateVehicle(vehicle)
+
                 await MainActor.run {
                     isSubmitting = false
                     dismiss()
-                    onComplete?(endOdometer, note)
+                    onComplete?(endOdometer, failedItems.isEmpty ? "Post-trip check completed normally." : "Post-trip inspection failed.")
                 }
             } catch {
-                print("Failed to complete trip: \(error)")
+                print("Failed to complete post-trip inspection: \(error)")
                 await MainActor.run {
                     isSubmitting = false
+                    alertMessage = error.localizedDescription
+                    showAlert = true
                 }
             }
+        }
+    }
+
+    private func showError(_ message: String) async {
+        await MainActor.run {
+            alertMessage = message
+            showAlert = true
+            isSubmitting = false
         }
     }
 }
