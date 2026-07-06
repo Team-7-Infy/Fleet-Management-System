@@ -314,13 +314,6 @@ private struct ProfileScoreTile: View {
     }
 }
 
-private struct ProfileInfoRow: Identifiable {
-    let id = UUID()
-    let title: String
-    let value: String
-    let icon: String
-}
-
 private struct ProfileInfoSection: View {
     let title: String
     let rows: [ProfileInfoRow]
