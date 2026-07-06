@@ -4,6 +4,7 @@ import Supabase
 struct EndTripView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var localStore: LocalDataStore
+    @EnvironmentObject var locationService: LocationManager
 
     let trip: Trip
     let services: AppServices
@@ -362,6 +363,7 @@ struct EndTripView: View {
 
                 await MainActor.run {
                     isSubmitting = false
+                    locationService.stopTracking()
                     dismiss()
                     onComplete?(endOdometer, failedItems.isEmpty ? "Post-trip check completed normally." : "Post-trip inspection failed.")
                 }

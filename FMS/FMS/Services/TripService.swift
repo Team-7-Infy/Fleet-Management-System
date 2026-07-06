@@ -140,6 +140,15 @@ final actor TripService: TripServiceProtocol {
             .value
     }
 
+    func persistRouteWaypoints(_ waypoints: [RouteWaypoint]) async throws -> [RouteWaypoint] {
+        try await supabase.client
+            .from("route_waypoints")
+            .insert(waypoints, returning: .representation)
+            .select()
+            .execute()
+            .value
+    }
+
     func fetchRouteWaypoints(tripId: UUID) async throws -> [RouteWaypoint] {
         try await supabase.client
             .from("route_waypoints")
