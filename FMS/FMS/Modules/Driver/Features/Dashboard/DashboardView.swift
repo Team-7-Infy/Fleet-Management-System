@@ -46,6 +46,9 @@ struct DashboardView: View {
     @State private var activeTripForNavigation: Trip? = nil
     @State private var showingTripDetailsSheet = false
     @State private var showingNotifications = false
+
+    @State private var tripToReject: Trip?
+    @State private var selectedScheduledTrip: Trip?
     
     // Post-Trip Inspection & Success States
     @State private var showingPostTripInspection = false
@@ -64,8 +67,11 @@ struct DashboardView: View {
             $0.status == .accepted || $0.status == .pending || $0.status == .scheduled
         }.sorted { $0.startTime < $1.startTime }
 
-        // The nearest Scheduled Trip (top card if no Live Trip exists)
-        let nearestScheduledTrip = liveTrip == nil ? allScheduled.first : nil
+        // The nearest accepted or inspection-eligible Scheduled Trip (top card if no Live Trip exists)
+        let nearestScheduledTrip = liveTrip == nil ? allScheduled.first(where: {
+            $0.status == .accepted ||
+            (($0.status == .scheduled || $0.status == .pending) && Date() >= $0.startTime.addingTimeInterval(-3 * 3600))
+        }) : nil
 
         // Is Pre-Trip Inspection enabled for the nearest Scheduled Trip?
         let isInspectionEnabled: Bool = {
@@ -244,15 +250,26 @@ struct DashboardView: View {
                             } else {
                                 VStack(spacing: 16) {
                                     ForEach(displayedScheduled) { trip in
-                                        NavigationLink(destination: TripDetailView(trip: trip).environmentObject(localStore)) {
+                                        if (trip.status == .pending || trip.status == .scheduled) && Date() < trip.startTime.addingTimeInterval(-3 * 3600) {
                                             PendingRequestCard(
                                                 trip: trip,
                                                 vehicles: vehicles,
-                                                showActions: false,
-                                                onCardTap: nil
+                                                showActions: true,
+                                                onCardTap: { selectedScheduledTrip = trip },
+                                                onAcceptTap: { Task { await acceptTrip(trip) } },
+                                                onRejectTap: { tripToReject = trip }
                                             )
+                                        } else {
+                                            NavigationLink(destination: TripDetailView(trip: trip).environmentObject(localStore)) {
+                                                PendingRequestCard(
+                                                    trip: trip,
+                                                    vehicles: vehicles,
+                                                    showActions: false,
+                                                    onCardTap: nil
+                                                )
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
                                         }
-                                        .buttonStyle(PlainButtonStyle())
                                     }
                                 }
                             }
@@ -515,6 +532,17 @@ struct DashboardView: View {
                 )
                 .environmentObject(localStore)
             }
+            .sheet(item: $tripToReject) { trip in
+                RejectTripSheet(trip: trip) { reason in
+                    Task { await rejectTrip(trip, reason: reason) }
+                }
+            }
+            .sheet(item: $selectedScheduledTrip) { trip in
+                NavigationStack {
+                    TripDetailView(trip: trip)
+                        .environmentObject(localStore)
+                }
+            }
 
 
         }
@@ -530,6 +558,24 @@ struct DashboardView: View {
         let f = DateFormatter()
         f.dateFormat = "h:mm a"
         return f.string(from: endTime)
+    }
+
+    private func acceptTrip(_ trip: Trip) async {
+        do {
+            try await services.tripService.updateTripStatus(id: trip.id, status: .accepted)
+            await onRefreshData?()
+        } catch {
+            print("Failed to accept trip: \(error)")
+        }
+    }
+
+    private func rejectTrip(_ trip: Trip, reason: String) async {
+        do {
+            try await services.tripService.updateTripStatus(id: trip.id, status: .rejectionPending, rejectionReason: reason)
+            await onRefreshData?()
+        } catch {
+            print("Failed to reject trip: \(error)")
+        }
     }
 }
 
