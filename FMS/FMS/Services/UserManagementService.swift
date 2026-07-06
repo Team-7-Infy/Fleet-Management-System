@@ -147,6 +147,16 @@ final actor UserManagementService: UserManagementServiceProtocol {
             .value
     }
 
+    func fetchDriverScore(driverId: UUID) async throws -> DriverScore? {
+        try? await supabase.client
+            .from("driver_scores")
+            .select()
+            .eq("driver_id", value: driverId.uuidString)
+            .single()
+            .execute()
+            .value
+    }
+
     func fetchDriverSchedules(driverId: UUID) async throws -> [DriverSchedule] {
         try await supabase.client
             .from("driver_schedules")

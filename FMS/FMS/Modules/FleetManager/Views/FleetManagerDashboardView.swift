@@ -67,7 +67,8 @@ struct FleetManagerDashboardView: View {
         _tripsViewModel = StateObject(
             wrappedValue: TripManagementViewModel(
                 tripService: services.tripService,
-                vehicleService: services.vehicleService
+                vehicleService: services.vehicleService,
+                userManagementService: services.userManagementService
             )
         )
         _maintenanceViewModel = StateObject(

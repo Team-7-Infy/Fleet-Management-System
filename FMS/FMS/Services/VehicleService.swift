@@ -77,6 +77,14 @@ final actor VehicleService: VehicleServiceProtocol {
             .execute()
     }
 
+    func setVehicleStatus(vehicleId: UUID, status: VehicleStatus) async throws {
+        try await supabase.client
+            .from("vehicles")
+            .update(["status": AnyJSON.string(status.rawValue)])
+            .eq("vin", value: vehicleId.uuidString)
+            .execute()
+    }
+
     func fetchVehicleDocuments(vehicleId: UUID) async throws -> [VehicleDocument] {
         try await supabase.client
             .from("vehicle_documents")
