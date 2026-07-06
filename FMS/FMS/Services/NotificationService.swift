@@ -79,6 +79,22 @@ final actor NotificationService: NotificationServiceProtocol {
             .execute()
     }
 
+    func deleteNotification(id: UUID) async throws {
+        try await supabase.client
+            .from("notifications")
+            .delete()
+            .eq("id", value: id.uuidString)
+            .execute()
+    }
+
+    func clearAllNotifications(for userId: UUID) async throws {
+        try await supabase.client
+            .from("notifications")
+            .delete()
+            .eq("recipient_id", value: userId.uuidString)
+            .execute()
+    }
+
     func markAllAsRead(for recipientId: UUID?, driverId: UUID?) async throws {
         let query = try supabase.client.from("notifications").update(["is_read": true])
         if let recipientId {

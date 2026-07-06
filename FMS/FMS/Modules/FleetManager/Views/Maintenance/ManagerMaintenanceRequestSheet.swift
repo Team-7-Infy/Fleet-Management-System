@@ -23,7 +23,7 @@ struct ManagerMaintenanceRequestSheet: View {
     }
 
     private var availableVehicles: [Vehicle] {
-        var list = vehiclesViewModel.vehicles.filter { $0.status == .active }
+        var list = vehiclesViewModel.vehicles.filter { $0.status == .available }
         list = list.filter { vehicle in
             let isAssignedToActiveTrip = tripsViewModel.activeTrips.contains { $0.vehicleId == vehicle.id }
             return !isAssignedToActiveTrip

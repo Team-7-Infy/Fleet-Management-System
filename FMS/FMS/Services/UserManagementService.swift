@@ -14,6 +14,7 @@ final actor UserManagementService: UserManagementServiceProtocol {
         try await supabase.client
             .from("users")
             .select()
+            .is("deleted_at", value: nil)
             .order("createdat", ascending: false)
             .execute()
             .value
@@ -58,93 +59,23 @@ final actor UserManagementService: UserManagementServiceProtocol {
     }
 
     func deleteDriverByUserId(id: UUID) async throws {
-        let driver: Driver? = try? await supabase.client
-            .from("drivers")
-            .select()
-            .eq("userid", value: id.uuidString)
-            .single()
-            .execute()
-            .value
-
-        if let driverId = driver?.id {
-            try await supabase.client
-                .from("trips")
-                .update(["driverid": AnyJSON.null])
-                .eq("driverid", value: driverId.uuidString)
-                .execute()
-
-            try await supabase.client
-                .from("vehicles")
-                .update(["driverid": AnyJSON.null])
-                .eq("driverid", value: driverId.uuidString)
-                .execute()
-
-            try await supabase.client
-                .from("telemetry_log")
-                .delete()
-                .eq("driverid", value: driverId.uuidString)
-                .execute()
-        }
-
-        try await supabase.client
-            .from("drivers")
-            .delete()
-            .eq("userid", value: id.uuidString)
-            .execute()
+        // Soft-delete only — role rows are preserved for historical reference.
+        // Driver associations (trips, vehicles) are unlinked on user soft-delete.
     }
 
     func deleteMaintenancePersonnelByUserId(id: UUID) async throws {
-        let personnel: MaintenancePersonnel? = try? await supabase.client
-            .from("maintenance_personnel")
-            .select()
-            .eq("userid", value: id.uuidString)
-            .single()
-            .execute()
-            .value
-
-        if let personnelId = personnel?.id {
-            try await supabase.client
-                .from("maintenance_task")
-                .update(["executedby": AnyJSON.null])
-                .eq("executedby", value: personnelId.uuidString)
-                .execute()
-        }
-
-        try await supabase.client
-            .from("maintenance_personnel")
-            .delete()
-            .eq("userid", value: id.uuidString)
-            .execute()
+        // Soft-delete only — role rows preserved for historical reference.
     }
 
     func deleteFleetManagerByUserId(id: UUID) async throws {
-        let manager: FleetManager? = try? await supabase.client
-            .from("fleet_manager")
-            .select()
-            .eq("userid", value: id.uuidString)
-            .single()
-            .execute()
-            .value
-
-        if let managerId = manager?.id {
-            try await supabase.client
-                .from("maintenance_task")
-                .update(["scheduledby": AnyJSON.null])
-                .eq("scheduledby", value: managerId.uuidString)
-                .execute()
-        }
-
-        try await supabase.client
-            .from("fleet_manager")
-            .delete()
-            .eq("userid", value: id.uuidString)
-            .execute()
+        // Soft-delete only — role rows preserved for historical reference.
     }
 
     func deleteUser(id: UUID) async throws {
+        let now = ISO8601DateFormatter().string(from: Date())
         try await supabase.client
             .from("users")
-            .delete()
+            .update(["deleted_at": AnyJSON.string(now), "isactive": AnyJSON.bool(false)])
             .eq("userid", value: id.uuidString)
             .execute()
     }
@@ -214,5 +145,33 @@ final actor UserManagementService: UserManagementServiceProtocol {
             .single()
             .execute()
             .value
+    }
+
+    func fetchDriverSchedules(driverId: UUID) async throws -> [DriverSchedule] {
+        try await supabase.client
+            .from("driver_schedules")
+            .select()
+            .eq("driver_id", value: driverId.uuidString)
+            .order("start_time", ascending: true)
+            .execute()
+            .value
+    }
+
+    func createDriverSchedule(_ schedule: DriverSchedule) async throws -> DriverSchedule {
+        try await supabase.client
+            .from("driver_schedules")
+            .insert(schedule, returning: .representation)
+            .select()
+            .single()
+            .execute()
+            .value
+    }
+
+    func deleteDriverSchedule(id: UUID) async throws {
+        try await supabase.client
+            .from("driver_schedules")
+            .delete()
+            .eq("id", value: id.uuidString)
+            .execute()
     }
 }

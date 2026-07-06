@@ -64,7 +64,7 @@ final class MaintenanceViewModel: ObservableObject {
                 taskVehicles[task.id] = [taskVehicle]
                 let vehicle = try await vehicleService.fetchVehicle(id: vehicleId)
                 var updatedVehicle = vehicle
-                updatedVehicle.status = .maintenance
+                updatedVehicle.status = .inMaintenance
                 _ = try await vehicleService.updateVehicle(updatedVehicle)
             }
 

@@ -9,9 +9,9 @@ private enum ManagerVehicleFilter: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .active: return "Active"
+        case .active: return "Available"
         case .maintenance: return "Maintenance"
-        case .inactive: return "Inactive"
+        case .inactive: return "Out of Service"
         }
     }
 
@@ -26,11 +26,11 @@ private enum ManagerVehicleFilter: String, CaseIterable, Identifiable {
     func includes(_ vehicle: Vehicle) -> Bool {
         switch self {
         case .active:
-            return vehicle.status == .active
+            return vehicle.status == .available
         case .maintenance:
-            return vehicle.status == .maintenance
+            return vehicle.status == .inMaintenance
         case .inactive:
-            return vehicle.status == .inactive
+            return vehicle.status == .outOfService
         }
     }
 }
@@ -357,7 +357,7 @@ struct ManagerVehicleDetailView: View {
             
             GlassPanel(hasBorder: false) {
                 VStack(alignment: .leading, spacing: 12) {
-                    if currentVehicle.status != .maintenance {
+                    if currentVehicle.status != .inMaintenance {
                         Button {
                             openMaintenanceRequest(currentVehicle.id)
                         } label: {
@@ -380,11 +380,13 @@ struct ManagerVehicleDetailView: View {
 enum VehicleHealth {
     static func score(for vehicle: Vehicle) -> Int {
         switch vehicle.status {
-        case .active:
+        case .available:
             return vehicle.driverId == nil ? 92 : 78
-        case .maintenance:
+        case .assigned:
+            return 78
+        case .inMaintenance:
             return 42
-        case .inactive:
+        case .outOfService:
             return 24
         }
     }

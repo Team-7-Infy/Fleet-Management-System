@@ -1,9 +1,10 @@
 import Foundation
 
 enum VehicleStatus: String, Codable, CaseIterable {
-    case active = "active"
-    case inactive = "inactive"
-    case maintenance = "maintenance"
+    case available = "available"
+    case assigned = "assigned"
+    case inMaintenance = "in_maintenance"
+    case outOfService = "out_of_service"
 
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()

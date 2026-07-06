@@ -25,7 +25,7 @@ enum PreviewData {
             model: "VNL",
             year: 2020,
             licencePlate: "KACM92KS6",
-            status: .maintenance,
+            status: .inMaintenance,
             vehicleType: "Truck",
             driverId: nil
         ),
@@ -35,7 +35,7 @@ enum PreviewData {
             model: "Vision",
             year: 2018,
             licencePlate: "BUSC11",
-            status: .active,
+            status: .available,
             vehicleType: "Bus",
             driverId: nil
         )

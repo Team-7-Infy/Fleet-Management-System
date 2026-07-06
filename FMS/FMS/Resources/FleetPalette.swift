@@ -33,12 +33,14 @@ enum FleetPalette {
 
     static func vehicleStatus(_ status: VehicleStatus) -> Color {
         switch status {
-        case .active:
+        case .available:
             return success
-        case .inactive:
-            return secondary
-        case .maintenance:
+        case .assigned:
+            return accent
+        case .inMaintenance:
             return warning
+        case .outOfService:
+            return secondary
         }
     }
 
@@ -84,6 +86,8 @@ enum FleetPalette {
             return inProgress
         case .inProgress:
             return inProgress
+        case .onHold:
+            return warning
         case .completed:
             return success
         case .fake:

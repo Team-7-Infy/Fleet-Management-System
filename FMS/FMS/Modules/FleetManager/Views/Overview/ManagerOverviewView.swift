@@ -50,11 +50,11 @@ struct ManagerOverviewView: View {
     }
 
     private var availableVehicles: [Vehicle] {
-        vehiclesViewModel.vehicles.filter { $0.status == .active && $0.driverId == nil }
+        vehiclesViewModel.vehicles.filter { $0.status == .available && $0.driverId == nil }
     }
 
     private var enrouteVehicles: [Vehicle] {
-        vehiclesViewModel.vehicles.filter { $0.status == .active && $0.driverId != nil }
+        vehiclesViewModel.vehicles.filter { $0.status == .available && $0.driverId != nil }
     }
 
     private var maintenanceVehicles: [Vehicle] {

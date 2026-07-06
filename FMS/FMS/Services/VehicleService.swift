@@ -14,6 +14,7 @@ final actor VehicleService: VehicleServiceProtocol {
         try await supabase.client
             .from("vehicles")
             .select()
+            .is("deleted_at", value: nil)
             .execute()
             .value
     }
@@ -23,6 +24,7 @@ final actor VehicleService: VehicleServiceProtocol {
             .from("vehicles")
             .select()
             .eq("driverid", value: driverId.uuidString)
+            .is("deleted_at", value: nil)
             .execute()
             .value
     }
@@ -32,6 +34,7 @@ final actor VehicleService: VehicleServiceProtocol {
             .from("vehicles")
             .select()
             .eq("vin", value: id.uuidString)
+            .is("deleted_at", value: nil)
             .single()
             .execute()
             .value
@@ -61,8 +64,44 @@ final actor VehicleService: VehicleServiceProtocol {
     func deleteVehicle(id: UUID) async throws {
         try await supabase.client
             .from("vehicles")
-            .delete()
+            .update(["deleted_at": AnyJSON.string(ISO8601DateFormatter().string(from: Date()))])
             .eq("vin", value: id.uuidString)
+            .execute()
+    }
+
+    func setOutOfService(vehicleId: UUID) async throws {
+        try await supabase.client
+            .from("vehicles")
+            .update(["status": AnyJSON.string(VehicleStatus.outOfService.rawValue)])
+            .eq("vin", value: vehicleId.uuidString)
+            .execute()
+    }
+
+    func fetchVehicleDocuments(vehicleId: UUID) async throws -> [VehicleDocument] {
+        try await supabase.client
+            .from("vehicle_documents")
+            .select()
+            .eq("vehicle_id", value: vehicleId.uuidString)
+            .is("deleted_at", value: nil)
+            .execute()
+            .value
+    }
+
+    func createVehicleDocument(_ document: VehicleDocument) async throws -> VehicleDocument {
+        try await supabase.client
+            .from("vehicle_documents")
+            .insert(document, returning: .representation)
+            .select()
+            .single()
+            .execute()
+            .value
+    }
+
+    func deleteVehicleDocument(id: UUID) async throws {
+        try await supabase.client
+            .from("vehicle_documents")
+            .update(["deleted_at": AnyJSON.string(ISO8601DateFormatter().string(from: Date()))])
+            .eq("id", value: id.uuidString)
             .execute()
     }
 

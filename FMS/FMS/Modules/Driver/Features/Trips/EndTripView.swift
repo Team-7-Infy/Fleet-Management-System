@@ -294,7 +294,7 @@ struct EndTripView: View {
                 var vehicle = try await services.vehicleService.fetchVehicle(id: trip.vehicleId)
                 vehicle.odometer = odoDouble
                 if needsMaintenance {
-                    vehicle.status = .maintenance
+                    vehicle.status = .inMaintenance
                 }
                 _ = try await services.vehicleService.updateVehicle(vehicle)
                 

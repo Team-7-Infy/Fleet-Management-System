@@ -172,7 +172,7 @@ struct FleetManagerVehicleForm {
     var model = ""
     var year = ""
     var licencePlate = ""
-    var status: VehicleStatus = .active
+    var status: VehicleStatus = .available
     var vehicleType = "van"
 
     private static let indianStateCodes: Set<String> = [
@@ -481,12 +481,14 @@ extension VehicleStatus: Identifiable {
 
     var title: String {
         switch self {
-        case .active:
-            return "Active"
-        case .inactive:
-            return "Inactive"
-        case .maintenance:
+        case .available:
+            return "Available"
+        case .assigned:
+            return "Assigned"
+        case .inMaintenance:
             return "Maintenance"
+        case .outOfService:
+            return "Out of Service"
         }
     }
 }
@@ -527,6 +529,8 @@ extension MaintenanceTaskStatus: Identifiable {
             return "Assigned"
         case .inProgress:
             return "In Progress"
+        case .onHold:
+            return "On Hold"
         case .completed:
             return "Completed"
         case .fake:

@@ -17,7 +17,7 @@ final class SupabaseVehicleService: VehicleServicing {
     func vehiclesNeedingAttention() async throws -> [Vehicle] {
         let endpoint = APIEndpoint(path: "/rest/v1/vehicles?select=*", method: .get)
         let vehicles: [Vehicle] = try await apiClient.request(endpoint)
-        return vehicles.filter { $0.status != .active }
+        return vehicles.filter { $0.status != .available }
     }
     
     func vehicle(id: Vehicle.ID) async throws -> Vehicle {

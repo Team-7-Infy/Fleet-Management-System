@@ -474,7 +474,7 @@ struct InspectionView: View {
                 
                 // 3. Update the vehicle status to .maintenance and clear its driver in DB
                 var updatedVehicle = vehicle
-                updatedVehicle.status = .maintenance
+                updatedVehicle.status = .inMaintenance
                 updatedVehicle.driverId = nil
                 if let odoVal = Double(odometerInput) {
                     updatedVehicle.odometer = odoVal
@@ -489,7 +489,7 @@ struct InspectionView: View {
                 }.map { $0.vehicleId })
                 
                 let replacementVehicle = allVehicles.first { v in
-                    v.status == .active &&
+                    v.status == .available &&
                     v.vehicleType == vehicle.vehicleType &&
                     v.id != vehicle.id &&
                     !busyVehicleIds.contains(v.id)

@@ -15,11 +15,11 @@ final class VehicleViewModel: ObservableObject {
     }
 
     var activeVehicles: [Vehicle] {
-        vehicles.filter { $0.status == .active }
+        vehicles.filter { $0.status == .available }
     }
 
     var maintenanceVehicles: [Vehicle] {
-        vehicles.filter { $0.status == .maintenance }
+        vehicles.filter { $0.status == .inMaintenance }
     }
 
     func load() async {

@@ -17,6 +17,8 @@ struct MaintenanceTask: Identifiable, Codable, Hashable, Sendable {
     var labourCost: Double?
     var photoUrls: [String]?
     var elapsedTime: Int = 0
+    var onHoldReason: String?
+    var onHoldAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id = "taskid"
@@ -35,6 +37,8 @@ struct MaintenanceTask: Identifiable, Codable, Hashable, Sendable {
         case labourCost = "labour_cost"
         case photoUrls = "photourls"
         case elapsedTime = "elapsed_time"
+        case onHoldReason = "on_hold_reason"
+        case onHoldAt = "on_hold_at"
     }
 }
 
@@ -97,5 +101,13 @@ extension MaintenanceTask {
         self.elapsedTime = (try? container.decode(Int.self, forKey: .elapsedTime)) ??
                            (try? anyContainer.decode(Int.self, forKey: AnyCodingKey(stringValue: "elapsed_time"))) ??
                            (try? anyContainer.decode(Int.self, forKey: AnyCodingKey(stringValue: "elapsedTime"))) ?? 0
+
+        // String? onHoldReason
+        self.onHoldReason = (try? container.decodeIfPresent(String.self, forKey: .onHoldReason)) ??
+                            (try? anyContainer.decodeIfPresent(String.self, forKey: AnyCodingKey(stringValue: "on_hold_reason")))
+
+        // Date? onHoldAt
+        self.onHoldAt = (try? container.decodeIfPresent(Date.self, forKey: .onHoldAt)) ??
+                        (try? anyContainer.decodeIfPresent(Date.self, forKey: AnyCodingKey(stringValue: "on_hold_at")))
     }
 }
