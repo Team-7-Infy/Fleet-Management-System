@@ -123,10 +123,10 @@ struct MPDashboardView: View {
         }
         .background(Color(hex: 0xF4F5F9).ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $isShowingProfile) {
+        .navigationDestination(isPresented: $isShowingProfile) {
             MPProfileView(dependencies: dependencies, onLogout: onLogout)
         }
-        .sheet(isPresented: $isShowingNotifications) {
+        .navigationDestination(isPresented: $isShowingNotifications) {
             NotificationListView(viewModel: notificationViewModel)
         }
         .task {
@@ -397,6 +397,7 @@ struct MPDashboardView: View {
 
 private actor PreviewNotificationService: NotificationServiceProtocol {
     func fetchNotifications(for recipientId: UUID?, driverId: UUID?) async throws -> [AppNotification] { [] }
+    func createNotification(_ notification: AppNotification) async throws -> AppNotification { notification }
     func markAsRead(id: UUID) async throws {}
     func markAllAsRead(for recipientId: UUID?, driverId: UUID?) async throws {}
     func subscribeToRealtime(for recipientId: UUID?, driverId: UUID?) -> AsyncStream<AppNotification> {

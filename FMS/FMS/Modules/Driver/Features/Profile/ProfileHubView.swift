@@ -2,7 +2,6 @@ import SwiftUI
 import PhotosUI
 
 struct ProfileHubView: View {
-    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: DriverProfileViewModel
     @State private var showingLogoutAlert = false
     @State private var showingEditSheet = false
@@ -14,86 +13,76 @@ struct ProfileHubView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 24) {
-                    ProfileHeaderCard(viewModel: viewModel)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 24) {
+                ProfileHeaderCard(viewModel: viewModel)
 
-                    // 1. Performance Summary Card
-                    ProfilePerformanceSummary(
-                        safetyScore: viewModel.safetyScore,
-                        totalTrips: "\(viewModel.completedTrips)",
-                        onTimeRate: viewModel.onTimeRate,
-                        lastTripDate: viewModel.lastTripDate
-                    )
+                // 1. Performance Summary Card
+                ProfilePerformanceSummary(
+                    safetyScore: viewModel.safetyScore,
+                    totalTrips: "\(viewModel.completedTrips)",
+                    onTimeRate: viewModel.onTimeRate,
+                    lastTripDate: viewModel.lastTripDate
+                )
 
-                    // 2. Contact & Personal Info Cards
-                    ProfileInfoSection(title: "Contact Details", rows: viewModel.contactDetails)
-                    ProfileInfoSection(title: "Personal Details", rows: viewModel.personalDetails)
+                // 2. Contact & Personal Info Cards
+                ProfileInfoSection(title: "Contact Details", rows: viewModel.contactDetails)
+                ProfileInfoSection(title: "Personal Details", rows: viewModel.personalDetails)
 
-                    // 3. Contact History Archive (if not empty)
-                    if !viewModel.contactHistory.isEmpty {
-                        ProfileHistorySection(history: viewModel.contactHistory)
-                    }
-
-                    // Sign Out Button
-                    Button(role: .destructive) {
-                        HapticManager.shared.triggerNotification(type: .warning)
-                        showingLogoutAlert = true
-                    } label: {
-                        Label("Sign Out", systemImage: "arrow.right.square")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                    Text("App Version 2.4.1 (Build 2046)")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .padding(.bottom, 12)
+                // 3. Contact History Archive (if not empty)
+                if !viewModel.contactHistory.isEmpty {
+                    ProfileHistorySection(history: viewModel.contactHistory)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
+
+                // Sign Out Button
+                Button(role: .destructive) {
+                    HapticManager.shared.triggerNotification(type: .warning)
+                    showingLogoutAlert = true
+                } label: {
+                    Label("Sign Out", systemImage: "arrow.right.square")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                Text("App Version 2.4.1 (Build 2046)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(.bottom, 12)
             }
-            .background(Color(UIColor.systemGroupedBackground))
-            .navigationTitle("Profile")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        HapticManager.shared.triggerImpact(style: .light)
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                    }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        HapticManager.shared.triggerImpact(style: .light)
-                        showingEditSheet = true
-                    } label: {
-                        Text("Edit")
-                            .fontWeight(.semibold)
-                    }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+        }
+        .background(Color(UIColor.systemGroupedBackground))
+        .navigationTitle("Profile")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    HapticManager.shared.triggerImpact(style: .light)
+                    showingEditSheet = true
+                } label: {
+                    Text("Edit")
+                        .bold()
                 }
             }
-            .sheet(isPresented: $showingEditSheet) {
-                EditProfileView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showingEditSheet) {
+            EditProfileView(viewModel: viewModel)
+        }
+        .alert("Sign Out?", isPresented: $showingLogoutAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Sign Out", role: .destructive) {
+                onLogout?()
             }
-            .alert("Sign Out?", isPresented: $showingLogoutAlert) {
-                Button("Cancel", role: .cancel) {}
-                Button("Sign Out", role: .destructive) {
-                    onLogout?()
-                }
-            } message: {
-                Text("This will end your active driver portal session.")
-            }
-            .task {
-                await viewModel.loadStats()
-            }
+        } message: {
+            Text("This will end your active driver portal session.")
+        }
+        .task {
+            await viewModel.loadStats()
         }
     }
 }
@@ -112,21 +101,22 @@ private struct ProfileHeaderCard: View {
                             .frame(width: 76, height: 76)
                             .clipShape(Circle())
                             .shadow(radius: 4, x: 0, y: 2)
+                    } else if let imageURL = viewModel.profileImageURL {
+                        AsyncImage(url: imageURL) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            default:
+                                avatarPlaceholder
+                            }
+                        }
+                        .frame(width: 76, height: 76)
+                        .clipShape(Circle())
+                        .shadow(radius: 4, x: 0, y: 2)
                     } else {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.blue, Color(red: 0.12, green: 0.32, blue: 0.82)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 76, height: 76)
-                            .shadow(color: Color.blue.opacity(0.3), radius: 6, x: 0, y: 3)
-
-                        Text(viewModel.initials)
-                            .font(.title2.weight(.bold))
-                            .foregroundStyle(.white)
+                        avatarPlaceholder
                     }
 
                     Circle()
@@ -176,6 +166,25 @@ private struct ProfileHeaderCard: View {
         }
         .padding(20)
         .profileCardStyle()
+    }
+
+    private var avatarPlaceholder: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [.blue, Color(red: 0.12, green: 0.32, blue: 0.82)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 76, height: 76)
+                .shadow(color: Color.blue.opacity(0.3), radius: 6, x: 0, y: 3)
+
+            Text(viewModel.initials)
+                .font(.title2.weight(.bold))
+                .foregroundStyle(.white)
+        }
     }
 }
 
@@ -481,6 +490,8 @@ struct EditProfileView: View {
     @FocusState private var focusedField: EditProfileField?
 
     var body: some View {
+        let savedProfileImageURL = viewModel.profileImageURL
+
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
@@ -494,19 +505,21 @@ struct EditProfileView: View {
                                         .aspectRatio(contentMode: .fill)
                                         .frame(width: 96, height: 96)
                                         .clipShape(Circle())
+                                } else if let imageURL = savedProfileImageURL {
+                                    AsyncImage(url: imageURL) { phase in
+                                        switch phase {
+                                        case .success(let image):
+                                            image
+                                                .resizable()
+                                                .aspectRatio(contentMode: .fill)
+                                        default:
+                                            editAvatarPlaceholder
+                                        }
+                                    }
+                                    .frame(width: 96, height: 96)
+                                    .clipShape(Circle())
                                 } else {
-                                    Circle()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [.blue, Color(red: 0.12, green: 0.32, blue: 0.82)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                        .frame(width: 96, height: 96)
-                                    Text(viewModel.initials)
-                                        .font(.system(size: 32, weight: .bold))
-                                        .foregroundStyle(.white)
+                                    editAvatarPlaceholder
                                 }
 
                                 // Translucent EDIT overlay at the lower third of the avatar circle
@@ -528,7 +541,7 @@ struct EditProfileView: View {
                                     .stroke(Color.white, lineWidth: 3)
                             )
                         }
-                        .onChange(of: selectedItem) { newItem in
+                        .onChange(of: selectedItem) { _, newItem in
                             Task {
                                 if let data = try? await newItem?.loadTransferable(type: Data.self) {
                                     await MainActor.run {
@@ -604,6 +617,13 @@ struct EditProfileView: View {
                         }
                     }
 
+                    if let errorMessage = viewModel.errorMessage {
+                        Label(errorMessage, systemImage: "exclamationmark.circle.fill")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
                     Spacer(minLength: 32)
                 }
                 .padding(.horizontal, 20)
@@ -622,10 +642,21 @@ struct EditProfileView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         HapticManager.shared.triggerImpact(style: .medium)
-                        viewModel.updateProfile(newName: name, newPhone: phone, newEmail: email, newAddress: address, newProfileImageData: profileImageData)
-                        dismiss()
+                        Task {
+                            if await viewModel.updateProfile(newName: name, newPhone: phone, newEmail: email, newAddress: address, newProfileImageData: profileImageData) {
+                                dismiss()
+                            }
+                        }
                     }
-                    .fontWeight(.bold) // Primary visual weight
+                    .bold()
+                    .disabled(viewModel.isSavingProfile)
+                }
+            }
+            .overlay {
+                if viewModel.isSavingProfile {
+                    ProgressView("Saving profile...")
+                        .padding()
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
                 }
             }
             .onAppear {
@@ -635,6 +666,23 @@ struct EditProfileView: View {
                 address = viewModel.address
                 profileImageData = viewModel.profileImageData
             }
+        }
+    }
+
+    private var editAvatarPlaceholder: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [.blue, Color(red: 0.12, green: 0.32, blue: 0.82)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 96, height: 96)
+            Text(viewModel.initials)
+                .font(.system(size: 32, weight: .bold))
+                .foregroundStyle(.white)
         }
     }
 }

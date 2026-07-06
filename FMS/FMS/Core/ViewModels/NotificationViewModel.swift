@@ -25,6 +25,7 @@ final class NotificationViewModel: ObservableObject {
     @Published var currentBanner: AppNotification?
 
     private var bannerQueue: [AppNotification] = []
+    private var localNotifications: [AppNotification] = []
     private var isProcessingQueue = false
 
     init(notificationService: NotificationServiceProtocol, recipientId: UUID?, driverId: UUID? = nil, role: NotificationRecipientRole = .driver) {
@@ -69,7 +70,7 @@ final class NotificationViewModel: ObservableObject {
     func loadNotifications() async {
         do {
             let list = try await notificationService.fetchNotifications(for: recipientId, driverId: driverId)
-            self.notifications = filterNotifications(list)
+            self.notifications = mergedNotifications(remote: filterNotifications(list))
             self.unreadCount = self.notifications.filter { !$0.isRead }.count
         } catch {
             print("Failed to load notifications: \(error.localizedDescription)")
@@ -79,25 +80,80 @@ final class NotificationViewModel: ObservableObject {
     func markAsRead(_ notification: AppNotification) async {
         do {
             try await notificationService.markAsRead(id: notification.id)
-            if let index = notifications.firstIndex(where: { $0.id == notification.id }) {
-                notifications[index].isRead = true
-                unreadCount = notifications.filter { !$0.isRead }.count
-            }
+            setNotificationRead(id: notification.id)
         } catch {
-            print("Failed to mark notification as read: \(error.localizedDescription)")
+            if localNotifications.contains(where: { $0.id == notification.id }) {
+                setNotificationRead(id: notification.id)
+            } else {
+                print("Failed to mark notification as read: \(error.localizedDescription)")
+            }
         }
     }
 
     func markAllAsRead() async {
         do {
             try await notificationService.markAllAsRead(for: recipientId, driverId: driverId)
-            for index in 0..<notifications.count {
-                notifications[index].isRead = true
-            }
-            unreadCount = 0
+            setAllNotificationsRead()
         } catch {
-            print("Failed to mark all notifications as read: \(error.localizedDescription)")
+            if notifications.contains(where: { localNotifications.map(\.id).contains($0.id) }) {
+                setAllNotificationsRead()
+            } else {
+                print("Failed to mark all notifications as read: \(error.localizedDescription)")
+            }
         }
+    }
+
+    func addLocalNotification(title: String, message: String, type: String = "system") {
+        let notification = AppNotification(
+            id: UUID(),
+            title: title,
+            message: message,
+            type: type,
+            isRead: false,
+            referenceId: nil,
+            recipientId: recipientId,
+            createdAt: Date.now
+        )
+
+        localNotifications.insert(notification, at: 0)
+        notifications = mergedNotifications(remote: notifications)
+        unreadCount = notifications.filter { !$0.isRead }.count
+        triggerHapticFeedback()
+        enqueueBanner(notification)
+
+        Task {
+            do {
+                _ = try await notificationService.createNotification(notification)
+            } catch {
+                print("Failed to persist local notification: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func mergedNotifications(remote: [AppNotification]) -> [AppNotification] {
+        let remoteIds = Set(remote.map(\.id))
+        return (localNotifications.filter { remoteIds.contains($0.id) == false } + remote)
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private func setNotificationRead(id: UUID) {
+        if let index = notifications.firstIndex(where: { $0.id == id }) {
+            notifications[index].isRead = true
+        }
+        if let localIndex = localNotifications.firstIndex(where: { $0.id == id }) {
+            localNotifications[localIndex].isRead = true
+        }
+        unreadCount = notifications.filter { !$0.isRead }.count
+    }
+
+    private func setAllNotificationsRead() {
+        for index in notifications.indices {
+            notifications[index].isRead = true
+        }
+        for index in localNotifications.indices {
+            localNotifications[index].isRead = true
+        }
+        unreadCount = 0
     }
 
     func subscribeToRealtime() {
@@ -189,7 +245,8 @@ final class NotificationViewModel: ObservableObject {
             showBanner = true
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(4))
             self.dismissCurrentBanner()
         }
     }
@@ -200,7 +257,8 @@ final class NotificationViewModel: ObservableObject {
             showBanner = false
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.3))
             self.currentBanner = nil
             self.isProcessingQueue = false
             self.processBannerQueue()

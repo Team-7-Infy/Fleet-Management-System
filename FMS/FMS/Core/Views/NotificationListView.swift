@@ -2,7 +2,6 @@ import SwiftUI
 
 struct NotificationListView: View {
     @ObservedObject var viewModel: NotificationViewModel
-    @Environment(\.dismiss) private var dismiss
 
     private var groupedNotifications: [(String, [AppNotification])] {
         let calendar = Calendar.current
@@ -20,64 +19,54 @@ struct NotificationListView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if viewModel.notifications.isEmpty {
-                    emptyState
-                } else {
-                    List {
-                        ForEach(groupedNotifications, id: \.0) { groupName, items in
-                            Section(header: Text(groupName).font(.footnote).fontWeight(.bold).foregroundColor(.secondary)) {
-                                ForEach(items) { item in
-                                    NotificationRow(notification: item) {
-                                        Task {
-                                            await viewModel.markAsRead(item)
-                                        }
+        Group {
+            if viewModel.notifications.isEmpty {
+                emptyState
+            } else {
+                List {
+                    ForEach(groupedNotifications, id: \.0) { groupName, items in
+                        Section(header: Text(groupName).font(.footnote).bold().foregroundStyle(.secondary)) {
+                            ForEach(items) { item in
+                                NotificationRow(notification: item) {
+                                    Task {
+                                        await viewModel.markAsRead(item)
                                     }
-                                    .swipeActions(edge: .leading) {
-                                        if !item.isRead {
-                                            Button {
-                                                Task {
-                                                    await viewModel.markAsRead(item)
-                                                }
-                                            } label: {
-                                                Label("Mark Read", systemImage: "envelope.open")
+                                }
+                                .swipeActions(edge: .leading) {
+                                    if !item.isRead {
+                                        Button {
+                                            Task {
+                                                await viewModel.markAsRead(item)
                                             }
-                                            .tint(.blue)
+                                        } label: {
+                                            Label("Mark Read", systemImage: "envelope.open")
                                         }
+                                        .tint(.blue)
                                     }
                                 }
                             }
                         }
                     }
-                    .listStyle(InsetGroupedListStyle())
                 }
+                .listStyle(.insetGrouped)
             }
-            .navigationTitle("Notifications")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                }
-
-                if !viewModel.notifications.isEmpty && viewModel.unreadCount > 0 {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Mark All Read") {
-                            Task {
-                                await viewModel.markAllAsRead()
-                            }
+        }
+        .navigationTitle("Notifications")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !viewModel.notifications.isEmpty && viewModel.unreadCount > 0 {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Mark All Read") {
+                        Task {
+                            await viewModel.markAllAsRead()
                         }
-                        .font(.subheadline)
-                        .foregroundColor(.blue)
                     }
+                    .font(.subheadline)
                 }
             }
-            .task {
-                await viewModel.loadNotifications()
-            }
+        }
+        .task {
+            await viewModel.loadNotifications()
         }
     }
 
@@ -85,14 +74,14 @@ struct NotificationListView: View {
         VStack(spacing: 20) {
             Image(systemName: "bell.slash")
                 .font(.system(size: 60))
-                .foregroundColor(.secondary.opacity(0.6))
+                .foregroundStyle(.secondary.opacity(0.6))
             Text("No Notifications")
                 .font(.title3)
-                .fontWeight(.bold)
-                .foregroundColor(.primary)
+                .bold()
+                .foregroundStyle(.primary)
             Text("You're all caught up! New alerts regarding your fleet and trips will show up here.")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
         }
@@ -106,6 +95,7 @@ struct NotificationRow: View {
 
     private var systemImageName: String {
         switch notification.type {
+        case "user_created": return "person.badge.plus.fill"
         case "trip_assignment": return "map.fill"
         case "geofence_exit": return "exclamationmark.triangle.fill"
         case "vehicle_assigned": return "truck.box.fill"
@@ -122,6 +112,7 @@ struct NotificationRow: View {
     private var iconColor: Color {
         switch notification.type {
         case "geofence_exit", "trip_delay": return .red
+        case "user_created": return .green
         case "trip_assignment", "vehicle_assigned", "work_order_assigned": return .blue
         case "trip_started", "trip_completed": return .green
         default: return .orange
@@ -129,52 +120,51 @@ struct NotificationRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Unread indicator dot
-            if !notification.isRead {
-                Circle()
-                    .fill(Color.blue)
-                    .frame(width: 8, height: 8)
-            } else {
-                Spacer()
-                    .frame(width: 8)
-            }
-
-            // Category Icon
-            ZStack {
-                Circle()
-                    .fill(iconColor.opacity(0.12))
-                    .frame(width: 36, height: 36)
-                Image(systemName: systemImageName)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(iconColor)
-            }
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(notification.title.cleaningUUIDs)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-                Text(notification.message.cleaningUUIDs)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
-                
-                Text(formattedTime(notification.createdAt))
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.secondary.opacity(0.8))
-                    .padding(.top, 2)
-            }
-
-            Spacer()
-        }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
-        .onTapGesture {
+        Button {
             if !notification.isRead {
                 onMarkRead()
             }
+        } label: {
+            HStack(spacing: 12) {
+                if !notification.isRead {
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 8, height: 8)
+                } else {
+                    Spacer()
+                        .frame(width: 8)
+                }
+
+                ZStack {
+                    Circle()
+                        .fill(iconColor.opacity(0.12))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: systemImageName)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(iconColor)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(notification.title.cleaningUUIDs)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                    Text(notification.message.cleaningUUIDs)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+
+                    Text(formattedTime(notification.createdAt))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 2)
+                }
+
+                Spacer()
+            }
+            .padding(.vertical, 4)
         }
+        .buttonStyle(.plain)
     }
 
     private func formattedTime(_ date: Date) -> String {

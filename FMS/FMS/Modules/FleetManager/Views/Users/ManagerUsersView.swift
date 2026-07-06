@@ -84,7 +84,7 @@ struct ManagerUsersView: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
+                    FeedbackView(success: nil, error: viewModel.errorMessage)
                     userList
                 }
                 .padding(.horizontal)

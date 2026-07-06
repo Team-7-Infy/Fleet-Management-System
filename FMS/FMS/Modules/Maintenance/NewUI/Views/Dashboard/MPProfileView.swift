@@ -16,103 +16,84 @@ struct MPProfileView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ZStack(alignment: .top) {
-                Color(hex: 0xF4F5F9).ignoresSafeArea()
-                
-                if viewModel.state.isLoading {
-                    LoadingView(title: "Loading profile")
-                } else if let user = viewModel.userProfile {
-                    VStack(spacing: 0) {
-                        // Top Navigation Bar
-                        HStack {
-                            Button(action: {
-                                dismiss()
-                            }) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 20, weight: .semibold))
-                                    .foregroundStyle(Color.black)
-                                    .padding(.vertical, 12)
-                                    .padding(.trailing, 16)
-                            }
-                            Spacer()
-                            
-                            Button(action: {
-                                if isEditing {
-                                    Task {
-                                        do {
-                                            try await viewModel.updateProfileDetails()
-                                            isEditing = false
-                                        } catch {
-                                            showErrorAlert = true
-                                        }
-                                    }
-                                } else {
-                                    viewModel.populateEditFields()
-                                    isEditing = true
-                                }
-                            }) {
-                                Text(isEditing ? "Save" : "Edit")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                                    .foregroundStyle(Color.blue)
-                                    .padding(.vertical, 8)
-                                    .padding(.horizontal, 16)
-                                    .background(Color.blue.opacity(0.1))
-                                    .clipShape(Capsule())
+        ZStack(alignment: .top) {
+            Color(hex: 0xF4F5F9).ignoresSafeArea()
+
+            if viewModel.state.isLoading {
+                LoadingView(title: "Loading profile")
+            } else if let user = viewModel.userProfile {
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 20) {
+
+                        heroCard(for: user)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            sectionHeader("PERSONAL INFORMATION")
+                            personalInfoCard(for: user)
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            sectionHeader("IDENTITY VERIFICATION")
+                            identityVerificationCard(for: user)
+                        }
+
+                        if !isEditing {
+                            VStack(alignment: .leading, spacing: 8) {
+                                sectionHeader("ACCOUNT")
+                                signOutButton
                             }
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 8)
-                        
-                        ScrollView(showsIndicators: false) {
-                            VStack(alignment: .leading, spacing: 20) {
-                                
-                                heroCard(for: user)
-                                
-                                VStack(alignment: .leading, spacing: 8) {
-                                    sectionHeader("PERSONAL INFORMATION")
-                                    personalInfoCard(for: user)
-                                }
-                                
-                                VStack(alignment: .leading, spacing: 8) {
-                                    sectionHeader("IDENTITY VERIFICATION")
-                                    identityVerificationCard(for: user)
-                                }
-                                
-                                if !isEditing {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        sectionHeader("ACCOUNT")
-                                        signOutButton
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 40)
-                            .padding(.top, 8)
-                        }
                     }
-                } else {
-                    MPEmptyStateView(title: "Profile Unavailable", message: "Could not load user data.", systemImage: "person.crop.circle.badge.exclamationmark")
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 40)
+                    .padding(.top, 8)
+                }
+            } else {
+                MPEmptyStateView(title: "Profile Unavailable", message: "Could not load user data.", systemImage: "person.crop.circle.badge.exclamationmark")
+            }
+        }
+        .navigationTitle("Profile")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button(isEditing ? "Save" : "Edit") {
+                    handleEditButton()
+                }
+                .bold()
+            }
+        }
+        .task {
+            await viewModel.load()
+        }
+        .onChange(of: selectedItem) { _, newItem in
+            Task {
+                if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                    await viewModel.updateProfileImage(with: data)
                 }
             }
-            .navigationBarHidden(true)
-            .task {
-                await viewModel.load()
-            }
-            .onChange(of: selectedItem) { _, newItem in
-                Task {
-                    if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                        await viewModel.updateProfileImage(with: data)
-                    }
+        }
+        .alert(isPresented: $showErrorAlert) {
+            Alert(
+                title: Text("Validation Error"),
+                message: Text(viewModel.validationError ?? "Please check your inputs and try again."),
+                dismissButton: .default(Text("OK"))
+            )
+        }
+    }
+
+    private func handleEditButton() {
+        if isEditing {
+            Task {
+                do {
+                    try await viewModel.updateProfileDetails()
+                    isEditing = false
+                } catch {
+                    showErrorAlert = true
                 }
             }
-            .alert(isPresented: $showErrorAlert) {
-                Alert(
-                    title: Text("Validation Error"),
-                    message: Text(viewModel.validationError ?? "Please check your inputs and try again."),
-                    dismissButton: .default(Text("OK"))
-                )
-            }
+        } else {
+            viewModel.populateEditFields()
+            isEditing = true
         }
     }
     

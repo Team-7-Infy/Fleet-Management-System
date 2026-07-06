@@ -8,6 +8,7 @@ struct DashboardView: View {
     let driver: Driver?
     let trips: [Trip]
     let vehicles: [Vehicle]
+    let onLogout: () -> Void
     var onRefreshData: (() async -> Void)? = nil
 
     @StateObject private var viewModel: DashboardViewModel
@@ -15,13 +16,14 @@ struct DashboardView: View {
     @EnvironmentObject var locationService: LocationManager
     @EnvironmentObject var localStore: LocalDataStore
 
-    init(showingProfile: Binding<Bool>, services: AppServices, user: User, driver: Driver?, trips: [Trip], vehicles: [Vehicle], onRefreshData: (() async -> Void)? = nil) {
+    init(showingProfile: Binding<Bool>, services: AppServices, user: User, driver: Driver?, trips: [Trip], vehicles: [Vehicle], onLogout: @escaping () -> Void, onRefreshData: (() async -> Void)? = nil) {
         self._showingProfile = showingProfile
         self.services = services
         self.user = user
         self.driver = driver
         self.trips = trips
         self.vehicles = vehicles
+        self.onLogout = onLogout
         self.onRefreshData = onRefreshData
         self._viewModel = StateObject(wrappedValue: DashboardViewModel(services: services, driver: driver, user: user))
         self._notificationViewModel = StateObject(
@@ -343,8 +345,16 @@ struct DashboardView: View {
             .onDisappear {
                 notificationViewModel.unsubscribeRealtime()
             }
-            .sheet(isPresented: $showingNotifications) {
+            .navigationDestination(isPresented: $showingNotifications) {
                 NotificationListView(viewModel: notificationViewModel)
+            }
+            .navigationDestination(isPresented: $showingProfile) {
+                ProfileHubView(
+                    services: services,
+                    driver: driver,
+                    user: user,
+                    onLogout: onLogout
+                )
             }
             .onChange(of: showingActiveNavigation) { _, newValue in
                 if !newValue {

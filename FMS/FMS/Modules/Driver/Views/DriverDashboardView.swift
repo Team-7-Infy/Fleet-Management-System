@@ -26,18 +26,11 @@ struct DriverDashboardView: View {
                     driver: driver,
                     trips: trips,
                     vehicles: vehicles,
+                    onLogout: onLogout,
                     onRefreshData: loadData
                 )
                 .environmentObject(locationService)
                 .environmentObject(LocalDataStore.shared)
-                .sheet(isPresented: $showingProfile) {
-                    ProfileHubView(
-                        services: services,
-                        driver: driver,
-                        user: user,
-                        onLogout: onLogout
-                    )
-                }
                 .onAppear {
                     if let driverId = driver?.id {
                         startRealtimeTrips(for: driverId)

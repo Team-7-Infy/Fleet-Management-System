@@ -48,6 +48,7 @@ struct FleetManagerDashboardView: View {
     @State private var isShowingReportsHub = false
     @State private var isShowingProfile = false
     @State private var showingNotifications = false
+    @State private var lastUserNotificationMessage: String?
     @Environment(\.scenePhase) private var scenePhase
 
     init(services: AppServices, onLogout: @escaping () -> Void) {
@@ -140,6 +141,21 @@ struct FleetManagerDashboardView: View {
             guard phase == .active else { return }
             Task { await refreshAll() }
         }
+        .onChange(of: usersViewModel.successMessage) { _, message in
+            guard let message,
+                  message.contains(" added."),
+                  message != lastUserNotificationMessage
+            else {
+                return
+            }
+
+            lastUserNotificationMessage = message
+            notificationViewModel.addLocalNotification(
+                title: "User Added",
+                message: message,
+                type: "user_created"
+            )
+        }
         .sheet(item: $addSheet) { sheet in
             ManagerAddSheetView(
                 sheet: sheet,
@@ -152,9 +168,6 @@ struct FleetManagerDashboardView: View {
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $showingNotifications) {
-            NotificationListView(viewModel: notificationViewModel)
         }
     }
 
@@ -173,21 +186,14 @@ struct FleetManagerDashboardView: View {
                 onShowReportsHub: { isShowingReportsHub = true }
             )
             .toolbar(.hidden, for: .navigationBar)
-            .sheet(isPresented: $isShowingProfile) {
-                NavigationStack {
-                    ManagerAccountView(
-                        user: usersViewModel.user(for: currentUserId),
-                        onLogout: onLogout
-                    )
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("Done") {
-                                isShowingProfile = false
-                            }
-                            .fontWeight(.semibold)
-                        }
-                    }
-                }
+            .navigationDestination(isPresented: $isShowingProfile) {
+                ManagerAccountView(
+                    user: usersViewModel.user(for: currentUserId),
+                    onLogout: onLogout
+                )
+            }
+            .navigationDestination(isPresented: $showingNotifications) {
+                NotificationListView(viewModel: notificationViewModel)
             }
             .navigationDestination(isPresented: $isShowingReportsHub) {
                 ReportsHubView(
@@ -209,6 +215,9 @@ struct FleetManagerDashboardView: View {
                 selectedSegment: $selectedUserSegment,
                 openAddUser: { addSheet = .user }
             )
+            .navigationDestination(isPresented: $showingNotifications) {
+                NotificationListView(viewModel: notificationViewModel)
+            }
         }
     }
 
@@ -223,6 +232,9 @@ struct FleetManagerDashboardView: View {
                     addSheet = .maintenanceRequest
                 }
             )
+            .navigationDestination(isPresented: $showingNotifications) {
+                NotificationListView(viewModel: notificationViewModel)
+            }
         }
     }
 
@@ -238,6 +250,9 @@ struct FleetManagerDashboardView: View {
                     addSheet = .maintenanceRequest
                 }
             )
+            .navigationDestination(isPresented: $showingNotifications) {
+                NotificationListView(viewModel: notificationViewModel)
+            }
         }
     }
 
@@ -249,6 +264,9 @@ struct FleetManagerDashboardView: View {
                 usersViewModel: usersViewModel,
                 openAddTrip: { addSheet = .trip }
             )
+            .navigationDestination(isPresented: $showingNotifications) {
+                NotificationListView(viewModel: notificationViewModel)
+            }
         }
     }
 
