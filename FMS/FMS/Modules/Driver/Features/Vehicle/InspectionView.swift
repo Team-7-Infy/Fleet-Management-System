@@ -352,7 +352,7 @@ struct InspectionView: View {
         .task {
             if let tripUuid = UUID(uuidString: trip.tripId),
                let tripModel = try? await services.tripService.fetchTrip(id: tripUuid),
-               let fetchedVehicle = try? await services.vehicleService.fetchVehicle(id: tripModel.vehicleId) {
+               let fetchedVehicle = try? await services.vehicleService.fetchVehicle(id: tripModel.vehicleId ?? UUID()) {
                 self.vehicle = fetchedVehicle
             }
         }
@@ -387,7 +387,8 @@ struct InspectionView: View {
                 do {
                     guard let tripUuid = UUID(uuidString: trip.tripId) else { return }
                     let tripModel = try await services.tripService.fetchTrip(id: tripUuid)
-                    var vehicleModel = try await services.vehicleService.fetchVehicle(id: tripModel.vehicleId)
+                    guard let vehicleId = tripModel.vehicleId else { return }
+                    var vehicleModel = try await services.vehicleService.fetchVehicle(id: vehicleId)
                     if let odoVal = Double(odometerInput) {
                         vehicleModel.odometer = odoVal
                         _ = try await services.vehicleService.updateVehicle(vehicleModel)
@@ -417,7 +418,8 @@ struct InspectionView: View {
                 
                 // 1. Fetch current trip and vehicle
                 let tripModel = try await services.tripService.fetchTrip(id: tripUuid)
-                let vehicle = try await services.vehicleService.fetchVehicle(id: tripModel.vehicleId)
+                guard let vehicleId = tripModel.vehicleId else { return }
+                let vehicle = try await services.vehicleService.fetchVehicle(id: vehicleId)
                 
                 // 2. Loop over each failed item and create a separate work order (maintenance task) in DB
                 for item in failedItems {

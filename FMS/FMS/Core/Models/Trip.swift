@@ -6,7 +6,7 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
     var endLocation: String
     var startTime: Date
     var endTime: Date?
-    var vehicleId: UUID
+    var vehicleId: UUID?
     var driverId: UUID?
     var status: TripStatus
     var rejectionReason: String?

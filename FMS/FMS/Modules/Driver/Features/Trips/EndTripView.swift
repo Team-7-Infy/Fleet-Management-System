@@ -254,7 +254,8 @@ struct EndTripView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .task {
-            if let vehicle = try? await services.vehicleService.fetchVehicle(id: trip.vehicleId) {
+            if let vehicleId = trip.vehicleId,
+               let vehicle = try? await services.vehicleService.fetchVehicle(id: vehicleId) {
                 previousOdometer = vehicle.odometer ?? 0.0
             }
         }
@@ -291,36 +292,38 @@ struct EndTripView: View {
                 UserDefaults.standard.removeObject(forKey: "trip_\(trip.id.uuidString)_paused")
                 
                 // Update vehicle odometer and status in DB
-                var vehicle = try await services.vehicleService.fetchVehicle(id: trip.vehicleId)
-                vehicle.odometer = odoDouble
-                if needsMaintenance {
-                    vehicle.status = .inMaintenance
-                }
-                _ = try await services.vehicleService.updateVehicle(vehicle)
-                
-                if needsMaintenance {
-                    let maintenanceTask = MaintenanceTask(
-                        id: UUID(),
-                        title: maintenanceTitle,
-                        description: maintenanceDescription,
-                        scheduledDate: DateOnly(wrappedValue: Date()),
-                        isUrgent: true,
-                        scheduledBy: nil,
-                        executedBy: nil,
-                        status: .scheduled,
-                        reportedDate: nil,
-                        completedAt: nil,
-                        timeTakenHours: nil,
-                        partsSummary: nil,
-                        totalCost: nil,
-                        photoUrls: nil,
-                        elapsedTime: 0
-                    )
-                    
-                    _ = try await services.maintenanceService.createTask(maintenanceTask)
-                    
-                    let taskVehicle = TaskVehicle(taskId: maintenanceTask.id, vin: vehicle.id)
-                    try await services.maintenanceService.addTaskVehicle(taskVehicle)
+                if let vehicleId = trip.vehicleId {
+                    var vehicle = try await services.vehicleService.fetchVehicle(id: vehicleId)
+                    vehicle.odometer = odoDouble
+                    if needsMaintenance {
+                        vehicle.status = .inMaintenance
+                    }
+                    _ = try await services.vehicleService.updateVehicle(vehicle)
+
+                    if needsMaintenance {
+                        let maintenanceTask = MaintenanceTask(
+                            id: UUID(),
+                            title: maintenanceTitle,
+                            description: maintenanceDescription,
+                            scheduledDate: DateOnly(wrappedValue: Date()),
+                            isUrgent: true,
+                            scheduledBy: nil,
+                            executedBy: nil,
+                            status: .scheduled,
+                            reportedDate: nil,
+                            completedAt: nil,
+                            timeTakenHours: nil,
+                            partsSummary: nil,
+                            totalCost: nil,
+                            photoUrls: nil,
+                            elapsedTime: 0
+                        )
+                        
+                        _ = try await services.maintenanceService.createTask(maintenanceTask)
+                        
+                        let taskVehicle = TaskVehicle(taskId: maintenanceTask.id, vin: vehicle.id)
+                        try await services.maintenanceService.addTaskVehicle(taskVehicle)
+                    }
                 }
                 
                 await MainActor.run {

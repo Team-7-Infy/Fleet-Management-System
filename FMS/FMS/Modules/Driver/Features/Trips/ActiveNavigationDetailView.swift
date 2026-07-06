@@ -744,7 +744,8 @@ struct ActiveNavigationDetailView: View {
                                         _ = try? await services.tripService.updateTrip(updatedTrip)
                                         
                                         // Update vehicle odometer in DB
-                                        if var vehicleModel = try? await services.vehicleService.fetchVehicle(id: trip.vehicleId) {
+                                        if let vehicleId = trip.vehicleId,
+                                           var vehicleModel = try? await services.vehicleService.fetchVehicle(id: vehicleId) {
                                             vehicleModel.odometer = finalOdo
                                             _ = try? await services.vehicleService.updateVehicle(vehicleModel)
                                         }
@@ -896,7 +897,7 @@ struct ActiveNavigationDetailView: View {
             guard !waypoints.isEmpty else { return }
             locationService.startMonitoringRoute(
                 tripId: trip.id,
-                vehicleId: trip.vehicleId,
+                vehicleId: trip.vehicleId ?? UUID(),
                 driverId: trip.driverId ?? UUID(),
                 waypoints: waypoints,
                 service: services.tripService

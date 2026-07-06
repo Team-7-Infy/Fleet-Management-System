@@ -43,7 +43,7 @@ final class TripManagementViewModel: ObservableObject {
 
     func createTrip(form: FleetManagerTripForm) async -> Bool {
         guard form.isValid else {
-            errorMessage = "Select a driver, vehicle, and both locations."
+            errorMessage = "Enter a pickup location and destination."
             clearSuccessMessage()
             return false
         }
@@ -52,11 +52,7 @@ final class TripManagementViewModel: ObservableObject {
             let trip = try await tripService.createTrip(form.makeTrip())
             trips.insert(trip, at: 0)
 
-            if let driverId = form.driverId, let vehicleId = form.vehicleId {
-                try await vehicleService.assignDriver(vehicleId: vehicleId, driverId: driverId)
-            }
-
-            showSuccessMessage("Trip created for \(trip.startLocation).")
+            showSuccessMessage("Pending trip created for \(trip.startLocation).")
             errorMessage = nil
             return true
         } catch {
@@ -70,8 +66,9 @@ final class TripManagementViewModel: ObservableObject {
         do {
             try await tripService.updateTripStatus(id: trip.id, status: status)
 
-            if status == .completed || status == .rejected || status == .cancelled {
-                try await vehicleService.unassignDriver(vehicleId: trip.vehicleId)
+            if (status == .completed || status == .rejected || status == .cancelled),
+               let vehicleId = trip.vehicleId {
+                try await vehicleService.unassignDriver(vehicleId: vehicleId)
             }
 
             if let index = trips.firstIndex(where: { $0.id == trip.id }) {
@@ -110,7 +107,9 @@ final class TripManagementViewModel: ObservableObject {
             if let index = trips.firstIndex(where: { $0.id == trip.id }) {
                 trips[index].status = .cancelled
             }
-            try await vehicleService.unassignDriver(vehicleId: trip.vehicleId)
+            if let vehicleId = trip.vehicleId {
+                try await vehicleService.unassignDriver(vehicleId: vehicleId)
+            }
             showSuccessMessage("Trip cancelled.")
             errorMessage = nil
         } catch {

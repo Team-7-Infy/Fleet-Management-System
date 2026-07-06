@@ -311,7 +311,7 @@ struct NotificationDetailView: View {
         guard let services, let tripId = notification.referenceId else { return }
         do {
             let trip = try await services.tripService.fetchTrip(id: tripId)
-            let vehicle = try? await services.vehicleService.fetchVehicle(id: trip.vehicleId)
+            let vehicle = try? await services.vehicleService.fetchVehicle(id: trip.vehicleId ?? UUID())
             let driverName: String
             if let driverId = trip.driverId {
                 let users = (try? await services.userManagementService.fetchUsers()) ?? []

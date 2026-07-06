@@ -338,32 +338,30 @@ struct FleetManagerTripForm {
     var endLocation = ""
     var startTime = Date()
     var endTime: Date?
-    var vehicleId: UUID?
-    var driverId: UUID?
+    var vehicleTypeRequested = ""
     var status: TripStatus = .scheduled
 
     var isValid: Bool {
         startLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
-        endLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
-        vehicleId != nil &&
-        driverId != nil
+        endLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }
 
-    func makeTrip() throws -> Trip {
-        guard let vehicleId, let driverId else { throw FleetManagerFormError.missingSelection }
-
-        return Trip(
+    func makeTrip() -> Trip {
+        Trip(
             id: UUID(),
             startLocation: startLocation.trimmingCharacters(in: .whitespacesAndNewlines),
             endLocation: endLocation.trimmingCharacters(in: .whitespacesAndNewlines),
             startTime: startTime,
             endTime: endTime,
-            vehicleId: vehicleId,
-            driverId: driverId,
+            vehicleId: nil,
+            driverId: nil,
             status: status,
             distanceKm: nil,
             fuelCost: nil,
-            miscellaneousCost: nil
+            miscellaneousCost: nil,
+            vehicleTypeRequested: vehicleTypeRequested.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? nil
+                : vehicleTypeRequested.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         )
     }
 }
@@ -425,7 +423,7 @@ enum FleetManagerFormError: LocalizedError {
         case let .invalidVehicle(message):
             return message
         case .missingSelection:
-            return "Select the required driver and vehicle."
+            return "Fill in all required fields."
         }
     }
 }

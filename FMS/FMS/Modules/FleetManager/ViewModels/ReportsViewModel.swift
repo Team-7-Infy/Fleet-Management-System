@@ -224,7 +224,7 @@ final class ReportsViewModel: ObservableObject {
     }
 
     var vehiclesUsedThisPeriod: Int {
-        Set(filteredTrips.map(\.vehicleId)).count
+        Set(filteredTrips.compactMap(\.vehicleId)).count
     }
 
     var utilizationPercentCurrentMonth: Double {
@@ -235,7 +235,7 @@ final class ReportsViewModel: ObservableObject {
         let tripsThisMonth = tripsViewModel.trips.filter {
             $0.startTime >= monthStart && $0.startTime < nextMonth
         }
-        let used = Set(tripsThisMonth.map(\.vehicleId)).count
+        let used = Set(tripsThisMonth.compactMap(\.vehicleId)).count
         guard totalVehiclesCount > 0 else { return 0 }
         return Double(used) / Double(totalVehiclesCount) * 100
     }
@@ -249,7 +249,7 @@ final class ReportsViewModel: ObservableObject {
             let tripsInMonth = tripsViewModel.trips.filter {
                 $0.startTime >= monthStart && $0.startTime < upperBound
             }
-            let used = Set(tripsInMonth.map(\.vehicleId)).count
+            let used = Set(tripsInMonth.compactMap(\.vehicleId)).count
             return FleetUtilizationMonthData(monthStart: monthStart, vehiclesUsed: used)
         }
     }

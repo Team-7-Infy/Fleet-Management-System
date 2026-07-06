@@ -307,11 +307,7 @@ struct ManagerAddSheetView: View {
             case .vehicle:
                 ManagerVehicleFormSheet(viewModel: vehiclesViewModel)
             case .trip:
-                ManagerTripFormSheet(
-                    viewModel: tripsViewModel,
-                    vehiclesViewModel: vehiclesViewModel,
-                    usersViewModel: usersViewModel
-                )
+                ManagerTripFormSheet(viewModel: tripsViewModel)
             case .maintenanceRequest:
                 ManagerMaintenanceRequestSheet(
                     viewModel: maintenanceViewModel,
