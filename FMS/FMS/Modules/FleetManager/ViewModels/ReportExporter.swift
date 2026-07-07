@@ -181,164 +181,177 @@ struct ReportExporter {
 
     // MARK: - PDF
 
+    private final class PDFContext {
+        var y: CGFloat = 40
+        let ctx: UIGraphicsPDFRendererContext
+
+        init(ctx: UIGraphicsPDFRendererContext) {
+            self.ctx = ctx
+        }
+
+        func drawText(_ text: String, _ font: UIFont = .systemFont(ofSize: 11), _ color: UIColor = .black, _ x: CGFloat = 50) {
+            (text as NSString).draw(at: CGPoint(x: x, y: y), withAttributes: [.font: font, .foregroundColor: color])
+        }
+
+        func advance(_ by: CGFloat = 18) {
+            y += by
+        }
+
+        func newPageIfNeeded(_ needed: CGFloat) {
+            if y + needed > 760 {
+                ctx.beginPage()
+                y = 40
+            }
+        }
+
+        func sectionHeader(_ title: String) {
+            drawText(title, .boldSystemFont(ofSize: 14), .darkGray)
+            advance(4)
+            UIColor.systemGray4.setFill()
+            UIRectFill(CGRect(x: 50, y: y - 3, width: 512, height: 1))
+            advance(16)
+        }
+    }
+
     static func pdfData(for reportType: ReportType, viewModel: ReportsViewModel) -> Data {
         let fmt = UIGraphicsPDFRendererFormat()
         let pageRect = CGRect(x: 0, y: 0, width: 612, height: 792)
         let renderer = UIGraphicsPDFRenderer(bounds: pageRect, format: fmt)
         return renderer.pdfData { ctx in
-            var y: CGFloat = 40
-            func drawText(_ text: String, _ font: UIFont = .systemFont(ofSize: 11), _ color: UIColor = .black, _ x: CGFloat = 50) {
-                (text as NSString).draw(at: CGPoint(x: x, y: y), withAttributes: [.font: font, .foregroundColor: color])
-            }
-            func advance(_ by: CGFloat = 18) {
-                y += by
-            }
-            func newPageIfNeeded(_ needed: CGFloat) {
-                if y + needed > 760 {
-                    ctx.beginPage()
-                    y = 40
-                }
-            }
-            func sectionHeader(_ title: String) {
-                drawText(title, .boldSystemFont(ofSize: 14), .darkGray)
-                advance(4)
-                UIColor.systemGray4.setFill()
-                UIRectFill(CGRect(x: 50, y: y - 3, width: 512, height: 1))
-                advance(16)
-            }
-            ctx.beginPage()
-            drawText(reportType.rawValue, .boldSystemFont(ofSize: 22))
-            advance(8)
-            drawText("Period: \(viewModel.selectedPeriod.rawValue)", .systemFont(ofSize: 13), .darkGray)
-            advance(20)
+            let pc = PDFContext(ctx: ctx)
+            pc.ctx.beginPage()
+            pc.drawText(reportType.rawValue, .boldSystemFont(ofSize: 22))
+            pc.advance(8)
+            pc.drawText("Period: \(viewModel.selectedPeriod.rawValue)", .systemFont(ofSize: 13), .darkGray)
+            pc.advance(20)
 
             switch reportType {
-            case .trip: pdfTripReport(ctx, &y, viewModel, newPageIfNeeded, drawText, advance, sectionHeader)
-            case .expenditure: pdfExpenditure(ctx, &y, viewModel, newPageIfNeeded, drawText, advance, sectionHeader)
-            case .fleetUtilization: pdfFleetUtilization(ctx, &y, viewModel, newPageIfNeeded, drawText, advance, sectionHeader)
-            case .driverPerformance: pdfDriverPerformance(ctx, &y, viewModel, newPageIfNeeded, drawText, advance, sectionHeader)
-            case .vehicleHealth: pdfVehicleHealth(ctx, &y, viewModel, newPageIfNeeded, drawText, advance, sectionHeader)
-            case .maintenance: pdfMaintenance(ctx, &y, viewModel, newPageIfNeeded, drawText, advance, sectionHeader)
+            case .trip: pdfTripReport(pc, viewModel)
+            case .expenditure: pdfExpenditure(pc, viewModel)
+            case .fleetUtilization: pdfFleetUtilization(pc, viewModel)
+            case .driverPerformance: pdfDriverPerformance(pc, viewModel)
+            case .vehicleHealth: pdfVehicleHealth(pc, viewModel)
+            case .maintenance: pdfMaintenance(pc, viewModel)
             }
         }
     }
 
-    private static func pdfTripReport(_ ctx: UIGraphicsPDFRendererContext, _ y: inout CGFloat, _ vm: ReportsViewModel, _ newPage: (CGFloat) -> Void, _ drawText: (String, UIFont, UIColor, CGFloat) -> Void, _ advance: (CGFloat) -> Void, _ sectionHeader: (String) -> Void) {
+    private static func pdfTripReport(_ pc: PDFContext, _ vm: ReportsViewModel) {
         let total = vm.totalFilteredTrips
         let completed = vm.totalFilteredCompletedTrips
         let totalCost = vm.filteredTripCostTotal
         let avgCost = completed > 0 ? totalCost / Double(completed) : 0
-        sectionHeader("Summary")
-        newPage(40)
-        drawText("Total Trips: \(total)    Completed: \(completed)    Total Cost: \(totalCost.formatted(.currency(code: "INR")))    Avg Cost/Trip: \(avgCost.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50)
-        y += 18
-        sectionHeader("Trip Details")
-        newPage(80)
-        drawText("Date       Start                          End                            Status     Fuel       Total", .boldSystemFont(ofSize: 10), .darkGray, 50)
-        y += 4
+        pc.sectionHeader("Summary")
+        pc.newPageIfNeeded(40)
+        pc.drawText("Total Trips: \(total)    Completed: \(completed)    Total Cost: \(totalCost.formatted(.currency(code: "INR")))    Avg Cost/Trip: \(avgCost.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50)
+        pc.advance(18)
+        pc.sectionHeader("Trip Details")
+        pc.newPageIfNeeded(80)
+        pc.drawText("Date       Start                          End                            Status     Fuel       Total", .boldSystemFont(ofSize: 10), .darkGray, 50)
+        pc.advance(4)
         for t in vm.filteredTrips {
-            newPage(16)
+            pc.newPageIfNeeded(16)
             let fuelStr = (t.fuelCost ?? 0).formatted(.currency(code: "INR"))
             let totalStr = t.totalCost.formatted(.currency(code: "INR"))
-            drawText("\(shortDateStr(t.startTime))  \(t.startLocation.prefix(25))  \(t.endLocation.prefix(25))  \(t.status.title.prefix(8))  \(fuelStr)  \(totalStr)", .systemFont(ofSize: 9), .black, 50)
-            y += 14
+            pc.drawText("\(shortDateStr(t.startTime))  \(t.startLocation.prefix(25))  \(t.endLocation.prefix(25))  \(t.status.title.prefix(8))  \(fuelStr)  \(totalStr)", .systemFont(ofSize: 9), .black, 50)
+            pc.advance(14)
         }
-        y += 8
-        sectionHeader("Punctuality")
+        pc.advance(8)
+        pc.sectionHeader("Punctuality")
         let onTime = vm.onTimeTrips.count
         let delayed = vm.delayedTrips.count
         let rate = (onTime + delayed) > 0 ? Double(onTime) / Double(onTime + delayed) * 100 : 0
-        drawText("On-Time: \(onTime)  |  Delayed: \(delayed)  |  Rate: \(Int(rate.rounded()))%", .systemFont(ofSize: 11), .black, 50)
+        pc.drawText("On-Time: \(onTime)  |  Delayed: \(delayed)  |  Rate: \(Int(rate.rounded()))%", .systemFont(ofSize: 11), .black, 50)
     }
 
-    private static func pdfExpenditure(_ ctx: UIGraphicsPDFRendererContext, _ y: inout CGFloat, _ vm: ReportsViewModel, _ newPage: (CGFloat) -> Void, _ drawText: (String, UIFont, UIColor, CGFloat) -> Void, _ advance: (CGFloat) -> Void, _ sectionHeader: (String) -> Void) {
-        sectionHeader("Summary")
-        newPage(60)
-        drawText("Total: \(vm.totalExpenditure.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50); y += 18
-        drawText("Maintenance: \(vm.maintenanceCostTotal.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50); y += 18
-        drawText("Fuel: \(vm.filteredTripFuelTotal.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50); y += 18
-        drawText("Misc: \(vm.filteredTripMiscTotal.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50); y += 18
-        y += 8
-        sectionHeader("Top Work Orders")
+    private static func pdfExpenditure(_ pc: PDFContext, _ vm: ReportsViewModel) {
+        pc.sectionHeader("Summary")
+        pc.newPageIfNeeded(60)
+        pc.drawText("Total: \(vm.totalExpenditure.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50); pc.advance(18)
+        pc.drawText("Maintenance: \(vm.maintenanceCostTotal.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50); pc.advance(18)
+        pc.drawText("Fuel: \(vm.filteredTripFuelTotal.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50); pc.advance(18)
+        pc.drawText("Misc: \(vm.filteredTripMiscTotal.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50); pc.advance(18)
+        pc.advance(8)
+        pc.sectionHeader("Top Work Orders")
         for item in vm.mostExpensiveWorkOrders.prefix(10) {
-            newPage(16)
-            drawText("\(item.task.displayTitle)  —  \(item.cost.formatted(.currency(code: "INR")))", .systemFont(ofSize: 10), .black, 50)
-            y += 14
+            pc.newPageIfNeeded(16)
+            pc.drawText("\(item.task.displayTitle)  —  \(item.cost.formatted(.currency(code: "INR")))", .systemFont(ofSize: 10), .black, 50)
+            pc.advance(14)
         }
     }
 
-    private static func pdfFleetUtilization(_ ctx: UIGraphicsPDFRendererContext, _ y: inout CGFloat, _ vm: ReportsViewModel, _ newPage: (CGFloat) -> Void, _ drawText: (String, UIFont, UIColor, CGFloat) -> Void, _ advance: (CGFloat) -> Void, _ sectionHeader: (String) -> Void) {
-        sectionHeader("Summary")
-        newPage(60)
+    private static func pdfFleetUtilization(_ pc: PDFContext, _ vm: ReportsViewModel) {
+        pc.sectionHeader("Summary")
+        pc.newPageIfNeeded(60)
         let active = vm.vehiclesViewModel.activeVehicles.count
         let maint = vm.vehiclesViewModel.maintenanceVehicles.count
-        drawText("Total Vehicles: \(vm.totalVehiclesCount)", .systemFont(ofSize: 11), .black, 50); y += 18
-        drawText("Active: \(active)", .systemFont(ofSize: 11), .black, 50); y += 18
-        drawText("In Maintenance: \(maint)", .systemFont(ofSize: 11), .black, 50); y += 18
-        y += 8
-        sectionHeader("Vehicle Trip Counts")
+        pc.drawText("Total Vehicles: \(vm.totalVehiclesCount)", .systemFont(ofSize: 11), .black, 50); pc.advance(18)
+        pc.drawText("Active: \(active)", .systemFont(ofSize: 11), .black, 50); pc.advance(18)
+        pc.drawText("In Maintenance: \(maint)", .systemFont(ofSize: 11), .black, 50); pc.advance(18)
+        pc.advance(8)
+        pc.sectionHeader("Vehicle Trip Counts")
         for item in vm.vehicleUtilization {
-            newPage(16)
-            drawText("\(item.vehicle.licencePlate) (\(item.vehicle.make) \(item.vehicle.model))  —  \(item.tripCount) trips", .systemFont(ofSize: 10), .black, 50)
-            y += 14
+            pc.newPageIfNeeded(16)
+            pc.drawText("\(item.vehicle.licencePlate) (\(item.vehicle.make) \(item.vehicle.model))  —  \(item.tripCount) trips", .systemFont(ofSize: 10), .black, 50)
+            pc.advance(14)
         }
     }
 
-    private static func pdfDriverPerformance(_ ctx: UIGraphicsPDFRendererContext, _ y: inout CGFloat, _ vm: ReportsViewModel, _ newPage: (CGFloat) -> Void, _ drawText: (String, UIFont, UIColor, CGFloat) -> Void, _ advance: (CGFloat) -> Void, _ sectionHeader: (String) -> Void) {
-        sectionHeader("Summary")
-        newPage(60)
+    private static func pdfDriverPerformance(_ pc: PDFContext, _ vm: ReportsViewModel) {
+        pc.sectionHeader("Summary")
+        pc.newPageIfNeeded(60)
         let active = vm.driverPerformance.filter { $0.tripCount > 0 }.count
-        drawText("Active Drivers: \(active)    Total Trips: \(vm.totalFilteredTrips)", .systemFont(ofSize: 11), .black, 50); y += 18
-        drawText("Average Score: \(vm.averageDriverScore)    Total Drivers: \(vm.usersViewModel.drivers.count)", .systemFont(ofSize: 11), .black, 50); y += 18
-        y += 8
-        sectionHeader("Driver Breakdown")
+        pc.drawText("Active Drivers: \(active)    Total Trips: \(vm.totalFilteredTrips)", .systemFont(ofSize: 11), .black, 50); pc.advance(18)
+        pc.drawText("Average Score: \(vm.averageDriverScore)    Total Drivers: \(vm.usersViewModel.drivers.count)", .systemFont(ofSize: 11), .black, 50); pc.advance(18)
+        pc.advance(8)
+        pc.sectionHeader("Driver Breakdown")
         for item in vm.driverPerformance {
-            newPage(16)
+            pc.newPageIfNeeded(16)
             let name = item.user?.displayName ?? "Unknown"
             let score = vm.usersViewModel.driverScore(for: item.driver.id).map(\.overallScore).map(Int.init) ?? 75
-            drawText("\(name) (Licence: \(item.driver.licenceNum))  —  \(item.tripCount) trips, Score: \(score)", .systemFont(ofSize: 10), .black, 50)
-            y += 14
+            pc.drawText("\(name) (Licence: \(item.driver.licenceNum))  —  \(item.tripCount) trips, Score: \(score)", .systemFont(ofSize: 10), .black, 50)
+            pc.advance(14)
         }
     }
 
-    private static func pdfVehicleHealth(_ ctx: UIGraphicsPDFRendererContext, _ y: inout CGFloat, _ vm: ReportsViewModel, _ newPage: (CGFloat) -> Void, _ drawText: (String, UIFont, UIColor, CGFloat) -> Void, _ advance: (CGFloat) -> Void, _ sectionHeader: (String) -> Void) {
+    private static func pdfVehicleHealth(_ pc: PDFContext, _ vm: ReportsViewModel) {
         let scores = vm.vehicleHealthScores
         let avg = scores.isEmpty ? 0 : scores.map(\.score).reduce(0, +) / scores.count
         let good = scores.filter { $0.score >= 70 }.count
         let fair = scores.filter { $0.score >= 40 && $0.score < 70 }.count
         let poor = scores.filter { $0.score < 40 }.count
-        sectionHeader("Summary")
-        newPage(60)
-        drawText("Average Score: \(avg)    Good (70+): \(good)    Fair (40-69): \(fair)    Poor (<40): \(poor)", .systemFont(ofSize: 11), .black, 50); y += 18
-        y += 8
-        sectionHeader("Vehicle Breakdown")
+        pc.sectionHeader("Summary")
+        pc.newPageIfNeeded(60)
+        pc.drawText("Average Score: \(avg)    Good (70+): \(good)    Fair (40-69): \(fair)    Poor (<40): \(poor)", .systemFont(ofSize: 11), .black, 50); pc.advance(18)
+        pc.advance(8)
+        pc.sectionHeader("Vehicle Breakdown")
         for item in scores {
-            newPage(16)
-            drawText("\(item.vehicle.licencePlate) (\(item.vehicle.make) \(item.vehicle.model))  —  Score: \(item.score)", .systemFont(ofSize: 10), .black, 50)
-            y += 14
+            pc.newPageIfNeeded(16)
+            pc.drawText("\(item.vehicle.licencePlate) (\(item.vehicle.make) \(item.vehicle.model))  —  Score: \(item.score)", .systemFont(ofSize: 10), .black, 50)
+            pc.advance(14)
         }
     }
 
-    private static func pdfMaintenance(_ ctx: UIGraphicsPDFRendererContext, _ y: inout CGFloat, _ vm: ReportsViewModel, _ newPage: (CGFloat) -> Void, _ drawText: (String, UIFont, UIColor, CGFloat) -> Void, _ advance: (CGFloat) -> Void, _ sectionHeader: (String) -> Void) {
-        sectionHeader("Summary")
-        newPage(60)
-        drawText("Total Cost: \(vm.maintenanceCostTotal.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50); y += 18
-        drawText("Parts: \(vm.maintenancePartsTotal.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50); y += 18
-        drawText("Labour: \(vm.maintenanceLabourTotal.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50); y += 18
-        drawText("Completed: \(vm.filteredCompletedTasks.count)", .systemFont(ofSize: 11), .black, 50); y += 18
-        y += 8
-        sectionHeader("Longest Work Orders")
+    private static func pdfMaintenance(_ pc: PDFContext, _ vm: ReportsViewModel) {
+        pc.sectionHeader("Summary")
+        pc.newPageIfNeeded(60)
+        pc.drawText("Total Cost: \(vm.maintenanceCostTotal.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50); pc.advance(18)
+        pc.drawText("Parts: \(vm.maintenancePartsTotal.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50); pc.advance(18)
+        pc.drawText("Labour: \(vm.maintenanceLabourTotal.formatted(.currency(code: "INR")))", .systemFont(ofSize: 11), .black, 50); pc.advance(18)
+        pc.drawText("Completed: \(vm.filteredCompletedTasks.count)", .systemFont(ofSize: 11), .black, 50); pc.advance(18)
+        pc.advance(8)
+        pc.sectionHeader("Longest Work Orders")
         for item in vm.longestWorkOrders.prefix(10) {
-            newPage(16)
-            drawText("\(item.task.displayTitle)  —  \(String(format: "%.1f", item.hours)) hrs", .systemFont(ofSize: 10), .black, 50)
-            y += 14
+            pc.newPageIfNeeded(16)
+            pc.drawText("\(item.task.displayTitle)  —  \(String(format: "%.1f", item.hours)) hrs", .systemFont(ofSize: 10), .black, 50)
+            pc.advance(14)
         }
-        y += 8
-        sectionHeader("Most Expensive Work Orders")
+        pc.advance(8)
+        pc.sectionHeader("Most Expensive Work Orders")
         for item in vm.mostExpensiveWorkOrders.prefix(10) {
-            newPage(16)
-            drawText("\(item.task.displayTitle)  —  \(item.cost.formatted(.currency(code: "INR")))", .systemFont(ofSize: 10), .black, 50)
-            y += 14
+            pc.newPageIfNeeded(16)
+            pc.drawText("\(item.task.displayTitle)  —  \(item.cost.formatted(.currency(code: "INR")))", .systemFont(ofSize: 10), .black, 50)
+            pc.advance(14)
         }
     }
 }

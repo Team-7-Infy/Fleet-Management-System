@@ -45,142 +45,112 @@ struct ReportsHubView: View {
     // MARK: - Trip Report
 
     private var tripSection: some View {
-        NavigationLink {
-            TripReportDetailView(
+        FitnessCategoryCard {
+            VStack(alignment: .leading, spacing: 4) {
+                FitnessMetricHeader(
+                    label: "Trips",
+                    value: "\(viewModel.totalFilteredTrips)",
+                    subtitle: "Trips in selected period"
+                )
+
+                if let change = viewModel.tripPercentChange {
+                    HStack(spacing: 4) {
+                        Image(systemName: change >= 0 ? "arrow.up.right" : "arrow.down.right")
+                            .font(.caption).bold()
+                        Text("\(abs(change), specifier: "%.0f")% from last month")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .foregroundStyle(change >= 0 ? FleetPalette.success : FleetPalette.danger)
+                }
+            }
+
+            let data = viewModel.filteredTripsByMonth
+
+            if data.allSatisfy({ $0.count == 0 }) {
+                ContentUnavailableView(
+                    "No Trips",
+                    systemImage: "point.topleft.down.curvedto.point.bottomright.up",
+                    description: Text("No trip data for this period.")
+                )
+                .frame(height: 140)
+            } else {
+                FitnessMonthlyBarChart(data: data, color: FleetPalette.accent)
+            }
+
+            navigationPill(destination: TripReportDetailView(
                 tripsViewModel: viewModel,
                 tripsManager: viewModel.tripsViewModel,
                 vehiclesViewModel: vehiclesViewModel,
                 usersViewModel: usersViewModel
-            )
-        } label: {
-            FitnessCategoryCard {
-                VStack(alignment: .leading, spacing: 4) {
-                    FitnessMetricHeader(
-                        label: "Trips",
-                        value: "\(viewModel.totalFilteredTrips)",
-                        subtitle: "Trips in selected period"
-                    )
-
-                    if let change = viewModel.tripPercentChange {
-                        HStack(spacing: 4) {
-                            Image(systemName: change >= 0 ? "arrow.up.right" : "arrow.down.right")
-                                .font(.caption).bold()
-                            Text("\(abs(change), specifier: "%.0f")% from last month")
-                                .font(.caption.weight(.semibold))
-                        }
-                        .foregroundStyle(change >= 0 ? FleetPalette.success : FleetPalette.danger)
-                    }
-                }
-
-                let data = viewModel.filteredTripsByMonth
-
-                if data.allSatisfy({ $0.count == 0 }) {
-                    ContentUnavailableView(
-                        "No Trips",
-                        systemImage: "point.topleft.down.curvedto.point.bottomright.up",
-                        description: Text("No trip data for this period.")
-                    )
-                    .frame(height: 140)
-                } else {
-                    FitnessMonthlyBarChart(data: data, color: FleetPalette.accent)
-                }
-
-                navigationPill(destination: TripReportDetailView(
-                    tripsViewModel: viewModel,
-                    tripsManager: viewModel.tripsViewModel,
-                    vehiclesViewModel: vehiclesViewModel,
-                    usersViewModel: usersViewModel
-                ))
-            }
+            ))
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Expenditure
 
     private var expenditureSection: some View {
-        NavigationLink {
-            ExpenditureDetailView(
+        FitnessCategoryCard {
+            FitnessMetricHeader(
+                label: "Expenditure",
+                value: viewModel.totalExpenditure.formatted(.currency(code: "INR")),
+                subtitle: "Total cost in selected period"
+            )
+
+            let slices = viewModel.expenditureSlices
+            if slices.allSatisfy({ $0.amount == 0 }) {
+                ContentUnavailableView(
+                    "No Expenditure",
+                    systemImage: "indianrupeesign",
+                    description: Text("No cost data for this period.")
+                )
+                .frame(height: 140)
+            } else {
+                FitnessPieChart(slices: slices)
+            }
+
+            navigationPill(destination: ExpenditureDetailView(
                 reportsViewModel: viewModel,
                 maintenanceViewModel: maintenanceViewModel,
                 tripsManager: viewModel.tripsViewModel,
                 vehiclesViewModel: vehiclesViewModel,
                 usersViewModel: usersViewModel
-            )
-        } label: {
-            FitnessCategoryCard {
-                FitnessMetricHeader(
-                    label: "Expenditure",
-                    value: viewModel.totalExpenditure.formatted(.currency(code: "INR")),
-                    subtitle: "Total cost in selected period"
-                )
-
-                let slices = viewModel.expenditureSlices
-                if slices.allSatisfy({ $0.amount == 0 }) {
-                    ContentUnavailableView(
-                        "No Expenditure",
-                        systemImage: "indianrupeesign",
-                        description: Text("No cost data for this period.")
-                    )
-                    .frame(height: 140)
-                } else {
-                    FitnessPieChart(slices: slices)
-                }
-
-                navigationPill(destination: ExpenditureDetailView(
-                    reportsViewModel: viewModel,
-                    maintenanceViewModel: maintenanceViewModel,
-                    tripsManager: viewModel.tripsViewModel,
-                    vehiclesViewModel: vehiclesViewModel,
-                    usersViewModel: usersViewModel
-                ))
-            }
+            ))
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Fleet Utilization
 
     private var fleetUtilizationSection: some View {
-        NavigationLink {
-            FleetUtilizationDetailView(
+        FitnessCategoryCard {
+            FitnessMetricHeader(
+                label: "Fleet Utilization",
+                value: "\(Int(viewModel.utilizationPercentCurrentMonth.rounded()))%",
+                subtitle: "\(viewModel.vehiclesUsedThisPeriod) of \(viewModel.totalVehiclesCount) vehicles used this month"
+            )
+
+            let data = viewModel.fleetUtilizationByMonth
+
+            if data.allSatisfy({ $0.vehiclesUsed == 0 }) {
+                ContentUnavailableView(
+                    "No Utilization Data",
+                    systemImage: "car.2.fill",
+                    description: Text("No vehicle usage data for this period.")
+                )
+                .frame(height: 140)
+            } else {
+                FitnessLineChart(
+                    data: data,
+                    totalVehicles: viewModel.totalVehiclesCount,
+                    color: FleetPalette.success
+                )
+            }
+
+            navigationPill(destination: FleetUtilizationDetailView(
                 reportsViewModel: viewModel,
                 vehiclesViewModel: vehiclesViewModel,
                 usersViewModel: usersViewModel
-            )
-        } label: {
-            FitnessCategoryCard {
-                FitnessMetricHeader(
-                    label: "Fleet Utilization",
-                    value: "\(Int(viewModel.utilizationPercentCurrentMonth.rounded()))%",
-                    subtitle: "\(viewModel.vehiclesUsedThisPeriod) of \(viewModel.totalVehiclesCount) vehicles used this month"
-                )
-
-                let data = viewModel.fleetUtilizationByMonth
-
-                if data.allSatisfy({ $0.vehiclesUsed == 0 }) {
-                    ContentUnavailableView(
-                        "No Utilization Data",
-                        systemImage: "car.2.fill",
-                        description: Text("No vehicle usage data for this period.")
-                    )
-                    .frame(height: 140)
-                } else {
-                    FitnessLineChart(
-                        data: data,
-                        totalVehicles: viewModel.totalVehiclesCount,
-                        color: FleetPalette.success
-                    )
-                }
-
-                navigationPill(destination: FleetUtilizationDetailView(
-                    reportsViewModel: viewModel,
-                    vehiclesViewModel: vehiclesViewModel,
-                    usersViewModel: usersViewModel
-                ))
-            }
+            ))
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Vehicle Health (static — unaffected by period filter)
