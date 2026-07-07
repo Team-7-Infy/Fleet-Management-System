@@ -23,4 +23,5 @@ protocol VehicleServiceProtocol: AnyObject, Sendable {
     func createVehicleDocument(_ document: VehicleDocument) async throws -> VehicleDocument
     func updateVehicleDocument(_ document: VehicleDocument) async throws -> VehicleDocument
     func deleteVehicleDocument(id: UUID) async throws
+    func fetchVehicleHealthScores() async throws -> [(vehicleId: UUID, score: Int)]
 }

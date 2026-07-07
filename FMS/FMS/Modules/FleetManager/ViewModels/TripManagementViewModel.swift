@@ -100,6 +100,10 @@ final class TripManagementViewModel: ObservableObject {
         do {
             try await tripService.updateTripStatus(id: trip.id, status: status)
 
+            if status == .completed, let driverId = trip.driverId {
+                _ = try? await userManagementService.calculateAndUpsertDriverScore(driverId: driverId)
+            }
+
             if (status == .completed || status == .rejected || status == .cancelled),
                let vehicleId = trip.vehicleId {
                 try await vehicleService.unassignDriver(vehicleId: vehicleId)

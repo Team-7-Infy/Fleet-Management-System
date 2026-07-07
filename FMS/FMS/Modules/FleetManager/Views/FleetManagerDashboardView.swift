@@ -343,6 +343,7 @@ struct FleetManagerDashboardView: View {
         await vehiclesViewModel.load()
         await tripsViewModel.load()
         await maintenanceViewModel.load()
+        await vehiclesViewModel.loadVehicleHealthScores()
     }
 
 }

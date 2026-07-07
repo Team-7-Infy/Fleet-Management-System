@@ -147,6 +147,132 @@ final actor UserManagementService: UserManagementServiceProtocol {
             .value
     }
 
+    func fetchAllDriverScores() async throws -> [DriverScore] {
+        try await supabase.client
+            .from("driver_scores")
+            .select()
+            .execute()
+            .value
+    }
+
+    func upsertDriverScore(_ score: DriverScore) async throws -> DriverScore {
+        if let existing = try? await supabase.client
+            .from("driver_scores")
+            .select()
+            .eq("driver_id", value: score.driverId.uuidString)
+            .single()
+            .execute()
+            .value as DriverScore? {
+            let update: [String: AnyJSON] = [
+                "overall_score": .double(score.overallScore),
+                "inspection_false_rate": score.inspectionFalseRate.map { .double($0) } ?? .null,
+                "geofence_violation_rate": score.geofenceViolationRate.map { .double($0) } ?? .null,
+                "compliance_violation_rate": score.complianceViolationRate.map { .double($0) } ?? .null,
+                "mileage_accuracy": score.mileageAccuracy.map { .double($0) } ?? .null,
+                "calculated_at": .string(ISO8601DateFormatter().string(from: Date()))
+            ]
+            try await supabase.client
+                .from("driver_scores")
+                .update(update)
+                .eq("driver_id", value: score.driverId.uuidString)
+                .execute()
+
+            return try await supabase.client
+                .from("driver_scores")
+                .select()
+                .eq("driver_id", value: score.driverId.uuidString)
+                .single()
+                .execute()
+                .value
+        } else {
+            return try await supabase.client
+                .from("driver_scores")
+                .insert(score, returning: .representation)
+                .select()
+                .single()
+                .execute()
+                .value
+        }
+    }
+
+    func calculateAndUpsertDriverScore(driverId: UUID) async throws -> DriverScore {
+        let completedTrips: [Trip] = try await supabase.client
+            .from("trips")
+            .select()
+            .eq("driverid", value: driverId.uuidString)
+            .eq("status", value: "completed")
+            .execute()
+            .value
+
+        let totalTrips = completedTrips.count
+
+        // Factor 1: Inspection False Rate
+        let inspections: [VehicleInspection] = try await supabase.client
+            .from("vehicle_inspections")
+            .select()
+            .eq("driver_id", value: driverId.uuidString)
+            .execute()
+            .value
+
+        let totalInspections = inspections.count
+        let failedInspections = inspections.filter { $0.status == "failed" }.count
+        let inspectionRate = totalInspections > 0 ? Double(failedInspections) / Double(totalInspections) : 0.0
+        let inspectionScore = totalInspections > 0 ? max(0, (1.0 - inspectionRate) * 100) : 75.0
+
+        // Factor 2: Geofence Violation Rate
+        let tripIds = completedTrips.map(\.id)
+        var deviationAlertsCount = 0
+        if !tripIds.isEmpty {
+            for tripId in tripIds {
+                if let alerts = try? await supabase.client
+                    .from("deviation_alert")
+                    .select()
+                    .eq("tripid", value: tripId.uuidString)
+                    .execute()
+                    .value as [DeviationAlert]? {
+                    deviationAlertsCount += alerts.count
+                }
+            }
+        }
+        let violationRate = totalTrips > 0 ? Double(deviationAlertsCount) / Double(max(totalTrips, 1)) : 0.0
+        let geofenceScore = totalTrips > 0 ? max(0, (1.0 - min(violationRate, 1.0)) * 100) : 75.0
+
+        // Factor 3: Compliance / Schedule Adherence
+        let onTimeCount = completedTrips.filter { trip in
+            guard let end = trip.endTime else { return false }
+            let expectedDuration: TimeInterval = 8 * 3600
+            return end <= trip.startTime.addingTimeInterval(expectedDuration)
+        }.count
+        let complianceScore = totalTrips > 0 ? Double(onTimeCount) / Double(totalTrips) * 100 : 75.0
+
+        // Factor 4: Mileage Accuracy
+        let distances = completedTrips.compactMap(\.distanceKm).filter { $0 > 0 }
+        let mileageScore: Double
+        if distances.count >= 3 {
+            let mean = distances.reduce(0, +) / Double(distances.count)
+            let variance = distances.map { pow($0 - mean, 2) }.reduce(0, +) / Double(distances.count - 1)
+            let cv = sqrt(variance) / mean
+            mileageScore = max(0, min(100, 100 - cv * 50))
+        } else {
+            mileageScore = 75.0
+        }
+
+        let overall = (inspectionScore + geofenceScore + complianceScore + mileageScore) / 4.0
+
+        let score = DriverScore(
+            id: UUID(),
+            driverId: driverId,
+            overallScore: overall.rounded(),
+            inspectionFalseRate: (inspectionScore * 100).rounded() / 100,
+            geofenceViolationRate: (geofenceScore * 100).rounded() / 100,
+            complianceViolationRate: (complianceScore * 100).rounded() / 100,
+            mileageAccuracy: (mileageScore * 100).rounded() / 100,
+            calculatedAt: Date()
+        )
+
+        return try await upsertDriverScore(score)
+    }
+
     func fetchDriverScore(driverId: UUID) async throws -> DriverScore? {
         try? await supabase.client
             .from("driver_scores")

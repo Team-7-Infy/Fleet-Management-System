@@ -28,6 +28,8 @@ protocol UserManagementServiceProtocol: AnyObject, Sendable {
     func createFleetManager(_ manager: FleetManager) async throws -> FleetManager
 
     func fetchDriverScore(driverId: UUID) async throws -> DriverScore?
+    func fetchAllDriverScores() async throws -> [DriverScore]
+    func calculateAndUpsertDriverScore(driverId: UUID) async throws -> DriverScore
     func fetchDriverSchedules(driverId: UUID) async throws -> [DriverSchedule]
     func createDriverSchedule(_ schedule: DriverSchedule) async throws -> DriverSchedule
     func deleteDriverSchedule(id: UUID) async throws

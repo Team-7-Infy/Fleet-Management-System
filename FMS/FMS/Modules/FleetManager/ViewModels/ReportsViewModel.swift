@@ -362,17 +362,18 @@ final class ReportsViewModel: ObservableObject {
     }
 
     var averageDriverScore: Int {
-        let scores = usersViewModel.drivers.map { _ in
-            75
+        let scores = usersViewModel.driverScores.map(\.overallScore)
+        guard scores.isEmpty == false else {
+            let fallback = usersViewModel.drivers.count
+            return fallback > 0 ? 75 : 0
         }
-        guard scores.isEmpty == false else { return 0 }
-        return scores.reduce(0, +) / scores.count
+        return Int(scores.reduce(0, +) / Double(scores.count))
     }
 
     // MARK: - Aggregated Fleet Health
 
     var averageVehicleHealth: Int {
-        let scores = vehicleHealthScores.map(\.score)
+        let scores = vehiclesViewModel.vehicleHealthScores.map(\.score)
         guard scores.isEmpty == false else { return 0 }
         return scores.reduce(0, +) / scores.count
     }
@@ -403,27 +404,14 @@ final class ReportsViewModel: ObservableObject {
     }
 
     var vehiclesNeedingMaintenance: [Vehicle] {
-        vehicleHealthScores
+        vehiclesViewModel.vehicleHealthScores
             .filter { $0.score < 70 }
             .sorted { $0.score < $1.score }
             .map(\.vehicle)
     }
 
     var vehicleHealthScores: [(vehicle: Vehicle, score: Int)] {
-        vehiclesViewModel.vehicles.map { v in
-            let age = v.addedToFleetAt ?? Date()
-            let years = Calendar.current.dateComponents([.year], from: age, to: Date()).year ?? 0
-            let ageScore = max(0, 100 - years * 10)
-
-            let vehicleTaskCount = maintenanceViewModel.tasks.filter { t in
-                maintenanceViewModel.vehicles(for: t).contains { $0.vin == v.id }
-            }.count
-            let maintenanceScore = max(0, 100 - vehicleTaskCount * 8)
-            let defectScore = vehicleTaskCount > 3 ? max(0, 70 - (vehicleTaskCount - 3) * 10) : 100
-
-            let overall = (ageScore + maintenanceScore + defectScore) / 3
-            return (v, max(0, min(100, overall)))
-        }.sorted { $0.score > $1.score }
+        vehiclesViewModel.vehicleHealthScores
     }
 
     // MARK: - Fleet Optimization

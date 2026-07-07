@@ -8,6 +8,7 @@ final class VehicleViewModel: ObservableObject {
     @Published var successMessage: String?
     @Published var errorMessage: String?
     @Published private(set) var documents: [VehicleDocument] = []
+    @Published private(set) var vehicleHealthScores: [(vehicle: Vehicle, score: Int)] = []
 
     private let service: VehicleServiceProtocol
 
@@ -36,6 +37,19 @@ final class VehicleViewModel: ObservableObject {
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    func loadVehicleHealthScores() async {
+        do {
+            let raw = try await service.fetchVehicleHealthScores()
+            let lookup = Dictionary(uniqueKeysWithValues: vehicles.map { ($0.id, $0) })
+            vehicleHealthScores = raw.compactMap { (vehicleId, score) in
+                guard let v = lookup[vehicleId] else { return nil }
+                return (v, score)
+            }.sorted { $0.score > $1.score }
+        } catch {
+            print("Failed to load vehicle health scores: \(error)")
         }
     }
 
