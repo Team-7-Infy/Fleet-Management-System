@@ -18,12 +18,15 @@ struct ProfileHubView: View {
                 ProfileHeaderCard(viewModel: viewModel)
 
                 // 1. Performance Summary Card
-                ProfilePerformanceSummary(
-                    safetyScore: viewModel.safetyScore,
-                    totalTrips: "\(viewModel.completedTrips)",
-                    onTimeRate: viewModel.onTimeRate,
-                    lastTripDate: viewModel.lastTripDate
-                )
+                NavigationLink(destination: PerformanceView(driverId: viewModel.driverId ?? UUID(), services: viewModel.services)) {
+                    ProfilePerformanceSummary(
+                        safetyScore: viewModel.safetyScore,
+                        totalTrips: "\(viewModel.completedTrips)",
+                        onTimeRate: viewModel.onTimeRate,
+                        lastTripDate: viewModel.lastTripDate
+                    )
+                }
+                .buttonStyle(.plain)
 
                 // 2. Contact & Personal Info Cards
                 ProfileInfoSection(title: "Contact Details", rows: viewModel.contactDetails)
@@ -225,11 +228,11 @@ private struct ProfilePerformanceSummary: View {
                                 .stroke(Color.blue.opacity(0.12), lineWidth: 4)
                                 .frame(width: 44, height: 44)
                             Circle()
-                                .trim(from: 0.0, to: CGFloat(safetyScore) / 100.0)
+                                .trim(from: 0.0, to: totalTrips == "0" ? 0.0 : CGFloat(safetyScore) / 100.0)
                                 .stroke(Color.blue, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                                 .frame(width: 44, height: 44)
                                 .rotationEffect(.degrees(-90))
-                            Text("\(safetyScore)")
+                            Text(totalTrips == "0" ? "--" : "\(safetyScore)")
                                 .font(.subheadline.weight(.bold))
                                 .foregroundStyle(.blue)
                         }
@@ -239,9 +242,11 @@ private struct ProfilePerformanceSummary: View {
                         Text("Safety Score")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.primary)
-                        Text("Based on telematics")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                        if totalTrips == "0" {
+                            Text("No trip history")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
                 .padding(12)
@@ -636,7 +641,7 @@ struct EditProfileView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundStyle(.secondary) // Secondary visual weight
+                    .foregroundStyle(.primary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {

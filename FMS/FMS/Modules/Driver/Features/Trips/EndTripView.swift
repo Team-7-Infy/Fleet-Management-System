@@ -17,6 +17,8 @@ struct EndTripView: View {
     @State private var showAlert = false
     @State private var alertMessage = ""
 
+    @State private var postTripComments: String = ""
+
     @StateObject private var inspectionViewModel = InspectionViewModel()
 
     private var isFormValid: Bool {
@@ -195,6 +197,29 @@ struct EndTripView: View {
                             }
                         }
 
+                        // General Comments / Other Defects
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("OTHER COMMENTS / DEFECTS")
+                                .font(.system(size: 11, weight: .black))
+                                .foregroundColor(.secondary)
+                                .tracking(1.0)
+
+                            TextEditor(text: $postTripComments)
+                                .font(.subheadline)
+                                .frame(minHeight: 80)
+                                .padding(8)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color(.separator).opacity(0.3), lineWidth: 1)
+                                )
+
+                            Text("Optional: Add any additional notes about vehicle condition.")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+
                         // Action Button
                         Button(action: submitTrip) {
                             HStack {
@@ -275,7 +300,7 @@ struct EndTripView: View {
                     status: failedItems.isEmpty ? "passed" : "failed",
                     odometerReading: Double(endOdometer),
                     fuelLevel: Double(endFuel),
-                    notes: nil,
+                    notes: postTripComments.isEmpty ? nil : postTripComments,
                     createdAt: Date()
                 )
                 let saved = try await services.inspectionService.createInspection(inspection)

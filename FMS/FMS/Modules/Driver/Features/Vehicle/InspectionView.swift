@@ -26,6 +26,7 @@ struct InspectionView: View {
 
     @State private var odometerInput: String = ""
     @State private var fuelInput: String = ""
+    @State private var generalComments: String = ""
 
     private var currentOdometer: Int {
         let seed = trip.tripId.filter { "0123456789".contains($0) }
@@ -195,6 +196,33 @@ struct InspectionView: View {
                                 viewModel.updateDetails(for: item.id, description: desc, image: img)
                             }
                         }
+
+                        // General Comments / Other Defects
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("OTHER COMMENTS / DEFECTS")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.secondary)
+
+                            TextEditor(text: $generalComments)
+                                .font(.subheadline)
+                                .frame(minHeight: 80)
+                                .padding(8)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color(.separator).opacity(0.3), lineWidth: 1)
+                                )
+
+                            Text("Optional: Add any additional notes about vehicle condition.")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .background(Color(UIColor.secondarySystemGroupedBackground))
+                        .cornerRadius(16)
+                        .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
                     }
                     .padding()
                 }
@@ -372,7 +400,7 @@ struct InspectionView: View {
             status: inspectionStatus,
             odometerReading: Double(odometerInput),
             fuelLevel: Double(fuelInput),
-            notes: nil,
+            notes: generalComments.isEmpty ? nil : generalComments,
             createdAt: Date()
         )
         let saved = try await services.inspectionService.createInspection(inspection)

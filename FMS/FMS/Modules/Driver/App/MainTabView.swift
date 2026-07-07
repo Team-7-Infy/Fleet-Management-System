@@ -82,7 +82,7 @@ struct ProfileTabView: View {
     var body: some View {
         NavigationView {
             List {
-                NavigationLink(destination: PerformanceView()) {
+                NavigationLink(destination: Text("Performance view requires driver context").padding()) {
                     Label("My Performance", systemImage: "chart.bar.fill")
                 }
                 NavigationLink(destination: ProfilePlaceholder()) {

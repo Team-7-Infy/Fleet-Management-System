@@ -406,19 +406,22 @@ struct DashboardView: View {
                                         status: .cancelled,
                                         rejectionReason: "SOS Emergency: Cancelled via emergency SOS alert."
                                     )
-                                    
-                                    let notification = AppNotification(
-                                        id: UUID(),
-                                        title: "CRITICAL: Driver SOS Emergency",
-                                        message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation).",
-                                        type: "geofence_exit",
-                                        isRead: false,
-                                        referenceId: trip.id,
-                                        recipientId: nil,
-                                        createdAt: Date()
-                                    )
-                                    _ = try? await services.notificationService.createNotification(notification)
-                                    
+
+                                    let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
+                                    for fmUser in fmUsers {
+                                        let notification = AppNotification(
+                                            id: UUID(),
+                                            title: "CRITICAL: Driver SOS Emergency",
+                                            message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation).",
+                                            type: "sos_emergency",
+                                            isRead: false,
+                                            referenceId: trip.id,
+                                            recipientId: fmUser.id,
+                                            createdAt: Date()
+                                        )
+                                        _ = try? await services.notificationService.createNotification(notification)
+                                    }
+
                                     await viewModel.fetchDashboardData()
                                     await onRefreshData?()
                                 } catch {
@@ -1857,9 +1860,17 @@ struct UpcomingLiveTripCard: View {
 
                 Spacer()
 
-                Text("Starts soon")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.7))
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(trip.startTime, style: .date)
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.7))
+                    Text(trip.startTime, style: .time)
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.7))
+                    Text(trip.startTime, style: .timer)
+                        .font(.caption2)
+                        .foregroundColor(.orange.opacity(0.9))
+                }
             }
 
             // Route Detail

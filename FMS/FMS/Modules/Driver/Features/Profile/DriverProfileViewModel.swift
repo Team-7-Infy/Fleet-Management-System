@@ -5,9 +5,11 @@ import Supabase
 
 @MainActor
 final class DriverProfileViewModel: ObservableObject {
-    private let services: AppServices
-    private let driver: Driver?
+    let services: AppServices
+    let driver: Driver?
     private var user: User
+
+    var driverId: UUID? { driver?.id }
 
     @Published var driverName: String
     @Published var phone: String
@@ -56,18 +58,24 @@ final class DriverProfileViewModel: ObservableObject {
         do {
             let trips = try await services.tripService.fetchTrips(forDriverId: driverId)
             let completed = trips.filter { $0.status == .completed }
+
+            // Fetch real driver score
+            let score = try? await services.userManagementService.fetchDriverScore(driverId: driverId)
+
             await MainActor.run {
-                completedTrips = completed.count
-                totalTrips = "\(trips.count)"
-                onTimeRate = trips.isEmpty ? "0%" : "\(Int(Double(completed.count) / Double(trips.count) * 100))%"
+                self.completedTrips = completed.count
+                self.totalTrips = "\(trips.count)"
+                self.onTimeRate = trips.isEmpty ? "0%" : "\(Int(Double(completed.count) / Double(trips.count) * 100))%"
+                self.safetyScore = Int(score?.overallScore ?? 0)
+
                 if let last = trips.max(by: { ($0.startTime) < ($1.startTime) }) {
                     let f = DateFormatter()
                     f.dateFormat = "dd MMM, yyyy"
-                    lastTripDate = f.string(from: last.startTime)
+                    self.lastTripDate = f.string(from: last.startTime)
                 }
             }
         } catch {
-            print("Failed to load trips: \(error)")
+            print("Failed to load profile stats: \(error)")
         }
     }
 
