@@ -587,7 +587,7 @@ struct DashboardView: View {
                 id: UUID(),
                 title: "Trip Rejected by Driver",
                 message: "Driver rejected trip from \(trip.startLocation) to \(trip.endLocation). Reason: \(reason)",
-                type: "trip_assignment",
+                type: "driver_message",
                 isRead: false,
                 referenceId: trip.id,
                 recipientId: nil,

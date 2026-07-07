@@ -49,6 +49,8 @@ struct FleetManagerDashboardView: View {
     @State private var isShowingProfile = false
     @State private var showingNotifications = false
     @State private var lastUserNotificationMessage: String?
+    @State private var lastTripNotificationMessage: String?
+    @State private var lastMaintenanceNotificationMessage: String?
     @Environment(\.scenePhase) private var scenePhase
 
     init(services: AppServices, onLogout: @escaping () -> Void) {
@@ -160,41 +162,50 @@ struct FleetManagerDashboardView: View {
         }
         .onChange(of: tripsViewModel.successMessage) { _, message in
             guard let message else { return }
+            guard message != lastTripNotificationMessage else { return }
+            lastTripNotificationMessage = message
             if message.hasPrefix("Trip created") {
                 let title = message.contains("assigned to") ? "Trip Assigned" : "Trip Created"
                 notificationViewModel.addLocalNotification(
                     title: title,
                     message: message,
-                    type: "trip_assignment"
+                    type: "trip_assignment",
+                    recipientIdOverride: nil
                 )
             } else if message.hasPrefix("Rejection approved") {
                 notificationViewModel.addLocalNotification(
                     title: "Trip Reassigned",
                     message: message,
-                    type: "trip_assignment"
+                    type: "trip_assignment",
+                    recipientIdOverride: nil
                 )
             } else if message.hasPrefix("Rejection denied") {
                 notificationViewModel.addLocalNotification(
                     title: "Rejection Denied",
                     message: message,
-                    type: "trip_assignment"
+                    type: "trip_assignment",
+                    recipientIdOverride: nil
                 )
             }
         }
         .onChange(of: maintenanceViewModel.successMessage) { _, message in
             guard let message else { return }
+            guard message != lastMaintenanceNotificationMessage else { return }
+            lastMaintenanceNotificationMessage = message
             if message == "Task assigned." {
                 notificationViewModel.addLocalNotification(
                     title: "Work Order Assigned",
                     message: "A maintenance task has been assigned to personnel.",
-                    type: "work_order_assigned"
+                    type: "work_order_assigned",
+                    recipientIdOverride: nil
                 )
             } else if message.hasPrefix("Task marked") {
                 let status = message.replacingOccurrences(of: "Task marked ", with: "").replacingOccurrences(of: ".", with: "")
                 notificationViewModel.addLocalNotification(
                     title: "Work Order \(status.capitalized)",
                     message: message,
-                    type: "work_order_assigned"
+                    type: "work_order_assigned",
+                    recipientIdOverride: nil
                 )
             }
         }

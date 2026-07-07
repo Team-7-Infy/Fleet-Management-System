@@ -60,7 +60,7 @@ final class NotificationViewModel: ObservableObject {
             if let recId = notification.recipientId, recId != recipientId {
                 return false
             }
-            let excludedTypes = ["trip_assignment", "vehicle_assigned", "work_order_assigned", "work_order_assigned_urgent", "maintenance"]
+            let excludedTypes = ["vehicle_assigned", "maintenance"]
             return !excludedTypes.contains(notification.type.lowercased())
         }
     }
@@ -139,7 +139,11 @@ final class NotificationViewModel: ObservableObject {
         }
     }
 
-    func addLocalNotification(title: String, message: String, type: String = "system") {
+    func addLocalNotification(title: String, message: String, type: String = "system", recipientIdOverride: UUID?? = nil) {
+        let actualRecipientId: UUID? = {
+            if case .some(let value) = recipientIdOverride { return value }
+            return recipientId
+        }()
         let notification = AppNotification(
             id: UUID(),
             title: title,
@@ -147,7 +151,7 @@ final class NotificationViewModel: ObservableObject {
             type: type,
             isRead: false,
             referenceId: nil,
-            recipientId: recipientId,
+            recipientId: actualRecipientId,
             createdAt: Date.now
         )
 
@@ -198,6 +202,7 @@ final class NotificationViewModel: ObservableObject {
             let stream = notificationService.subscribeToRealtime(for: recipientId, driverId: driverId)
             for await newNotification in stream {
                 guard shouldIncludeNotification(newNotification) else { continue }
+                guard !self.notifications.contains(where: { $0.id == newNotification.id }) else { continue }
                 self.notifications.insert(newNotification, at: 0)
                 self.unreadCount += 1
                 
