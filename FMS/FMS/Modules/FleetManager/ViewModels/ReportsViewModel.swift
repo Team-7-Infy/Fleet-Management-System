@@ -39,6 +39,7 @@ enum PeriodPreset: String, CaseIterable, Identifiable, Hashable, Sendable {
 @MainActor
 final class ReportsViewModel: ObservableObject {
     @Published var selectedPeriod: PeriodPreset = .twoMonths
+    @Published var showScoreWarning: Bool = false
 
     let tripsViewModel: TripManagementViewModel
     let vehiclesViewModel: VehicleViewModel
@@ -365,7 +366,16 @@ final class ReportsViewModel: ObservableObject {
         let scores = usersViewModel.driverScores.map(\.overallScore)
         guard scores.isEmpty == false else {
             let fallback = usersViewModel.drivers.count
+            let hasCompletedTrips = tripsViewModel.trips.contains { $0.status == .completed }
+            if hasCompletedTrips && fallback > 0 {
+                DispatchQueue.main.async { [weak self] in
+                    self?.showScoreWarning = true
+                }
+            }
             return fallback > 0 ? 75 : 0
+        }
+        DispatchQueue.main.async { [weak self] in
+            self?.showScoreWarning = false
         }
         return Int(scores.reduce(0, +) / Double(scores.count))
     }

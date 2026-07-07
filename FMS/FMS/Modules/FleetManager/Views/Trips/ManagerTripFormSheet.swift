@@ -184,24 +184,20 @@ struct ManagerTripFormSheet: View {
         guard form.vehicleTypeRequested.isEmpty == false else { return [] }
         let all = vehiclesViewModel.vehicles.filter {
             $0.vehicleType.lowercased() == form.vehicleTypeRequested.lowercased() &&
-            $0.status == .available
+            ($0.status == .available || $0.status == .assigned)
         }
-        
+
+        let tripEnd = form.endTime ?? form.startTime.addingTimeInterval(7200)
         let completedTasks = maintenanceViewModel.tasks.filter { $0.status == .completed }
         let taskVehicles = maintenanceViewModel.taskVehicles
         
         return all.filter { vehicle in
             let vehicleTrips = viewModel.trips.filter { $0.vehicleId == vehicle.id }
-            let hasActiveOrScheduled = vehicleTrips.contains { t in
-                t.status == .scheduled || t.status == .pending || t.status == .accepted || t.status == .inProgress
-            }
-            if hasActiveOrScheduled {
-                return false
-            }
+            guard viewModel.hasNoOverlap(vehicleTrips, tripStart: form.startTime, tripEnd: tripEnd) else { return false }
             
-            let vehicleTaskIds = Set(taskVehicles.flatMap { (taskId, list) in
-                list.contains { $0.vin == vehicle.id } ? [taskId] : []
-            })
+            let vehicleTaskIds = Set(taskVehicles.flatMap { (_, list) in
+                list.contains { $0.vin == vehicle.id } ? [$0] : []
+            }.map(\.taskId))
             let vehicleTasks = completedTasks.filter { vehicleTaskIds.contains($0.id) }
             
             if checkVehicleIdleViolation(vehicle: vehicle, trips: viewModel.trips, tasks: vehicleTasks, targetStartTime: form.startTime) {
@@ -234,30 +230,7 @@ struct ManagerTripFormSheet: View {
         
         return matchingDrivers.filter { driver in
             let driverTrips = viewModel.trips.filter { $0.driverId == driver.id }
-            
-            for t in driverTrips {
-                let overlappingStatuses: Set<TripStatus> = [.scheduled, .pending, .accepted, .inProgress]
-                if overlappingStatuses.contains(t.status) {
-                    let tEnd = t.endTime ?? t.startTime.addingTimeInterval(7200)
-                    if t.startTime < tripEnd && tEnd > form.startTime {
-                        return false
-                    }
-                } else if t.status == .completed {
-                    let tEnd = t.endTime ?? t.startTime.addingTimeInterval(7200)
-                    if form.startTime >= t.startTime {
-                        let bufferEnd = tEnd.addingTimeInterval(5 * 3600)
-                        if form.startTime < bufferEnd {
-                            return false
-                        }
-                    } else {
-                        let bufferStart = t.startTime.addingTimeInterval(-5 * 3600)
-                        if tripEnd > bufferStart {
-                            return false
-                        }
-                    }
-                }
-            }
-            return true
+            return viewModel.hasNoOverlap(driverTrips, tripStart: form.startTime, tripEnd: tripEnd)
         }
     }
 

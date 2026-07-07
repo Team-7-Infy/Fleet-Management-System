@@ -84,7 +84,7 @@ final class VehicleViewModel: ObservableObject {
     func loadVehicleHealthScores() async {
         do {
             let raw = try await service.fetchVehicleHealthScores()
-            let lookup = Dictionary(uniqueKeysWithValues: vehicles.map { ($0.id, $0) })
+            let lookup = Dictionary(vehicles.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
             vehicleHealthScores = raw.compactMap { (vehicleId, score) in
                 guard let v = lookup[vehicleId] else { return nil }
                 return (v, score)
