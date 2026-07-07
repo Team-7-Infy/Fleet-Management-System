@@ -21,4 +21,5 @@ protocol TripServiceProtocol: AnyObject, Sendable {
     func fetchTelemetry(driverId: UUID) async throws -> [Telemetry]
     func logTelemetry(_ telemetry: Telemetry) async throws -> Telemetry
     func subscribeToTrips(forDriverId driverId: UUID) -> AsyncStream<Void>
+    func hasPostTripInspection(tripId: UUID) async throws -> Bool
 }

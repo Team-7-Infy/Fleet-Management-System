@@ -24,14 +24,55 @@ final class VehicleViewModel: ObservableObject {
         vehicles.filter { $0.status == .inMaintenance }
     }
 
-    func load() async {
+    func load(trips: [Trip] = [], tasks: [MaintenanceTask] = [], taskVehicles: [UUID: [TaskVehicle]] = [:]) async {
         isLoading = true
         defer { isLoading = false }
 
         do {
-            vehicles = try await service.fetchVehicles()
+            let postTripInspectionTripIds = (try? await service.fetchPostTripInspections()) ?? []
+            let fetched = try await service.fetchVehicles()
                 .filter { $0.isPlaceholderDemoRecord == false }
-                .sorted { $0.licencePlate.localizedCaseInsensitiveCompare($1.licencePlate) == .orderedAscending }
+            
+            var syncedVehicles = fetched
+            for i in 0..<syncedVehicles.count {
+                let v = syncedVehicles[i]
+                
+                let dbStatus: VehicleStatus
+                if v.status == .outOfService {
+                    dbStatus = .outOfService
+                } else {
+                    let vehicleTrips = trips.filter { $0.vehicleId == v.id }
+                    let hasActiveTrip = vehicleTrips.contains { $0.status == .accepted || $0.status == .inProgress }
+                    let hasScheduledTrip = vehicleTrips.contains { $0.status == .scheduled || $0.status == .pending || $0.status == .rejectionPending }
+                    let isLinkedToOpenTask = tasks.contains { task in
+                        task.status.isOpen &&
+                        (taskVehicles[task.id]?.contains { $0.vin == v.id } ?? false)
+                    }
+                    
+                    let completedTrips = vehicleTrips.filter { $0.status == .completed }
+                    var hasPendingInspection = false
+                    if let mostRecentCompleted = completedTrips.sorted(by: { $0.startTime > $1.startTime }).first {
+                        if !postTripInspectionTripIds.contains(mostRecentCompleted.id) {
+                            hasPendingInspection = true
+                        }
+                    }
+                    
+                    if hasActiveTrip || hasScheduledTrip || hasPendingInspection {
+                        dbStatus = .assigned
+                    } else if isLinkedToOpenTask {
+                        dbStatus = .inMaintenance
+                    } else {
+                        dbStatus = .available
+                    }
+                }
+                
+                if v.status != dbStatus {
+                    try? await service.setVehicleStatus(vehicleId: v.id, status: dbStatus)
+                    syncedVehicles[i].status = dbStatus
+                }
+            }
+
+            vehicles = syncedVehicles.sorted { $0.licencePlate.localizedCaseInsensitiveCompare($1.licencePlate) == .orderedAscending }
             errorMessage = nil
         } catch is CancellationError {
             errorMessage = nil

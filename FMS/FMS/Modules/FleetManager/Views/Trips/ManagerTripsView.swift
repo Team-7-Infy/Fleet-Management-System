@@ -66,7 +66,7 @@ struct ManagerTripsView: View {
                 return matchesSearch(trip, query: query)
             }
 
-        return visible.sorted { $0.startTime > $1.startTime }
+        return visible.sorted { $0.startTime < $1.startTime }
     }
 
     private var liveTrips: [Trip] {

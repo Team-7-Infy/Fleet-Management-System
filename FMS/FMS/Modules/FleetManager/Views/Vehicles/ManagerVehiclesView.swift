@@ -38,15 +38,28 @@ private enum ManagerVehicleFilter: String, CaseIterable, Identifiable {
 struct ManagerVehiclesView: View {
     @ObservedObject var viewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
+    @ObservedObject var tripsViewModel: TripManagementViewModel
+    @ObservedObject var maintenanceViewModel: MaintenanceViewModel
     @State private var searchText = ""
-    @State private var filter: ManagerVehicleFilter = .active
+    @State private var selectedStatusFilter = "All"
 
     var openAddVehicle: () -> Void
     var openMaintenanceRequest: (UUID?) -> Void
 
+    private let availableStatusFilters = ["Available", "On Trip", "Scheduled", "Maintenance", "Out of Service"]
+
     private var filteredVehicles: [Vehicle] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let filteredByStatus = viewModel.vehicles.filter { filter.includes($0) }
+        let filteredByStatus = viewModel.vehicles.filter { vehicle in
+            guard selectedStatusFilter != "All" else { return true }
+            let status = calculateVehicleStatus(
+                vehicle: vehicle,
+                trips: tripsViewModel.trips,
+                tasks: maintenanceViewModel.tasks,
+                taskVehicles: maintenanceViewModel.taskVehicles
+            ).text
+            return status.lowercased() == selectedStatusFilter.lowercased()
+        }
         guard query.isEmpty == false else { return filteredByStatus }
 
         return filteredByStatus.filter { vehicle in
@@ -55,7 +68,6 @@ struct ManagerVehiclesView: View {
                 vehicle.make,
                 vehicle.model,
                 vehicle.vehicleType,
-                vehicle.status.title,
                 vehicle.id.uuidString
             ]
             .contains { $0.localizedCaseInsensitiveContains(query) }
@@ -63,89 +75,104 @@ struct ManagerVehiclesView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
+        VStack(spacing: 0) {
+            FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
 
-                if viewModel.vehicles.isEmpty {
-                    ContentUnavailableView(
-                        "No vehicles",
-                        systemImage: "car",
-                        description: Text("Add vehicle details with plate, model, VIN UUID, status, and vehicle type.")
-                    )
-                } else if filteredVehicles.isEmpty {
-                    ContentUnavailableView.search
-                } else {
-                    LazyVStack(spacing: 0) {
-                        ForEach(Array(filteredVehicles.enumerated()), id: \.element.id) { index, vehicle in
-                            VStack(spacing: 0) {
-                                NavigationLink {
-                                    ManagerVehicleDetailView(
-                                        vehicle: vehicle,
-                                        viewModel: viewModel,
-                                        usersViewModel: usersViewModel,
-                                        openMaintenanceRequest: openMaintenanceRequest
-                                    )
-                                } label: {
-                                    ManagerVehicleRow(
-                                        vehicle: vehicle,
-                                        driver: usersViewModel.driverUser(for: vehicle.driverId)
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                                .contextMenu {
-                                    Button(role: .destructive) {
-                                        Task { await viewModel.delete(vehicle) }
-                                    } label: {
-                                        Label("Delete Vehicle", systemImage: "trash")
-                                    }
-                                }
-
-                                if index < filteredVehicles.count - 1 {
-                                    Divider()
-                                        .padding(.leading, 106)
-                                        .padding(.trailing, 16)
-                                }
+            if viewModel.vehicles.isEmpty {
+                ContentUnavailableView(
+                    "No vehicles",
+                    systemImage: "car",
+                    description: Text("Add vehicle details with plate, model, VIN UUID, status, and vehicle type.")
+                )
+            } else if filteredVehicles.isEmpty {
+                ContentUnavailableView.search
+            } else {
+                List {
+                    ForEach(filteredVehicles) { vehicle in
+                        NavigationLink {
+                            ManagerVehicleDetailView(
+                                vehicle: vehicle,
+                                viewModel: viewModel,
+                                usersViewModel: usersViewModel,
+                                openMaintenanceRequest: openMaintenanceRequest
+                            )
+                        } label: {
+                            ManagerVehicleRow(
+                                vehicle: vehicle,
+                                driver: usersViewModel.driverUser(for: vehicle.driverId),
+                                tripsViewModel: tripsViewModel,
+                                maintenanceViewModel: maintenanceViewModel
+                            )
+                        }
+                        .listRowBackground(FleetPalette.surface)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                Task { await viewModel.delete(vehicle) }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                Task { await viewModel.delete(vehicle) }
+                            } label: {
+                                Label("Delete Vehicle", systemImage: "trash")
                             }
                         }
                     }
-                    .background(
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .fill(FleetPalette.surface)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+                .background(FleetPalette.background)
             }
-            .padding()
         }
         .fleetScreenBackground()
         .navigationTitle("Vehicles")
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search vehicles")
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
+            ToolbarItem(placement: .topBarLeading) {
                 Menu {
-                    ForEach(ManagerVehicleFilter.allCases) { option in
+                    Button {
+                        selectedStatusFilter = "All"
+                    } label: {
+                        HStack {
+                            Text("All")
+                            if selectedStatusFilter == "All" {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+
+                    ForEach(availableStatusFilters, id: \.self) { status in
                         Button {
-                            filter = option
+                            selectedStatusFilter = status
                         } label: {
-                            Label(
-                                option.title,
-                                systemImage: filter == option ? "checkmark" : option.symbolName
-                            )
+                            HStack {
+                                Text(status)
+                                if selectedStatusFilter == status {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
                         }
                     }
                 } label: {
                     Image(systemName: "line.3.horizontal.decrease")
                 }
                 .accessibilityLabel("Filter vehicles")
-                .accessibilityValue(filter.title)
-
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Add Vehicle", systemImage: "plus", action: openAddVehicle)
             }
         }
         .refreshable {
-            await viewModel.load()
+            await tripsViewModel.load()
+            await maintenanceViewModel.load()
+            await viewModel.load(
+                trips: tripsViewModel.trips,
+                tasks: maintenanceViewModel.tasks,
+                taskVehicles: maintenanceViewModel.taskVehicles
+            )
         }
     }
 }
@@ -153,6 +180,8 @@ struct ManagerVehiclesView: View {
 private struct ManagerVehicleRow: View {
     var vehicle: Vehicle
     var driver: User?
+    @ObservedObject var tripsViewModel: TripManagementViewModel
+    @ObservedObject var maintenanceViewModel: MaintenanceViewModel
 
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
@@ -163,14 +192,6 @@ private struct ManagerVehicleRow: View {
                     Text(vehicle.licencePlate)
                         .font(.headline.weight(.bold))
                         .foregroundStyle(FleetPalette.textPrimary)
-                    
-                    Spacer()
-                    
-                    StatusPill(
-                        text: vehicle.status.title,
-                        color: FleetPalette.vehicleStatus(vehicle.status),
-                        dotSize: 8
-                    )
                 }
 
                 Text(modelName)
@@ -189,14 +210,13 @@ private struct ManagerVehicleRow: View {
                 .lineLimit(1)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 
     private var modelName: String {
-        "\(vehicle.year) \(vehicle.make) \(vehicle.model)"
+        "\(vehicle.make) \(vehicle.model)"
     }
 }
 
@@ -452,4 +472,40 @@ private struct VehicleHealthRing: View {
         }
         return FleetPalette.danger
     }
+}
+
+// MARK: - Vehicle Status Calculation Helper
+func calculateVehicleStatus(
+    vehicle: Vehicle,
+    trips: [Trip],
+    tasks: [MaintenanceTask],
+    taskVehicles: [UUID: [TaskVehicle]]
+) -> (text: String, color: Color) {
+    if vehicle.status == .outOfService {
+        return ("Out of Service", FleetPalette.neutral)
+    }
+
+    // Check if On Trip
+    let vehicleTrips = trips.filter { $0.vehicleId == vehicle.id }
+    let hasActiveTrip = vehicleTrips.contains { $0.status == .accepted || $0.status == .inProgress }
+    if hasActiveTrip {
+        return ("On Trip", FleetPalette.accent)
+    }
+
+    // Check if Scheduled
+    let hasScheduledTrip = vehicleTrips.contains { $0.status == .scheduled || $0.status == .pending || $0.status == .rejectionPending }
+    if hasScheduledTrip {
+        return ("Scheduled", FleetPalette.warning)
+    }
+
+    // Check if Maintenance
+    let isLinkedToOpenTask = tasks.contains { task in
+        task.status.isOpen &&
+        (taskVehicles[task.id]?.contains { $0.vin == vehicle.id } ?? false)
+    }
+    if vehicle.status == .inMaintenance || isLinkedToOpenTask {
+        return ("Maintenance", FleetPalette.warning)
+    }
+
+    return ("Available", FleetPalette.success)
 }

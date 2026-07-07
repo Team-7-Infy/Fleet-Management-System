@@ -273,4 +273,17 @@ final actor VehicleService: VehicleServiceProtocol {
 
         return results.sorted { $0.score > $1.score }
     }
+
+    func fetchPostTripInspections() async throws -> [UUID] {
+        struct InspectionCheck: Codable {
+            let trip_id: UUID
+        }
+        let response: [InspectionCheck] = try await supabase.client
+            .from("vehicle_inspections")
+            .select("trip_id")
+            .eq("type", value: "post_trip")
+            .execute()
+            .value
+        return response.map(\.trip_id)
+    }
 }

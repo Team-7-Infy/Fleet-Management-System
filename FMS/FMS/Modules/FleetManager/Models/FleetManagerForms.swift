@@ -340,10 +340,20 @@ struct FleetManagerTripForm {
     var endTime: Date?
     var vehicleTypeRequested = ""
     var status: TripStatus = .scheduled
+    
+    var isAutoAssign = true
+    var selectedVehicleId: UUID?
+    var selectedDriverId: UUID?
 
     var isValid: Bool {
-        startLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
-        endLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        if startLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+           endLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return false
+        }
+        if !isAutoAssign {
+            return selectedVehicleId != nil && selectedDriverId != nil
+        }
+        return true
     }
 
     func makeTrip() -> Trip {
@@ -353,8 +363,8 @@ struct FleetManagerTripForm {
             endLocation: endLocation.trimmingCharacters(in: .whitespacesAndNewlines),
             startTime: startTime,
             endTime: endTime,
-            vehicleId: nil,
-            driverId: nil,
+            vehicleId: isAutoAssign ? nil : selectedVehicleId,
+            driverId: isAutoAssign ? nil : selectedDriverId,
             status: status,
             distanceKm: nil,
             fuelCost: nil,
@@ -567,6 +577,16 @@ extension PersonnelStatus: Identifiable {
             return "Active"
         case .inactive:
             return "Inactive"
+        case .available:
+            return "Available"
+        case .onTrip:
+            return "On Trip"
+        case .scheduled:
+            return "Scheduled"
+        case .unavailable:
+            return "Unavailable"
+        case .inService:
+            return "In Service"
         }
     }
 }
