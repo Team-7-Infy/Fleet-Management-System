@@ -356,6 +356,13 @@ struct FleetManagerDashboardView: View {
             taskVehicles: maintenanceViewModel.taskVehicles
         )
         await vehiclesViewModel.loadVehicleHealthScores()
+
+        let vehiclesCopy = vehiclesViewModel.vehicles
+        Task {
+            for vehicle in vehiclesCopy {
+                await RoutineMaintenanceScheduler.checkAndSchedule(vehicle: vehicle, services: services)
+            }
+        }
     }
 
 }
@@ -380,7 +387,8 @@ struct ManagerAddSheetView: View {
                 ManagerTripFormSheet(
                     viewModel: tripsViewModel,
                     vehiclesViewModel: vehiclesViewModel,
-                    usersViewModel: usersViewModel
+                    usersViewModel: usersViewModel,
+                    maintenanceViewModel: maintenanceViewModel
                 )
             case .maintenanceRequest:
                 ManagerMaintenanceRequestSheet(

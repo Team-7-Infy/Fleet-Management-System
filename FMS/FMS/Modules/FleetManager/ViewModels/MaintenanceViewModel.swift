@@ -31,7 +31,16 @@ final class MaintenanceViewModel: ObservableObject {
     }
 
     var openTasks: [MaintenanceTask] {
-        tasks.filter { $0.status != .completed }
+        tasks.filter { $0.status != .completed && $0.status != .verified && $0.status != .closed && $0.status != .fake }
+    }
+
+    func getNextLeastLoadedAssigneeId() async -> UUID? {
+        do {
+            return try await maintenanceService.getNextLeastLoadedAssignee()
+        } catch {
+            print("Failed to get next least loaded assignee: \(error)")
+            return nil
+        }
     }
 
     func load() async {
@@ -45,8 +54,19 @@ final class MaintenanceViewModel: ObservableObject {
             var fetchedTaskParts: [UUID: [MaintenanceTaskPart]] = [:]
 
             for task in fetchedTasks {
-                fetchedTaskVehicles[task.id] = (try? await maintenanceService.fetchTaskVehicles(taskId: task.id)) ?? []
-                fetchedTaskParts[task.id] = (try? await maintenanceService.fetchTaskParts(taskId: task.id)) ?? []
+                do {
+                    fetchedTaskVehicles[task.id] = try await maintenanceService.fetchTaskVehicles(taskId: task.id)
+                } catch {
+                    print("Error fetching task vehicles for task \(task.id): \(error)")
+                    fetchedTaskVehicles[task.id] = []
+                }
+                
+                do {
+                    fetchedTaskParts[task.id] = try await maintenanceService.fetchTaskParts(taskId: task.id)
+                } catch {
+                    print("Error fetching task parts for task \(task.id): \(error)")
+                    fetchedTaskParts[task.id] = []
+                }
             }
 
             tasks = fetchedTasks

@@ -286,4 +286,21 @@ final actor VehicleService: VehicleServiceProtocol {
             .value
         return response.map(\.trip_id)
     }
+
+    func fetchCompletedMaintenanceTasks() async throws -> [MaintenanceTask] {
+        return try await supabase.client
+            .from("maintenance_task")
+            .select()
+            .eq("status", value: "completed")
+            .execute()
+            .value
+    }
+
+    func fetchTaskVehicles() async throws -> [TaskVehicle] {
+        return try await supabase.client
+            .from("task_vehicles")
+            .select()
+            .execute()
+            .value
+    }
 }

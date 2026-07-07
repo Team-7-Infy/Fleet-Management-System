@@ -330,7 +330,12 @@ struct EndTripView: View {
 
                         let description = "Post-trip inspection failed for \(item.name) on vehicle \(vehicle.licencePlate) (VIN: \(vehicle.id.uuidString)). Odometer: \(endOdometer) km, Fuel: \(endFuel)%. Details: \(item.failDescription)"
 
-                        let bestPersonnel = try? await services.workOrderAssignmentService.findBestPersonnel()
+                        let bestPersonnelId = try? await services.maintenanceService.getNextLeastLoadedAssignee()
+                        var personnelObj: MaintenancePersonnel? = nil
+                        if let pid = bestPersonnelId {
+                            let allP = (try? await services.userManagementService.fetchMaintenancePersonnel()) ?? []
+                            personnelObj = allP.first(where: { $0.id == pid })
+                        }
 
                         let maintenanceTask = MaintenanceTask(
                             id: UUID(),
@@ -339,9 +344,9 @@ struct EndTripView: View {
                             scheduledDate: DateOnly(wrappedValue: Date()),
                             isUrgent: true,
                             scheduledBy: nil,
-                            executedBy: bestPersonnel?.id,
-                            status: bestPersonnel != nil ? .assigned : .scheduled,
-                            reportedDate: nil,
+                            executedBy: bestPersonnelId,
+                            status: bestPersonnelId != nil ? .assigned : .scheduled,
+                            reportedDate: Date(),
                             completedAt: nil,
                             timeTakenHours: nil,
                             partsSummary: nil,
@@ -353,7 +358,7 @@ struct EndTripView: View {
                         let taskVehicle = TaskVehicle(taskId: maintenanceTask.id, vin: vehicle.id)
                         try await services.maintenanceService.addTaskVehicle(taskVehicle)
 
-                        if let personnel = bestPersonnel {
+                        if let personnel = personnelObj {
                             await sendWorkOrderNotification(services: services, task: maintenanceTask, personnel: personnel, title: item.name)
                         }
                     }
@@ -378,6 +383,8 @@ struct EndTripView: View {
                 }
 
                 _ = try await services.vehicleService.updateVehicle(vehicle)
+                
+                await RoutineMaintenanceScheduler.checkAndSchedule(vehicle: vehicle, services: services)
 
                 await MainActor.run {
                     isSubmitting = false

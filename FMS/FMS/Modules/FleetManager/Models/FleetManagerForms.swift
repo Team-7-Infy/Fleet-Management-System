@@ -177,6 +177,7 @@ struct FleetManagerVehicleForm {
     var fuelType = ""
     var maintenanceKmInterval = ""
     var maintenanceMonthInterval = ""
+    var age = ""
 
     private static let indianStateCodes: Set<String> = [
         "AN", "AP", "AR", "AS", "BR", "CH", "CG", "DD", "DL", "DN", "GA", "GJ",
@@ -263,7 +264,8 @@ struct FleetManagerVehicleForm {
         model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
         Self.isValidIndianLicencePlate(licencePlate) &&
         yearValue != nil &&
-        yearValidationMessage == nil
+        yearValidationMessage == nil &&
+        (age.isEmpty || Int(age.trimmingCharacters(in: .whitespacesAndNewlines)) != nil)
     }
 
     func makeVehicle() throws -> Vehicle {
@@ -284,7 +286,9 @@ struct FleetManagerVehicleForm {
             fuelType: fuelType.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : fuelType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
             addedToFleetAt: Date(),
             maintenanceKmInterval: Int(maintenanceKmInterval.trimmingCharacters(in: .whitespacesAndNewlines)),
-            maintenanceMonthInterval: Int(maintenanceMonthInterval.trimmingCharacters(in: .whitespacesAndNewlines))
+            maintenanceMonthInterval: Int(maintenanceMonthInterval.trimmingCharacters(in: .whitespacesAndNewlines)),
+            deletedAt: nil,
+            baseAge: Int(age.trimmingCharacters(in: .whitespacesAndNewlines))
         )
     }
 
@@ -299,7 +303,8 @@ struct FleetManagerVehicleForm {
             vehicleType: vehicle.vehicleType,
             fuelType: vehicle.fuelType ?? "",
             maintenanceKmInterval: vehicle.maintenanceKmInterval.map(String.init) ?? "",
-            maintenanceMonthInterval: vehicle.maintenanceMonthInterval.map(String.init) ?? ""
+            maintenanceMonthInterval: vehicle.maintenanceMonthInterval.map(String.init) ?? "",
+            age: vehicle.baseAge.map(String.init) ?? ""
         )
     }
 
@@ -562,6 +567,10 @@ extension MaintenanceTaskStatus: Identifiable {
             return "On Hold"
         case .completed:
             return "Completed"
+        case .verified:
+            return "Verified"
+        case .closed:
+            return "Closed"
         case .fake:
             return "Flagged"
         }
