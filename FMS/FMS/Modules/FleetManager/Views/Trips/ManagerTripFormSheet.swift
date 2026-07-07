@@ -195,9 +195,9 @@ struct ManagerTripFormSheet: View {
             let vehicleTrips = viewModel.trips.filter { $0.vehicleId == vehicle.id }
             guard viewModel.hasNoOverlap(vehicleTrips, tripStart: form.startTime, tripEnd: tripEnd) else { return false }
             
-            let vehicleTaskIds = Set(taskVehicles.flatMap { (_, list) in
-                list.contains { $0.vin == vehicle.id } ? [$0] : []
-            }.map(\.taskId))
+            let vehicleTaskIds = Set(taskVehicles.flatMap { (taskId, list) in
+                list.contains { $0.vin == vehicle.id } ? [taskId] : []
+            })
             let vehicleTasks = completedTasks.filter { vehicleTaskIds.contains($0.id) }
             
             if checkVehicleIdleViolation(vehicle: vehicle, trips: viewModel.trips, tasks: vehicleTasks, targetStartTime: form.startTime) {
