@@ -253,6 +253,14 @@ class LiveNavigationViewModel: ObservableObject {
             )
         }
         self.waypoints = sampledWaypoints
+        Task {
+            do {
+                let saved = try await services.tripService.persistRouteWaypoints(sampledWaypoints)
+                await MainActor.run { self.waypoints = saved }
+            } catch {
+                print("Failed to persist waypoints: \(error)")
+            }
+        }
     }
     
     func updateDestination(coordinate: CLLocationCoordinate2D, name: String) {
@@ -311,15 +319,11 @@ struct ActiveNavigationDetailView: View {
     // Map tracking locks
     @State private var isTrackingVehicle = true
     @State private var zoomMeters: Double = 600.0
-    @State private var isSimulationStarted = false
     
     // Sliding bottom sheet state variables
     @State private var sheetOffset: CGFloat = 0.0
     @State private var lastOffset: CGFloat = 0.0
     @State private var isExpanded = false
-    @State private var simulatedCoordinate: CLLocationCoordinate2D? = nil
-    @State private var simulatedIndex = 0
-    @State private var simulationTimer: Timer? = nil
     @State private var liveDistanceRemaining: String? = nil
     
     private var assignedVehicle: String {
@@ -361,7 +365,7 @@ struct ActiveNavigationDetailView: View {
     
     func focusOnDriverAndRoute() {
         isTrackingVehicle = true
-        let center = simulatedCoordinate ?? locationService.location?.coordinate ?? viewModel.startCoordinate
+        let center = locationService.location?.coordinate ?? viewModel.startCoordinate
         let region = MKCoordinateRegion(
             center: center,
             latitudinalMeters: zoomMeters,
@@ -377,50 +381,53 @@ struct ActiveNavigationDetailView: View {
             
             // 1. Live iOS 17+ Map View
             Map(position: $cameraPosition) {
-                let currentPosition = simulatedCoordinate ?? locationService.location?.coordinate ?? viewModel.startCoordinate
-                
+                let currentPosition = locationService.location?.coordinate ?? viewModel.startCoordinate
+                let nearestIdx = nearestRouteIndex(to: currentPosition, coordinates: viewModel.routeCoordinates)
+
                 Annotation("Driver", coordinate: currentPosition, anchor: .center) {
                     ZStack {
                         Circle()
                             .fill(Color.blue)
                             .frame(width: 40, height: 40)
                             .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-                        
+
                         Circle()
                             .stroke(Color.white, lineWidth: 2.5)
                             .frame(width: 40, height: 40)
-                        
+
                         Image(systemName: vehicleIconName)
                             .foregroundColor(.white)
                             .font(.system(size: 16, weight: .bold))
                     }
                 }
-                
+
                 Marker(viewModel.destinationName, systemImage: "flag.checkered.circle.fill", coordinate: viewModel.endCoordinate)
                     .tint(.green)
-                
+
                 if !viewModel.routeCoordinates.isEmpty {
                     // Geofence Corridor corridor tracking along the entire path
                     MapPolyline(coordinates: viewModel.routeCoordinates)
                         .stroke(Color.blue.opacity(0.10), lineWidth: 60)
-                    
+
                     // Remaining route ahead of the driver
-                    let remainingCoords = Array(viewModel.routeCoordinates[simulatedIndex...])
-                    if remainingCoords.count > 1 {
-                        MapPolyline(coordinates: remainingCoords)
-                            .stroke(Color.blue, lineWidth: 6)
+                    if nearestIdx < viewModel.routeCoordinates.count - 1 {
+                        let remainingCoords = Array(viewModel.routeCoordinates[nearestIdx...])
+                        if remainingCoords.count > 1 {
+                            MapPolyline(coordinates: remainingCoords)
+                                .stroke(Color.blue, lineWidth: 6)
+                        }
                     }
-                    
+
                     // Traveled route behind the driver (dulled/grayed out)
-                    if simulatedIndex > 0 {
-                        let traveledCoords = Array(viewModel.routeCoordinates[...simulatedIndex])
+                    if nearestIdx > 0 {
+                        let traveledCoords = Array(viewModel.routeCoordinates[...nearestIdx])
                         if traveledCoords.count > 1 {
                             MapPolyline(coordinates: traveledCoords)
                                 .stroke(Color.gray.opacity(0.55), lineWidth: 6)
                         }
                     }
                 }
-                
+
                 // Geofence area represented as a single closed polygon corridor
                 let polygonCoords = viewModel.geofencePolygonCoordinates
                 if !polygonCoords.isEmpty {
@@ -434,12 +441,11 @@ struct ActiveNavigationDetailView: View {
                 if latMeters > 50 {
                     zoomMeters = latMeters
                 }
-                
-                if let simulatedCoord = simulatedCoordinate {
+
+                if let loc = locationService.location {
                     let mapCenter = context.region.center
                     let centerLoc = CLLocation(latitude: mapCenter.latitude, longitude: mapCenter.longitude)
-                    let simLoc = CLLocation(latitude: simulatedCoord.latitude, longitude: simulatedCoord.longitude)
-                    let distance = centerLoc.distance(from: simLoc)
+                    let distance = centerLoc.distance(from: loc)
                     if distance > 100 {
                         isTrackingVehicle = false
                     }
@@ -545,8 +551,18 @@ struct ActiveNavigationDetailView: View {
                         }
                         .accessibilityLabel("Add Fuel")
                         .sheet(isPresented: $showingFuelSheet) {
-                            FuelRequestView(assignedVehicle: assignedVehicle)
+                            NavigationStack {
+                                TripFuelHistoryView(
+                                    isReadOnly: false,
+                                    activeTripId: viewModel.tripId,
+                                    vehicleNumber: assignedVehicle,
+                                    expenseService: services.expenseService,
+                                    driverId: trip.driverId,
+                                    vehicleId: trip.vehicleId,
+                                    vehicleFuelType: nil
+                                )
                                 .environmentObject(localStore)
+                            }
                         }
                         
                         // 4. SOS Button
@@ -744,7 +760,8 @@ struct ActiveNavigationDetailView: View {
                                         _ = try? await services.tripService.updateTrip(updatedTrip)
                                         
                                         // Update vehicle odometer in DB
-                                        if var vehicleModel = try? await services.vehicleService.fetchVehicle(id: trip.vehicleId) {
+                                        if let vehicleId = trip.vehicleId,
+                                           var vehicleModel = try? await services.vehicleService.fetchVehicle(id: vehicleId) {
                                             vehicleModel.odometer = finalOdo
                                             _ = try? await services.vehicleService.updateVehicle(vehicleModel)
                                         }
@@ -755,6 +772,7 @@ struct ActiveNavigationDetailView: View {
                                         let earn = Double(dist) * 1.95 + 2.0
                                         
                                         await MainActor.run {
+                                            locationService.stopTracking()
                                             self.finalDistance = dist
                                             self.finalDuration = duration
                                             self.finalEarnings = earn
@@ -825,6 +843,8 @@ struct ActiveNavigationDetailView: View {
                             )
                             
                             // Send notification to manager instantly
+                            let fmUserId = try? await services.userManagementService.fetchUsers()
+                                .first(where: { $0.role == .fleetManager })?.id
                             let notification = AppNotification(
                                 id: UUID(),
                                 title: "CRITICAL: Driver SOS Emergency",
@@ -832,7 +852,7 @@ struct ActiveNavigationDetailView: View {
                                 type: "geofence_exit",
                                 isRead: false,
                                 referenceId: trip.id,
-                                recipientId: nil,
+                                recipientId: fmUserId,
                                 createdAt: Date()
                             )
                             _ = try? await services.notificationService.createNotification(notification)
@@ -874,72 +894,48 @@ struct ActiveNavigationDetailView: View {
         .onAppear {
             self.isTripStopped = UserDefaults.standard.bool(forKey: "trip_\(trip.id.uuidString)_paused")
             locationService.requestPermission()
-            locationService.startTracking()
-            
+            locationService.notificationService = services.notificationService
+            locationService.userManagementService = services.userManagementService
+            locationService.startTracking(
+                tripId: trip.id,
+                vehicleId: trip.vehicleId,
+                driverId: trip.driverId,
+                service: services.tripService
+            )
+
             focusOnDriverAndRoute()
         }
         .onReceive(locationService.$location) { newLocation in
             guard let newLocation = newLocation else { return }
-            
+
+            lastCalculatedLocation = newLocation
+
+            guard !isTripStopped else { return }
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                 cameraPosition = .userLocation(followsHeading: true, fallback: .automatic)
             }
-            
-            lastCalculatedLocation = newLocation
+
+            let nearestIdx = nearestRouteIndex(to: newLocation.coordinate, coordinates: viewModel.routeCoordinates)
+            let remainingKm = calculateRemainingDistance(from: nearestIdx, coordinates: viewModel.routeCoordinates)
+            liveDistanceRemaining = String(format: "%.1f km", remainingKm)
         }
         .onDisappear {
-            locationService.stopMonitoringRoute()
-            simulationTimer?.invalidate()
-            simulationTimer = nil
+            locationService.stopTracking()
         }
         .onReceive(viewModel.$waypoints) { waypoints in
-            guard !waypoints.isEmpty else { return }
+            guard !waypoints.isEmpty, let vehicleId = trip.vehicleId, let driverId = trip.driverId else { return }
             locationService.startMonitoringRoute(
                 tripId: trip.id,
-                vehicleId: trip.vehicleId,
-                driverId: trip.driverId ?? UUID(),
+                vehicleId: vehicleId,
+                driverId: driverId,
                 waypoints: waypoints,
                 service: services.tripService
             )
         }
-        .onReceive(viewModel.$routeCoordinates) { coords in
-            guard !coords.isEmpty && !isSimulationStarted else { return }
-            isSimulationStarted = true
-            simulationTimer?.invalidate()
-            simulatedIndex = 0
-            simulatedCoordinate = coords.first
-            liveDistanceRemaining = viewModel.distanceRemaining
-            
-            simulationTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { timer in
-                guard !isTripStopped else { return }
-                if simulatedIndex < coords.count - 1 {
-                    simulatedIndex += 1
-                    withAnimation(.linear(duration: 1.5)) {
-                        simulatedCoordinate = coords[simulatedIndex]
-                    }
-                    
-                    let kmLeft = calculateRemainingDistance(from: simulatedIndex, coordinates: coords)
-                    liveDistanceRemaining = String(format: "%.1f km", kmLeft)
-                    
-                    if let simCoord = simulatedCoordinate {
-                        let loc = CLLocation(latitude: simCoord.latitude, longitude: simCoord.longitude)
-                        locationService.updateLocation(loc)
-                    }
-                    
-                    if isTrackingVehicle, let simulatedCoord = simulatedCoordinate {
-                        withAnimation {
-                            cameraPosition = .region(MKCoordinateRegion(center: simulatedCoord, latitudinalMeters: zoomMeters, longitudinalMeters: zoomMeters))
-                        }
-                    }
-                } else {
-                    timer.invalidate()
-                }
-            }
-        }
     }
     
     private func calculateRemainingDistance(from index: Int, coordinates: [CLLocationCoordinate2D]) -> Double {
-        guard index < coordinates.count else { return 0.0 }
+        guard index >= 0, index < coordinates.count else { return 0.0 }
         var distance: Double = 0.0
         for i in index..<(coordinates.count - 1) {
             let loc1 = CLLocation(latitude: coordinates[i].latitude, longitude: coordinates[i].longitude)
@@ -947,6 +943,22 @@ struct ActiveNavigationDetailView: View {
             distance += loc1.distance(from: loc2)
         }
         return distance / 1000.0
+    }
+
+    private func nearestRouteIndex(to coordinate: CLLocationCoordinate2D, coordinates: [CLLocationCoordinate2D]) -> Int {
+        guard !coordinates.isEmpty else { return 0 }
+        let target = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        var bestIdx = 0
+        var bestDist = Double.greatestFiniteMagnitude
+        for (i, coord) in coordinates.enumerated() {
+            let loc = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+            let dist = target.distance(from: loc)
+            if dist < bestDist {
+                bestDist = dist
+                bestIdx = i
+            }
+        }
+        return bestIdx
     }
 }
 

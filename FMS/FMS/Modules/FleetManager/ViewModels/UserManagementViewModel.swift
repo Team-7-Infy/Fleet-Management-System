@@ -7,6 +7,7 @@ final class UserManagementViewModel: ObservableObject {
     @Published private(set) var drivers: [Driver] = []
     @Published private(set) var maintenancePersonnel: [MaintenancePersonnel] = []
     @Published private(set) var fleetManagers: [FleetManager] = []
+    @Published private(set) var driverScores: [DriverScore] = []
     @Published var isLoading = false
     @Published var successMessage: String?
     @Published var errorMessage: String?
@@ -44,17 +45,36 @@ final class UserManagementViewModel: ObservableObject {
             async let fetchedDrivers = service.fetchDrivers()
             async let fetchedMaintenance = service.fetchMaintenancePersonnel()
             async let fetchedFleetManagers = service.fetchFleetManagers()
+            async let fetchedScores = service.fetchAllDriverScores()
 
             users = try await fetchedUsers
             drivers = try await fetchedDrivers
             maintenancePersonnel = try await fetchedMaintenance
             fleetManagers = try await fetchedFleetManagers
+            driverScores = try await fetchedScores
             errorMessage = nil
         } catch is CancellationError {
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func recalculateAndReloadScores() async {
+        for driver in drivers {
+            _ = try? await service.calculateAndUpsertDriverScore(driverId: driver.id)
+        }
+        driverScores = (try? await service.fetchAllDriverScores()) ?? []
+    }
+
+    func driverScore(for driverId: UUID) -> DriverScore? {
+        driverScores.first { $0.driverId == driverId }
+    }
+
+    var averageDriverScore: Double {
+        let scores = driverScores.map(\.overallScore)
+        guard !scores.isEmpty else { return 0 }
+        return scores.reduce(0, +) / Double(scores.count)
     }
 
     func createUser(form: FleetManagerUserForm) async -> Bool {

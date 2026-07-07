@@ -29,6 +29,11 @@ struct TripReportDetailView: View {
         .fleetScreenBackground()
         .navigationTitle("Trip Report")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ReportExportToolbarItem(reportType: .trip, viewModel: tripsViewModel)
+            }
+        }
         .onAppear {
             localPeriod = tripsViewModel.selectedPeriod
         }

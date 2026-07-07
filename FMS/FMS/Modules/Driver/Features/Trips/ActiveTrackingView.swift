@@ -202,6 +202,8 @@ struct ActiveTrackingView: View {
                                         rejectionReason: "SOS Emergency: Cancelled via emergency SOS alert."
                                     )
                                     
+                                    let fmUserId = try? await services.userManagementService.fetchUsers()
+                                        .first(where: { $0.role == .fleetManager })?.id
                                     let notification = AppNotification(
                                         id: UUID(),
                                         title: "CRITICAL: Driver SOS Emergency",
@@ -209,7 +211,7 @@ struct ActiveTrackingView: View {
                                         type: "geofence_exit",
                                         isRead: false,
                                         referenceId: activeTrip.id,
-                                        recipientId: nil,
+                                        recipientId: fmUserId,
                                         createdAt: Date()
                                     )
                                     _ = try? await services.notificationService.createNotification(notification)
@@ -227,7 +229,18 @@ struct ActiveTrackingView: View {
                 )
             }
             .sheet(isPresented: $showingFuelSheet) {
-                TripFuelHistoryView()
+                NavigationStack {
+                    TripFuelHistoryView(
+                        isReadOnly: false,
+                        activeTripId: activeTripId,
+                        vehicleNumber: "",
+                        expenseService: services?.expenseService,
+                        driverId: driver?.id,
+                        vehicleId: nil,
+                        vehicleFuelType: nil
+                    )
+                    .environmentObject(localStore)
+                }
             }
             .sheet(isPresented: $showingTripDetailsSheet) {
                 ActiveTripDetailView(

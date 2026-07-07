@@ -49,6 +49,8 @@ struct FleetManagerDashboardView: View {
     @State private var isShowingProfile = false
     @State private var showingNotifications = false
     @State private var lastUserNotificationMessage: String?
+    @State private var lastTripNotificationMessage: String?
+    @State private var lastMaintenanceNotificationMessage: String?
     @Environment(\.scenePhase) private var scenePhase
 
     init(services: AppServices, onLogout: @escaping () -> Void) {
@@ -67,13 +69,17 @@ struct FleetManagerDashboardView: View {
         _tripsViewModel = StateObject(
             wrappedValue: TripManagementViewModel(
                 tripService: services.tripService,
-                vehicleService: services.vehicleService
+                vehicleService: services.vehicleService,
+                userManagementService: services.userManagementService
             )
         )
         _maintenanceViewModel = StateObject(
             wrappedValue: MaintenanceViewModel(
                 maintenanceService: services.maintenanceService,
-                vehicleService: services.vehicleService
+                vehicleService: services.vehicleService,
+                workOrderAssignmentService: services.workOrderAssignmentService,
+                notificationService: services.notificationService,
+                userManagementService: services.userManagementService
             )
         )
         _notificationViewModel = StateObject(
@@ -156,6 +162,57 @@ struct FleetManagerDashboardView: View {
                 message: message,
                 type: "user_created"
             )
+        }
+        .onChange(of: tripsViewModel.successMessage) { _, message in
+            guard let message else { return }
+            guard message != lastTripNotificationMessage else { return }
+            lastTripNotificationMessage = message
+
+            let driverId = tripsViewModel.lastTripNotificationTargetDriverId
+            defer { tripsViewModel.lastTripNotificationTargetDriverId = nil }
+
+            if message.hasPrefix("Trip created") {
+                let title = message.contains("assigned to") ? "Trip Assigned" : "Trip Created"
+                notificationViewModel.addLocalNotification(
+                    title: title,
+                    message: message,
+                    type: "trip_assignment",
+                    recipientIdOverride: driverId.flatMap { usersViewModel.driverUser(for: $0)?.id } ?? currentUserId
+                )
+            } else if message.hasPrefix("Rejection approved") {
+                notificationViewModel.addLocalNotification(
+                    title: "Trip Reassigned",
+                    message: message,
+                    type: "trip_assignment",
+                    recipientIdOverride: driverId.flatMap { usersViewModel.driverUser(for: $0)?.id } ?? currentUserId
+                )
+            } else if message.hasPrefix("Rejection denied") {
+                notificationViewModel.addLocalNotification(
+                    title: "Rejection Denied",
+                    message: message,
+                    type: "trip_assignment",
+                    recipientIdOverride: driverId.flatMap { usersViewModel.driverUser(for: $0)?.id } ?? currentUserId
+                )
+            }
+        }
+        .onChange(of: maintenanceViewModel.successMessage) { _, message in
+            guard let message else { return }
+            guard message != lastMaintenanceNotificationMessage else { return }
+            lastMaintenanceNotificationMessage = message
+            if message == "Task assigned." {
+                notificationViewModel.addLocalNotification(
+                    title: "Work Order Assigned",
+                    message: "A maintenance task has been assigned to personnel.",
+                    type: "work_order_assigned"
+                )
+            } else if message.hasPrefix("Task marked") {
+                let status = message.replacingOccurrences(of: "Task marked ", with: "").replacingOccurrences(of: ".", with: "")
+                notificationViewModel.addLocalNotification(
+                    title: "Work Order \(status.capitalized)",
+                    message: message,
+                    type: "work_order_assigned"
+                )
+            }
         }
         .sheet(item: $addSheet) { sheet in
             ManagerAddSheetView(
@@ -251,6 +308,9 @@ struct FleetManagerDashboardView: View {
                 vehiclesViewModel: vehiclesViewModel,
                 usersViewModel: usersViewModel,
                 inventoryService: services.inventoryService,
+                onNotification: { title, message, type in
+                    notificationViewModel.addLocalNotification(title: title, message: message, type: type)
+                },
                 openMaintenanceRequest: {
                     maintenanceVehicleId = nil
                     addSheet = .maintenanceRequest
@@ -286,6 +346,7 @@ struct FleetManagerDashboardView: View {
         await vehiclesViewModel.load()
         await tripsViewModel.load()
         await maintenanceViewModel.load()
+        await vehiclesViewModel.loadVehicleHealthScores()
     }
 
 }
@@ -307,11 +368,7 @@ struct ManagerAddSheetView: View {
             case .vehicle:
                 ManagerVehicleFormSheet(viewModel: vehiclesViewModel)
             case .trip:
-                ManagerTripFormSheet(
-                    viewModel: tripsViewModel,
-                    vehiclesViewModel: vehiclesViewModel,
-                    usersViewModel: usersViewModel
-                )
+                ManagerTripFormSheet(viewModel: tripsViewModel)
             case .maintenanceRequest:
                 ManagerMaintenanceRequestSheet(
                     viewModel: maintenanceViewModel,

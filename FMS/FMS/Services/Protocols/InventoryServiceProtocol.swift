@@ -15,4 +15,5 @@ protocol InventoryServiceProtocol: AnyObject, Sendable {
     func updatePart(_ part: InventoryPart) async throws -> InventoryPart
     func deletePart(id: UUID) async throws
     func adjustQuantity(id: UUID, delta: Int) async throws
+    func bulkImportFromCSV(validatedRows: [InventoryPart]) async throws -> Int
 }

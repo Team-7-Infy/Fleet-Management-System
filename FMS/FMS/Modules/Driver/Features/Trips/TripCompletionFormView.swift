@@ -40,7 +40,7 @@ struct TripCompletionFormView: View {
                     HStack {
                         Text("Vehicle")
                         Spacer()
-                        Text(trip.vehicleId.uuidString)
+                        Text(trip.vehicleId?.uuidString ?? "—")
                             .fontWeight(.bold)
                             .foregroundColor(.secondary)
                     }

@@ -59,6 +59,11 @@ final class SupabaseWorkOrderService: WorkOrderServicing {
             let isoFormatter = ISO8601DateFormatter()
             isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             update["completedat"] = .string(isoFormatter.string(from: Date()))
+        } else if status == .onHold {
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            update["on_hold_reason"] = .string(remarks ?? "On hold")
+            update["on_hold_at"] = .string(isoFormatter.string(from: Date()))
         }
         try await client
             .from("maintenance_task")
@@ -203,7 +208,7 @@ final class SupabaseWorkOrderService: WorkOrderServicing {
         for tv in taskVehicles {
             try await client
                 .from("vehicles")
-                .update(["status": AnyJSON.string("active")])
+                .update(["status": AnyJSON.string("available")])
                 .eq("vin", value: tv.vin.uuidString)
                 .execute()
         }

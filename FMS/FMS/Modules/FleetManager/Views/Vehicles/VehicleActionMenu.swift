@@ -1,21 +1,19 @@
-//
-//  VehicleActionMenu.swift
-//  FMS
-//
-//  Created by Veer on 26/06/26.
-//
-
-
 import SwiftUI
-
 
 struct VehicleActionMenu: View {
     var vehicle: Vehicle
     @ObservedObject var viewModel: VehicleViewModel
+    var onEdit: (() -> Void)?
     @State private var showDeleteConfirm = false
 
     var body: some View {
         Menu {
+            if let onEdit {
+                Button("Edit Vehicle", systemImage: "pencil") {
+                    onEdit()
+                }
+            }
+
             ForEach(VehicleStatus.allCases) { status in
                 Button(status.title) {
                     Task { await viewModel.updateStatus(vehicle, status: status) }
@@ -39,7 +37,7 @@ struct VehicleActionMenu: View {
                 Task { await viewModel.delete(vehicle) }
             }
         } message: {
-            Text("Vehicle \(vehicle.licencePlate) (\(vehicle.make) \(vehicle.model)) will be permanently removed.")
+            Text("Vehicle \(vehicle.licencePlate) (\(vehicle.make) \(vehicle.model)) will be deactivated. It can be restored later if needed.")
         }
     }
 }

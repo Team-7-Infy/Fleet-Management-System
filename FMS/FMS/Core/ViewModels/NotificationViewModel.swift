@@ -60,7 +60,7 @@ final class NotificationViewModel: ObservableObject {
             if let recId = notification.recipientId, recId != recipientId {
                 return false
             }
-            let excludedTypes = ["trip_assignment", "vehicle_assigned", "work_order_assigned", "work_order_assigned_urgent", "maintenance"]
+            let excludedTypes = ["vehicle_assigned", "maintenance"]
             return !excludedTypes.contains(notification.type.lowercased())
         }
     }
@@ -105,7 +105,45 @@ final class NotificationViewModel: ObservableObject {
         }
     }
 
-    func addLocalNotification(title: String, message: String, type: String = "system") {
+    func deleteNotification(_ notification: AppNotification) async {
+        do {
+            try await notificationService.deleteNotification(id: notification.id)
+        } catch {
+            print("Failed to delete notification from server: \(error.localizedDescription)")
+        }
+        await MainActor.run {
+            notifications.removeAll { $0.id == notification.id }
+            localNotifications.removeAll { $0.id == notification.id }
+            unreadCount = notifications.filter { !$0.isRead }.count
+        }
+    }
+
+    func clearAllNotifications() async {
+        guard let userId = recipientId else {
+            await MainActor.run {
+                notifications.removeAll()
+                localNotifications.removeAll()
+                unreadCount = 0
+            }
+            return
+        }
+        do {
+            try await notificationService.clearAllNotifications(for: userId)
+        } catch {
+            print("Failed to clear all notifications from server: \(error.localizedDescription)")
+        }
+        await MainActor.run {
+            notifications.removeAll()
+            localNotifications.removeAll()
+            unreadCount = 0
+        }
+    }
+
+    func addLocalNotification(title: String, message: String, type: String = "system", recipientIdOverride: UUID?? = nil) {
+        let actualRecipientId: UUID? = {
+            if case .some(let value) = recipientIdOverride { return value }
+            return recipientId
+        }()
         let notification = AppNotification(
             id: UUID(),
             title: title,
@@ -113,7 +151,7 @@ final class NotificationViewModel: ObservableObject {
             type: type,
             isRead: false,
             referenceId: nil,
-            recipientId: recipientId,
+            recipientId: actualRecipientId,
             createdAt: Date.now
         )
 
@@ -164,6 +202,7 @@ final class NotificationViewModel: ObservableObject {
             let stream = notificationService.subscribeToRealtime(for: recipientId, driverId: driverId)
             for await newNotification in stream {
                 guard shouldIncludeNotification(newNotification) else { continue }
+                guard !self.notifications.contains(where: { $0.id == newNotification.id }) else { continue }
                 self.notifications.insert(newNotification, at: 0)
                 self.unreadCount += 1
                 

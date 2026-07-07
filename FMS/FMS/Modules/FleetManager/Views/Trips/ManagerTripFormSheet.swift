@@ -121,8 +121,6 @@ private enum TripPlaceField: Identifiable {
 struct ManagerTripFormSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: TripManagementViewModel
-    @ObservedObject var vehiclesViewModel: VehicleViewModel
-    @ObservedObject var usersViewModel: UserManagementViewModel
     @State private var form = FleetManagerTripForm()
     @State private var minimumStartTime = Date()
     @State private var selectedPickup: TripPlace?
@@ -132,162 +130,92 @@ struct ManagerTripFormSheet: View {
     @State private var pickingPlace: TripPlaceField?
     @State private var isCalculatingRoute = false
 
-    private var hasRegisteredDriver: Bool {
-        usersViewModel.drivers.contains { $0.status == .active }
-    }
-
-    private var availableDrivers: [Driver] {
-        var list = usersViewModel.drivers.filter { $0.status == .active }
-        list = list.filter { driver in
-            let isOnActiveTrip = viewModel.activeTrips.contains { $0.driverId == driver.id }
-            return !isOnActiveTrip
-        }
-        if let vehicleId = form.vehicleId,
-           let vehicle = vehiclesViewModel.vehicle(for: vehicleId) {
-            list = list.filter { $0.vehicleType.lowercased() == vehicle.vehicleType.lowercased() }
-        }
-        return list
-    }
-
-    private var availableVehicles: [Vehicle] {
-        var list = vehiclesViewModel.vehicles.filter { $0.status == .active }
-        list = list.filter { vehicle in
-            let isAssignedToActiveTrip = viewModel.activeTrips.contains { $0.vehicleId == vehicle.id }
-            return !isAssignedToActiveTrip
-        }
-        if let driverId = form.driverId,
-           let driver = usersViewModel.driver(for: driverId) {
-            list = list.filter { $0.vehicleType.lowercased() == driver.vehicleType.lowercased() }
-        }
-        return list
-    }
-
-    private var selectedVehicleTitle: String? {
-        guard let vehicle = vehiclesViewModel.vehicle(for: form.vehicleId) else { return nil }
-        return "\(vehicle.licencePlate) - \(vehicle.make) \(vehicle.model)"
-    }
-
-    private var selectedDriverTitle: String? {
-        guard let driver = usersViewModel.driver(for: form.driverId) else { return nil }
-        let user = usersViewModel.user(for: driver.userId)
-        return user?.displayName ?? driver.licenceNum
-    }
+    private static let vehicleTypes = ["car", "van", "truck", "bus"]
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if vehiclesViewModel.vehicles.isEmpty || hasRegisteredDriver == false {
-                    GlassPanel {
-                        EmptyStateView(
-                            title: "Trip setup needs fleet data",
-                            message: "Add at least one active vehicle and one active driver before creating trips.",
-                            systemImage: "point.topleft.down.curvedto.point.bottomright.up"
-                        )
-                    }
-                } else {
-                    TripPlaceButton(
-                        title: "Pickup",
-                        value: selectedPickup?.displayName ?? form.startLocation,
-                        placeholder: "Starting point",
-                        systemImage: "mappin.circle.fill"
-                    ) {
-                        pickingPlace = .pickup
-                    }
-
-                    TripPlaceButton(
-                        title: "Destination",
-                        value: selectedDestination?.displayName ?? form.endLocation,
-                        placeholder: "Destination",
-                        systemImage: "mappin.and.ellipse.circle.fill"
-                    ) {
-                        pickingPlace = .destination
-                    }
-
-                    TripRouteSelectionMap(
-                        pickup: selectedPickup,
-                        destination: selectedDestination,
-                        route: routeEstimate?.route
-                    )
-
-                    if isCalculatingRoute {
-                        Label("Calculating route", systemImage: "clock.arrow.circlepath")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(FleetPalette.accent)
-                    } else if let routeEstimate {
-                        TripRouteEstimateCard(estimate: routeEstimate)
-                    } else if let routeMessage {
-                        Label(routeMessage, systemImage: "exclamationmark.triangle")
-                            .font(.subheadline)
-                            .foregroundStyle(FleetPalette.warning)
-                    }
-
-                    Picker(selection: $form.vehicleId) {
-                        Text("Select vehicle").tag(Optional<UUID>.none)
-                        ForEach(availableVehicles) { vehicle in
-                            Text("\(vehicle.licencePlate) - \(vehicle.make) \(vehicle.model)")
-                                .tag(Optional(vehicle.id))
-                        }
-                    } label: {
-                        TripSelectionMenuLabel(
-                            title: "Vehicle",
-                            value: selectedVehicleTitle,
-                            placeholder: "Select vehicle",
-                            systemImage: "car.fill"
-                        )
-                    }
-                    .pickerStyle(.menu)
-                    .tint(FleetPalette.accent)
-                    .fleetField()
-
-                    Picker(selection: $form.driverId) {
-                        Text("Select user").tag(Optional<UUID>.none)
-                        ForEach(availableDrivers) { driver in
-                            let user = usersViewModel.user(for: driver.userId)
-                            Text(user?.displayName ?? driver.licenceNum)
-                                .tag(Optional(driver.id))
-                        }
-                    } label: {
-                        TripSelectionMenuLabel(
-                            title: "User",
-                            value: selectedDriverTitle,
-                            placeholder: "Select user",
-                            systemImage: "person.fill"
-                        )
-                    }
-                    .pickerStyle(.menu)
-                    .tint(FleetPalette.accent)
-                    .fleetField()
-
-                    DatePicker("Start", selection: $form.startTime, in: minimumStartTime...)
-                        .fleetField()
-
-                    DatePicker(
-                        routeEstimate == nil ? "Expected End" : "ETA",
-                        selection: Binding(
-                            get: { form.endTime ?? form.startTime.addingTimeInterval(3600) },
-                            set: { form.endTime = $0 }
-                        ),
-                        in: form.startTime...
-                    )
-                    .fleetField()
-
-                    FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
-
-                    Button {
-                        Task {
-                            if await viewModel.createTrip(form: form) {
-                                await vehiclesViewModel.load()
-                                dismiss()
-                            }
-                        }
-                    } label: {
-                        Label("Create Trip", systemImage: "wand.and.stars")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(FleetPalette.accent)
-                    .disabled(form.isValid == false)
+                TripPlaceButton(
+                    title: "Pickup",
+                    value: selectedPickup?.displayName ?? form.startLocation,
+                    placeholder: "Starting point",
+                    systemImage: "mappin.circle.fill"
+                ) {
+                    pickingPlace = .pickup
                 }
+
+                TripPlaceButton(
+                    title: "Destination",
+                    value: selectedDestination?.displayName ?? form.endLocation,
+                    placeholder: "Destination",
+                    systemImage: "mappin.and.ellipse.circle.fill"
+                ) {
+                    pickingPlace = .destination
+                }
+
+                TripRouteSelectionMap(
+                    pickup: selectedPickup,
+                    destination: selectedDestination,
+                    route: routeEstimate?.route
+                )
+
+                if isCalculatingRoute {
+                    Label("Calculating route", systemImage: "clock.arrow.circlepath")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(FleetPalette.accent)
+                } else if let routeEstimate {
+                    TripRouteEstimateCard(estimate: routeEstimate)
+                } else if let routeMessage {
+                    Label(routeMessage, systemImage: "exclamationmark.triangle")
+                        .font(.subheadline)
+                        .foregroundStyle(FleetPalette.warning)
+                }
+
+                Picker(selection: $form.vehicleTypeRequested) {
+                    Text("Any").tag("")
+                    ForEach(Self.vehicleTypes, id: \.self) { type in
+                        Text(type.capitalized).tag(type)
+                    }
+                } label: {
+                    TripSelectionMenuLabel(
+                        title: "Required Vehicle Type",
+                        value: form.vehicleTypeRequested.isEmpty ? nil : form.vehicleTypeRequested.capitalized,
+                        placeholder: "Any type",
+                        systemImage: "car.fill"
+                    )
+                }
+                .pickerStyle(.menu)
+                .tint(FleetPalette.accent)
+                .fleetField()
+
+                DatePicker("Start", selection: $form.startTime, in: minimumStartTime...)
+                    .fleetField()
+
+                DatePicker(
+                    routeEstimate == nil ? "Expected End" : "ETA",
+                    selection: Binding(
+                        get: { form.endTime ?? form.startTime.addingTimeInterval(3600) },
+                        set: { form.endTime = $0 }
+                    ),
+                    in: form.startTime...
+                )
+                .fleetField()
+
+                FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
+
+                Button {
+                    Task {
+                        if await viewModel.createTrip(form: form) {
+                            dismiss()
+                        }
+                    }
+                } label: {
+                    Label("Create Trip", systemImage: "wand.and.stars")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(FleetPalette.accent)
+                .disabled(form.isValid == false)
             }
             .padding()
         }
@@ -312,8 +240,6 @@ struct ManagerTripFormSheet: View {
             if let endTime = form.endTime, endTime < form.startTime {
                 form.endTime = form.startTime.addingTimeInterval(3600)
             }
-            form.vehicleId = form.vehicleId ?? availableVehicles.first?.id
-            form.driverId = form.driverId ?? availableDrivers.first?.id
         }
         .onChange(of: form.startTime) { _, newValue in
             if newValue < minimumStartTime {

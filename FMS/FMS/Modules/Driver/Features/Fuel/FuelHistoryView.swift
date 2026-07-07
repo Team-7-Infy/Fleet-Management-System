@@ -1,11 +1,3 @@
-//
-//  FuelHistoryView.swift
-//  FMSD
-//
-//  Created by Dev Jain on 24/06/26.
-//
-
-
 import SwiftUI
 import PhotosUI
 
@@ -76,6 +68,10 @@ struct TripFuelHistoryView: View {
     let isReadOnly: Bool
     let activeTripId: String?
     let vehicleNumber: String
+    let expenseService: ExpenseServiceProtocol?
+    let driverId: UUID?
+    let vehicleId: UUID?
+    let vehicleFuelType: String?
 
     @State private var selectedFuelType: FuelRecord.FuelType = .diesel
     @State private var liters: String = ""
@@ -85,30 +81,43 @@ struct TripFuelHistoryView: View {
     @State private var selectedReceiptImage: PhotosPickerItem?
     @State private var showingSavedAlert = false
 
-    init(isReadOnly: Bool = false, activeTripId: String? = nil, vehicleNumber: String = "") {
+    @State private var ocrAmount: String?
+    @State private var ocrDate: String?
+    @State private var ocrVendor: String?
+    @State private var ocrNumber: String?
+    @State private var showOCRReview = false
+    @State private var receiptImageData: Data?
+
+    init(isReadOnly: Bool = false, activeTripId: String? = nil, vehicleNumber: String = "",
+         expenseService: ExpenseServiceProtocol? = nil, driverId: UUID? = nil,
+         vehicleId: UUID? = nil, vehicleFuelType: String? = nil) {
         self.isReadOnly = isReadOnly
         self.activeTripId = activeTripId
         self.vehicleNumber = vehicleNumber
+        self.expenseService = expenseService
+        self.driverId = driverId
+        self.vehicleId = vehicleId
+        self.vehicleFuelType = vehicleFuelType
     }
 
     private var quantityUnit: String {
-        selectedFuelType == .ev ? "kW" : "L"
+        selectedFuelType == .cng ? "kg" : "L"
     }
 
     private var quantityTitle: String {
-        selectedFuelType == .ev ? "Power Added" : "Liters"
+        selectedFuelType == .cng ? "Weight" : "Liters"
     }
 
     private var priceTitle: String {
-        selectedFuelType == .ev ? "Price / kW" : "Price / Liter"
+        selectedFuelType == .cng ? "Price / kg" : "Price / Liter"
     }
 
     private var efficiencyUnit: String {
-        selectedFuelType == .ev ? "km/kW" : "km/L"
+        selectedFuelType == .cng ? "km/kg" : "km/L"
     }
 
     private var remainingLabel: String {
-        selectedFuelType == .ev ? "charge remaining" : "fuel remaining"
+        selectedFuelType == .cng ? "fuel remaining" : "fuel remaining"
     }
 
     private var tripFuelHistory: [FuelRecord] {
@@ -185,6 +194,14 @@ struct TripFuelHistoryView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
+        .sheet(isPresented: $showOCRReview) {
+            OCRReviewView(
+                amount: $ocrAmount,
+                date: $ocrDate,
+                vendor: $ocrVendor,
+                receiptNumber: $ocrNumber
+            )
+        }
     }
 
     private var fuelRangeCard: some View {
@@ -199,7 +216,7 @@ struct TripFuelHistoryView: View {
                         .foregroundColor(.white)
                 }
                 Spacer()
-                Image(systemName: selectedFuelType == .ev ? "bolt.car.fill" : "fuelpump.fill")
+                Image(systemName: "fuelpump.fill")
                     .font(.system(size: 34))
                     .foregroundColor(.white)
             }
@@ -257,6 +274,23 @@ struct TripFuelHistoryView: View {
                 .font(.subheadline)
                 .fontWeight(.semibold)
                 .foregroundColor(selectedReceiptImage == nil ? .blue : .green)
+            }
+
+            if ocrAmount != nil || ocrDate != nil || ocrVendor != nil || ocrNumber != nil {
+                Button(action: { showOCRReview = true }) {
+                    HStack {
+                        Image(systemName: "doc.text.magnifyingglass")
+                        Text("Review OCR Data")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(.subheadline)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.blue.opacity(0.08))
+                    .cornerRadius(8)
+                }
+                .buttonStyle(PlainButtonStyle())
             }
 
             HStack {
@@ -331,12 +365,112 @@ struct TripFuelHistoryView: View {
             date: refillDate
         )
 
+        if let expenseService, let driverId, let vehicleId {
+            var ocrData: String?
+            if ocrAmount != nil || ocrDate != nil || ocrVendor != nil || ocrNumber != nil {
+                let dict: [String: String?] = [
+                    "amount": ocrAmount, "date": ocrDate,
+                    "vendor": ocrVendor, "receiptNumber": ocrNumber
+                ]
+                ocrData = (try? JSONSerialization.data(withJSONObject: dict.compactMapValues { $0 }))
+                    .flatMap { String(data: $0, encoding: .utf8) }
+            }
+
+            Task {
+                let entry = ExpenseEntry(
+                    id: UUID(),
+                    tripId: activeTripId.flatMap { UUID(uuidString: $0) },
+                    vehicleId: vehicleId,
+                    driverId: driverId,
+                    expenseType: "fuel",
+                    liters: quantityValue,
+                    costPerLiter: priceValue,
+                    fuelType: selectedFuelType.rawValue.lowercased(),
+                    totalCost: quantityValue * priceValue,
+                    odometerReading: nil,
+                    receiptImageUrl: nil,
+                    receiptOcrData: ocrData,
+                    locationLat: nil,
+                    locationLng: nil,
+                    notes: nil,
+                    createdAt: refillDate
+                )
+                _ = try? await expenseService.createExpense(entry)
+            }
+        }
+
         liters = ""
         pricePerLiter = ""
         receiptCode = ""
         refillDate = Date()
         selectedReceiptImage = nil
+        ocrAmount = nil
+        ocrDate = nil
+        ocrVendor = nil
+        ocrNumber = nil
+        receiptImageData = nil
         showingSavedAlert = true
+    }
+}
+
+struct OCRReviewView: View {
+    @Environment(\.dismiss) var dismiss
+
+    @Binding var amount: String?
+    @Binding var date: String?
+    @Binding var vendor: String?
+    @Binding var receiptNumber: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("OCR Extracted Data")) {
+                    HStack {
+                        Text("Amount")
+                        Spacer()
+                        TextField("e.g. ₹1,500", text: Binding(
+                            get: { amount ?? "" },
+                            set: { amount = $0.isEmpty ? nil : $0 }
+                        ))
+                        .multilineTextAlignment(.trailing)
+                    }
+                    HStack {
+                        Text("Date")
+                        Spacer()
+                        TextField("e.g. 15/06/26", text: Binding(
+                            get: { date ?? "" },
+                            set: { date = $0.isEmpty ? nil : $0 }
+                        ))
+                        .multilineTextAlignment(.trailing)
+                    }
+                    HStack {
+                        Text("Vendor")
+                        Spacer()
+                        TextField("e.g. IndianOil", text: Binding(
+                            get: { vendor ?? "" },
+                            set: { vendor = $0.isEmpty ? nil : $0 }
+                        ))
+                        .multilineTextAlignment(.trailing)
+                    }
+                    HStack {
+                        Text("Receipt No.")
+                        Spacer()
+                        TextField("e.g. INV-001", text: Binding(
+                            get: { receiptNumber ?? "" },
+                            set: { receiptNumber = $0.isEmpty ? nil : $0 }
+                        ))
+                        .multilineTextAlignment(.trailing)
+                    }
+                }
+            }
+            .navigationTitle("Review Receipt Data")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 
@@ -382,7 +516,7 @@ struct TripFuelHistoryRow: View {
             }
 
             HStack(spacing: 12) {
-                Label("\((record.volumeFilled ?? 0), specifier: "%.1f") \(record.refillUnit)", systemImage: record.fuelType == .ev ? "bolt.fill" : "drop.fill")
+                Label("\((record.volumeFilled ?? 0), specifier: "%.1f") \(record.refillUnit)", systemImage: record.fuelType == .cng ? "flame.fill" : "drop.fill")
                 if let price = record.pricePerLiter {
                     Label("₹\(price, specifier: "%.2f")/\(record.priceUnit)", systemImage: "tag.fill")
                 }
@@ -404,7 +538,6 @@ struct TripFuelHistoryRow: View {
     }
 }
 
-// Reusable UI component for status badges
 struct StatusBadge: View {
     let status: FuelRecord.RequestStatus
 

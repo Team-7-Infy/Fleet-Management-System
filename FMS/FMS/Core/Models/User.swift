@@ -13,6 +13,7 @@ struct User: Identifiable, Codable, Hashable, Sendable {
     var createdAt: Date
     var avatarUrl: String? = nil
     var firstTimeLogin: Bool = true
+    var deletedAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id = "userid"
@@ -27,6 +28,7 @@ struct User: Identifiable, Codable, Hashable, Sendable {
         case createdAt = "createdat"
         case avatarUrl = "avatarurl"
         case firstTimeLogin = "first_time_login"
+        case deletedAt = "deleted_at"
     }
 
 }

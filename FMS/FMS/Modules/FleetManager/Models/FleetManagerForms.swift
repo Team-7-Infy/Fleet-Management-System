@@ -172,8 +172,11 @@ struct FleetManagerVehicleForm {
     var model = ""
     var year = ""
     var licencePlate = ""
-    var status: VehicleStatus = .active
+    var status: VehicleStatus = .available
     var vehicleType = "van"
+    var fuelType = ""
+    var maintenanceKmInterval = ""
+    var maintenanceMonthInterval = ""
 
     private static let indianStateCodes: Set<String> = [
         "AN", "AP", "AR", "AS", "BR", "CH", "CG", "DD", "DL", "DN", "GA", "GJ",
@@ -278,7 +281,25 @@ struct FleetManagerVehicleForm {
             status: status,
             vehicleType: vehicleType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
             driverId: nil,
-            addedToFleetAt: Date()
+            fuelType: fuelType.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : fuelType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+            addedToFleetAt: Date(),
+            maintenanceKmInterval: Int(maintenanceKmInterval.trimmingCharacters(in: .whitespacesAndNewlines)),
+            maintenanceMonthInterval: Int(maintenanceMonthInterval.trimmingCharacters(in: .whitespacesAndNewlines))
+        )
+    }
+
+    static func form(from vehicle: Vehicle) -> FleetManagerVehicleForm {
+        FleetManagerVehicleForm(
+            vin: vehicle.id.uuidString,
+            make: vehicle.make,
+            model: vehicle.model,
+            year: String(vehicle.year),
+            licencePlate: vehicle.licencePlate,
+            status: vehicle.status,
+            vehicleType: vehicle.vehicleType,
+            fuelType: vehicle.fuelType ?? "",
+            maintenanceKmInterval: vehicle.maintenanceKmInterval.map(String.init) ?? "",
+            maintenanceMonthInterval: vehicle.maintenanceMonthInterval.map(String.init) ?? ""
         )
     }
 
@@ -317,32 +338,30 @@ struct FleetManagerTripForm {
     var endLocation = ""
     var startTime = Date()
     var endTime: Date?
-    var vehicleId: UUID?
-    var driverId: UUID?
+    var vehicleTypeRequested = ""
     var status: TripStatus = .scheduled
 
     var isValid: Bool {
         startLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
-        endLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
-        vehicleId != nil &&
-        driverId != nil
+        endLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }
 
-    func makeTrip() throws -> Trip {
-        guard let vehicleId, let driverId else { throw FleetManagerFormError.missingSelection }
-
-        return Trip(
+    func makeTrip() -> Trip {
+        Trip(
             id: UUID(),
             startLocation: startLocation.trimmingCharacters(in: .whitespacesAndNewlines),
             endLocation: endLocation.trimmingCharacters(in: .whitespacesAndNewlines),
             startTime: startTime,
             endTime: endTime,
-            vehicleId: vehicleId,
-            driverId: driverId,
+            vehicleId: nil,
+            driverId: nil,
             status: status,
             distanceKm: nil,
             fuelCost: nil,
-            miscellaneousCost: nil
+            miscellaneousCost: nil,
+            vehicleTypeRequested: vehicleTypeRequested.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? nil
+                : vehicleTypeRequested.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         )
     }
 }
@@ -404,7 +423,7 @@ enum FleetManagerFormError: LocalizedError {
         case let .invalidVehicle(message):
             return message
         case .missingSelection:
-            return "Select the required driver and vehicle."
+            return "Fill in all required fields."
         }
     }
 }
@@ -481,12 +500,14 @@ extension VehicleStatus: Identifiable {
 
     var title: String {
         switch self {
-        case .active:
-            return "Active"
-        case .inactive:
-            return "Inactive"
-        case .maintenance:
+        case .available:
+            return "Available"
+        case .assigned:
+            return "Assigned"
+        case .inMaintenance:
             return "Maintenance"
+        case .outOfService:
+            return "Out of Service"
         }
     }
 }
@@ -527,6 +548,8 @@ extension MaintenanceTaskStatus: Identifiable {
             return "Assigned"
         case .inProgress:
             return "In Progress"
+        case .onHold:
+            return "On Hold"
         case .completed:
             return "Completed"
         case .fake:

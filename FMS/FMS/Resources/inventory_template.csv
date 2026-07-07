@@ -1,0 +1,4 @@
+name,sku,description,category,unit,quantityOnHand,reorderLevel,unitCost
+Oil Filter,FLT-001,Engine oil filter for 4-cylinder vehicles,Filters,pieces,50,10,15.99
+Air Filter,FLT-002,Engine air filter for passenger cars,Filters,pieces,30,8,12.50
+Brake Pad Set,BRK-001,Front brake pad set for sedans,Brakes,set,20,5,45.00

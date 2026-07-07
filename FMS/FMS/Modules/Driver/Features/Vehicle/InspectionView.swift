@@ -352,9 +352,50 @@ struct InspectionView: View {
         .task {
             if let tripUuid = UUID(uuidString: trip.tripId),
                let tripModel = try? await services.tripService.fetchTrip(id: tripUuid),
-               let fetchedVehicle = try? await services.vehicleService.fetchVehicle(id: tripModel.vehicleId) {
+               let fetchedVehicle = try? await services.vehicleService.fetchVehicle(id: tripModel.vehicleId ?? UUID()) {
                 self.vehicle = fetchedVehicle
             }
+        }
+    }
+
+    private func persistInspection(tripId: UUID, vehicleId: UUID, driverId: UUID) async throws {
+        let inspectionType = isPostTrip ? "post_trip" : "pre_trip"
+        let failedItems = viewModel.items.filter { $0.status == .failed }
+        let inspectionStatus = failedItems.isEmpty ? "passed" : "failed"
+
+        let inspection = VehicleInspection(
+            id: UUID(),
+            tripId: tripId,
+            vehicleId: vehicleId,
+            driverId: driverId,
+            type: inspectionType,
+            status: inspectionStatus,
+            odometerReading: Double(odometerInput),
+            fuelLevel: Double(fuelInput),
+            notes: nil,
+            createdAt: Date()
+        )
+        let saved = try await services.inspectionService.createInspection(inspection)
+
+        for item in viewModel.items {
+            let dbItem = InspectionItemDB(
+                id: UUID(),
+                inspectionId: saved.id,
+                itemName: item.name,
+                status: item.status == .passed ? "pass" : (item.status == .failed ? "fail" : "untested"),
+                failDescription: item.failDescription.isEmpty ? nil : item.failDescription,
+                failPhotoUrl: nil,
+                createdAt: Date()
+            )
+            try await services.inspectionService.createInspectionItem(dbItem)
+        }
+    }
+
+    private func showAlert(title: String, message: String) async {
+        await MainActor.run {
+            alertTitle = title
+            alertMessage = message
+            showingAlert = true
         }
     }
 
@@ -382,18 +423,29 @@ struct InspectionView: View {
         }
 
         guard !failedItems.isEmpty else {
-            // No defects found, proceed normally
+            // No defects found, persist and proceed normally
             Task {
                 do {
                     guard let tripUuid = UUID(uuidString: trip.tripId) else { return }
                     let tripModel = try await services.tripService.fetchTrip(id: tripUuid)
-                    var vehicleModel = try await services.vehicleService.fetchVehicle(id: tripModel.vehicleId)
+                    guard let vehicleId = tripModel.vehicleId else {
+                        await showAlert(title: "No Vehicle", message: "No vehicle assigned to this trip. Cannot perform inspection.")
+                        return
+                    }
+                    guard let driverId = tripModel.driverId else {
+                        await showAlert(title: "No Driver", message: "No driver assigned to this trip. Cannot perform inspection.")
+                        return
+                    }
+
+                    try await persistInspection(tripId: tripUuid, vehicleId: vehicleId, driverId: driverId)
+
+                    var vehicleModel = try await services.vehicleService.fetchVehicle(id: vehicleId)
                     if let odoVal = Double(odometerInput) {
                         vehicleModel.odometer = odoVal
                         _ = try await services.vehicleService.updateVehicle(vehicleModel)
                     }
                 } catch {
-                    print("Failed to update vehicle odometer: \(error)")
+                    print("Failed to persist inspection: \(error)")
                 }
             }
             
@@ -408,7 +460,7 @@ struct InspectionView: View {
             return
         }
         
-        // Defects found! Handle work order and auto-reassign vehicle
+        // Defects found! Persist, then handle work order and auto-reassign vehicle
         Task {
             do {
                 guard let tripUuid = UUID(uuidString: trip.tripId) else {
@@ -417,9 +469,21 @@ struct InspectionView: View {
                 
                 // 1. Fetch current trip and vehicle
                 let tripModel = try await services.tripService.fetchTrip(id: tripUuid)
-                let vehicle = try await services.vehicleService.fetchVehicle(id: tripModel.vehicleId)
-                
-                // 2. Loop over each failed item and create a separate work order (maintenance task) in DB
+                guard let vehicleId = tripModel.vehicleId else {
+                    await showAlert(title: "No Vehicle", message: "No vehicle assigned to this trip. Cannot perform inspection.")
+                    return
+                }
+                guard let driverId = tripModel.driverId else {
+                    await showAlert(title: "No Driver", message: "No driver assigned to this trip. Cannot perform inspection.")
+                    return
+                }
+
+                // 2. Persist inspection to Supabase before creating work orders
+                try await persistInspection(tripId: tripUuid, vehicleId: vehicleId, driverId: driverId)
+
+                let vehicle = try await services.vehicleService.fetchVehicle(id: vehicleId)
+
+                // 3. Loop over each failed item and create a separate work order (maintenance task) in DB
                 for item in failedItems {
                     var photoUrls: [String] = []
                     
@@ -443,9 +507,7 @@ struct InspectionView: View {
                     let prefix = isPostTrip ? "Post-trip" : "Pre-trip"
                     let description = "\(prefix) inspection failed for \(item.name) on vehicle \(vehicle.licencePlate) (VIN: \(vehicle.id.uuidString)). Odometer: \(odometerInput) km, Fuel: \(fuelInput)%. Details: \(item.failDescription)"
                     
-                    // Fetch active maintenance personnel to assign
-                    let personnelList = try? await services.userManagementService.fetchMaintenancePersonnel()
-                    let activePersonnel = personnelList?.first(where: { $0.status == .active })
+                    let bestPersonnel = try? await services.workOrderAssignmentService.findBestPersonnel()
                     
                     let maintenanceTask = MaintenanceTask(
                         id: UUID(),
@@ -454,8 +516,8 @@ struct InspectionView: View {
                         scheduledDate: DateOnly(wrappedValue: Date()),
                         isUrgent: true,
                         scheduledBy: nil,
-                        executedBy: activePersonnel?.id,
-                        status: activePersonnel != nil ? .assigned : .scheduled,
+                        executedBy: bestPersonnel?.id,
+                        status: bestPersonnel != nil ? .assigned : .scheduled,
                         reportedDate: nil,
                         completedAt: nil,
                         timeTakenHours: nil,
@@ -467,21 +529,44 @@ struct InspectionView: View {
                     
                     _ = try await services.maintenanceService.createTask(maintenanceTask)
                     
-                    // Link vehicle to the task in DB
                     let taskVehicle = TaskVehicle(taskId: maintenanceTask.id, vin: vehicle.id)
                     try await services.maintenanceService.addTaskVehicle(taskVehicle)
+                    
+                    if let personnel = bestPersonnel {
+                        await sendWorkOrderNotification(
+                            services: services,
+                            task: maintenanceTask,
+                            personnel: personnel,
+                            title: item.name
+                        )
+                    }
                 }
                 
-                // 3. Update the vehicle status to .maintenance and clear its driver in DB
+                let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
+                for fmUser in fmUsers {
+                    let note = AppNotification(
+                        id: UUID(),
+                        title: "\(isPostTrip ? "Post-trip" : "Pre-trip") Inspection Failed",
+                        message: "\(failedItems.count) defect(s) found on \(vehicle.licencePlate). Work order(s) created for: \(failedItems.map(\.name).joined(separator: ", ")).",
+                        type: "work_order_assigned",
+                        isRead: false,
+                        referenceId: tripUuid,
+                        recipientId: fmUser.id,
+                        createdAt: Date()
+                    )
+                    _ = try? await services.notificationService.createNotification(note)
+                }
+                
+                // 4. Update the vehicle status to .maintenance and clear its driver in DB
                 var updatedVehicle = vehicle
-                updatedVehicle.status = .maintenance
+                updatedVehicle.status = .inMaintenance
                 updatedVehicle.driverId = nil
                 if let odoVal = Double(odometerInput) {
                     updatedVehicle.odometer = odoVal
                 }
                 _ = try await services.vehicleService.updateVehicle(updatedVehicle)
                 
-                // 4. Scan for an available active vehicle of the same type
+                // 5. Scan for an available active vehicle of the same type
                 let allVehicles = try await services.vehicleService.fetchVehicles()
                 let allTrips = try await services.tripService.fetchTrips()
                 let busyVehicleIds = Set(allTrips.filter {
@@ -489,7 +574,7 @@ struct InspectionView: View {
                 }.map { $0.vehicleId })
                 
                 let replacementVehicle = allVehicles.first { v in
-                    v.status == .active &&
+                    v.status == .available &&
                     v.vehicleType == vehicle.vehicleType &&
                     v.id != vehicle.id &&
                     !busyVehicleIds.contains(v.id)
@@ -537,6 +622,23 @@ struct InspectionView: View {
                     showingAlert = true
                 }
             }
+        }
+    }
+
+    private func sendWorkOrderNotification(services: AppServices, task: MaintenanceTask, personnel: MaintenancePersonnel, title: String) async {
+        let users = (try? await services.userManagementService.fetchUsers()) ?? []
+        if let personnelUser = users.first(where: { $0.id == personnel.userId }) {
+            let note = AppNotification(
+                id: UUID(),
+                title: "New Work Order: \(title)",
+                message: task.description,
+                type: "work_order_assigned",
+                isRead: false,
+                referenceId: task.id,
+                recipientId: personnelUser.id,
+                createdAt: Date()
+            )
+            _ = try? await services.notificationService.createNotification(note)
         }
     }
 }

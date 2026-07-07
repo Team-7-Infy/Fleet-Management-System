@@ -34,7 +34,7 @@ struct FuelRecord: Identifiable, Codable {
     enum FuelType: String, Codable, CaseIterable {
         case diesel = "Diesel"
         case petrol = "Petrol"
-        case ev = "Electric Charge"
+        case cng = "CNG"
     }
 
     enum RequestStatus: String, Codable {
@@ -45,10 +45,10 @@ struct FuelRecord: Identifiable, Codable {
     }
 
     var refillUnit: String {
-        fuelType == .ev ? "kW" : "L"
+        fuelType == .cng ? "kg" : "L"
     }
 
     var priceUnit: String {
-        fuelType == .ev ? "kW" : "L"
+        fuelType == .cng ? "kg" : "L"
     }
 }

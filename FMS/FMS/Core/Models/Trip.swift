@@ -6,7 +6,7 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
     var endLocation: String
     var startTime: Date
     var endTime: Date?
-    var vehicleId: UUID
+    var vehicleId: UUID?
     var driverId: UUID?
     var status: TripStatus
     var rejectionReason: String?
@@ -16,6 +16,7 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
     var finalOdometer: Double?
     var finalFuelLevel: Double?
     var driverNote: String?
+    var vehicleTypeRequested: String?
 
     enum CodingKeys: String, CodingKey {
         case id = "tripid"
@@ -33,6 +34,7 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
         case finalOdometer = "final_odometer"
         case finalFuelLevel = "final_fuel_level"
         case driverNote = "driver_note"
+        case vehicleTypeRequested = "vehicletype_requested"
     }
 }
 

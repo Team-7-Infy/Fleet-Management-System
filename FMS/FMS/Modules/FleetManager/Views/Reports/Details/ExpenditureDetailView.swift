@@ -31,6 +31,11 @@ struct ExpenditureDetailView: View {
         .fleetScreenBackground()
         .navigationTitle("Expenditure")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ReportExportToolbarItem(reportType: .expenditure, viewModel: reportsViewModel)
+            }
+        }
         .onAppear { localPeriod = reportsViewModel.selectedPeriod }
     }
 

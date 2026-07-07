@@ -107,6 +107,33 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
             .execute()
     }
 
+    func holdTask(id: UUID, reason: String) async throws {
+        let now = ISO8601DateFormatter().string(from: Date())
+        let update: [String: AnyJSON] = [
+            "status": AnyJSON.string(MaintenanceTaskStatus.onHold.rawValue),
+            "on_hold_reason": AnyJSON.string(reason),
+            "on_hold_at": AnyJSON.string(now)
+        ]
+        try await supabase.client
+            .from("maintenance_task")
+            .update(update)
+            .eq("taskid", value: id.uuidString)
+            .execute()
+    }
+
+    func unholdTask(id: UUID) async throws {
+        let update: [String: AnyJSON] = [
+            "status": AnyJSON.string(MaintenanceTaskStatus.inProgress.rawValue),
+            "on_hold_reason": AnyJSON.null,
+            "on_hold_at": AnyJSON.null
+        ]
+        try await supabase.client
+            .from("maintenance_task")
+            .update(update)
+            .eq("taskid", value: id.uuidString)
+            .execute()
+    }
+
     func assignPersonnel(taskId: UUID, personnelId: UUID) async throws {
         try await supabase.client
             .from("maintenance_task")

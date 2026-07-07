@@ -7,6 +7,9 @@ struct Telemetry: Identifiable, Codable, Hashable, Sendable {
     var driverId: UUID
     var latitude: Double
     var longitude: Double
+    var tripId: UUID?
+    var vehicleId: UUID?
+    var heading: Double?
 
     enum CodingKeys: String, CodingKey {
         case id = "telemetryid"
@@ -15,5 +18,8 @@ struct Telemetry: Identifiable, Codable, Hashable, Sendable {
         case driverId = "driverid"
         case latitude
         case longitude
+        case tripId = "tripid"
+        case vehicleId = "vehicleid"
+        case heading
     }
 }

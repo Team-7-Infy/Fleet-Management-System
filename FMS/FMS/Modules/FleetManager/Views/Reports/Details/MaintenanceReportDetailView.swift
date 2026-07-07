@@ -29,6 +29,11 @@ struct MaintenanceReportDetailView: View {
         .fleetScreenBackground()
         .navigationTitle("Maintenance")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ReportExportToolbarItem(reportType: .maintenance, viewModel: reportsViewModel)
+            }
+        }
         .onAppear { localPeriod = reportsViewModel.selectedPeriod }
     }
 
