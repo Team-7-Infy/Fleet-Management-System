@@ -21,6 +21,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private var activeDriverId: UUID?
     private var tripService: TripServiceProtocol?
     var notificationService: NotificationServiceProtocol?
+    var fmRecipientId: UUID?
     private var lastAlertTime: Date?
 
     private var isStationary: Bool = false
@@ -244,7 +245,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                         type: "geofence_exit",
                         isRead: false,
                         referenceId: tripId,
-                        recipientId: nil,
+                        recipientId: fmRecipientId,
                         createdAt: Date()
                     )
                     _ = try? await notificationService.createNotification(notification)

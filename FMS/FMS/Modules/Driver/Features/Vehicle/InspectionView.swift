@@ -536,6 +536,8 @@ struct InspectionView: View {
                     try await services.maintenanceService.addTaskVehicle(taskVehicle)
                 }
                 
+                let fmUserId = try? await services.userManagementService.fetchUsers()
+                    .first(where: { $0.role == .fleetManager })?.id
                 let inspectionNotification = AppNotification(
                     id: UUID(),
                     title: "\(isPostTrip ? "Post-trip" : "Pre-trip") Inspection Failed",
@@ -543,7 +545,7 @@ struct InspectionView: View {
                     type: "work_order_assigned",
                     isRead: false,
                     referenceId: tripUuid,
-                    recipientId: nil,
+                    recipientId: fmUserId,
                     createdAt: Date()
                 )
                 _ = try? await services.notificationService.createNotification(inspectionNotification)

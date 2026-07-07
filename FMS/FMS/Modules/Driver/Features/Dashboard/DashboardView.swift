@@ -583,6 +583,8 @@ struct DashboardView: View {
     private func rejectTrip(_ trip: Trip, reason: String) async {
         do {
             try await services.tripService.updateTripStatus(id: trip.id, status: .rejectionPending, rejectionReason: reason)
+            let fmUserId = try? await services.userManagementService.fetchUsers()
+                .first(where: { $0.role == .fleetManager })?.id
             let notification = AppNotification(
                 id: UUID(),
                 title: "Trip Rejected by Driver",
@@ -590,7 +592,7 @@ struct DashboardView: View {
                 type: "driver_message",
                 isRead: false,
                 referenceId: trip.id,
-                recipientId: nil,
+                recipientId: fmUserId,
                 createdAt: Date()
             )
             _ = try? await services.notificationService.createNotification(notification)

@@ -843,6 +843,8 @@ struct ActiveNavigationDetailView: View {
                             )
                             
                             // Send notification to manager instantly
+                            let fmUserId = try? await services.userManagementService.fetchUsers()
+                                .first(where: { $0.role == .fleetManager })?.id
                             let notification = AppNotification(
                                 id: UUID(),
                                 title: "CRITICAL: Driver SOS Emergency",
@@ -850,7 +852,7 @@ struct ActiveNavigationDetailView: View {
                                 type: "geofence_exit",
                                 isRead: false,
                                 referenceId: trip.id,
-                                recipientId: nil,
+                                recipientId: fmUserId,
                                 createdAt: Date()
                             )
                             _ = try? await services.notificationService.createNotification(notification)
@@ -899,6 +901,12 @@ struct ActiveNavigationDetailView: View {
                 driverId: trip.driverId,
                 service: services.tripService
             )
+
+            Task {
+                let fmId = try? await services.userManagementService.fetchUsers()
+                    .first(where: { $0.role == .fleetManager })?.id
+                locationService.fmRecipientId = fmId
+            }
 
             focusOnDriverAndRoute()
         }

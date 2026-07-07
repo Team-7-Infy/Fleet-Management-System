@@ -7,6 +7,7 @@ final class TripManagementViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var successMessage: String?
     @Published var errorMessage: String?
+    @Published var lastTripNotificationTargetDriverId: UUID?
 
     private let tripService: TripServiceProtocol
     private let vehicleService: VehicleServiceProtocol
@@ -48,6 +49,7 @@ final class TripManagementViewModel: ObservableObject {
     }
 
     func createTrip(form: FleetManagerTripForm) async -> Bool {
+        lastTripNotificationTargetDriverId = nil
         guard form.isValid else {
             errorMessage = "Enter a pickup location and destination."
             clearSuccessMessage()
@@ -67,6 +69,7 @@ final class TripManagementViewModel: ObservableObject {
                     try await vehicleService.assignDriver(vehicleId: vehicleId, driverId: driverId)
                     try await vehicleService.setVehicleStatus(vehicleId: vehicleId, status: .assigned)
                     trips.insert(saved, at: 0)
+                    lastTripNotificationTargetDriverId = driverId
 
                     let driverName = await resolveDriverName(driverId: driverId)
                     let vehiclePlate = await resolveVehiclePlate(vehicleId: vehicleId)
@@ -114,6 +117,7 @@ final class TripManagementViewModel: ObservableObject {
     }
 
     func approveRejection(for trip: Trip) async {
+        lastTripNotificationTargetDriverId = nil
         do {
             let rejectingDriverId = trip.driverId
 
@@ -160,6 +164,7 @@ final class TripManagementViewModel: ObservableObject {
                     let saved = try await tripService.updateTrip(updatedTrip)
                     try await vehicleService.assignDriver(vehicleId: vehicle.id, driverId: bestDriver.id)
                     try await vehicleService.setVehicleStatus(vehicleId: vehicle.id, status: .assigned)
+                    lastTripNotificationTargetDriverId = bestDriver.id
 
                     if let index = trips.firstIndex(where: { $0.id == trip.id }) {
                         trips[index] = saved
@@ -194,6 +199,7 @@ final class TripManagementViewModel: ObservableObject {
     }
 
     func denyRejection(for trip: Trip) async {
+        lastTripNotificationTargetDriverId = trip.driverId
         do {
             try await tripService.updateTripStatus(id: trip.id, status: .scheduled, rejectionReason: nil)
             if let index = trips.firstIndex(where: { $0.id == trip.id }) {

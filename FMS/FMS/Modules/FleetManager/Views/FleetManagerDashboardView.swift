@@ -164,27 +164,31 @@ struct FleetManagerDashboardView: View {
             guard let message else { return }
             guard message != lastTripNotificationMessage else { return }
             lastTripNotificationMessage = message
+
+            let driverId = tripsViewModel.lastTripNotificationTargetDriverId
+            defer { tripsViewModel.lastTripNotificationTargetDriverId = nil }
+
             if message.hasPrefix("Trip created") {
                 let title = message.contains("assigned to") ? "Trip Assigned" : "Trip Created"
                 notificationViewModel.addLocalNotification(
                     title: title,
                     message: message,
                     type: "trip_assignment",
-                    recipientIdOverride: nil
+                    recipientIdOverride: driverId.flatMap { usersViewModel.driverUser(for: $0)?.id } ?? currentUserId
                 )
             } else if message.hasPrefix("Rejection approved") {
                 notificationViewModel.addLocalNotification(
                     title: "Trip Reassigned",
                     message: message,
                     type: "trip_assignment",
-                    recipientIdOverride: nil
+                    recipientIdOverride: driverId.flatMap { usersViewModel.driverUser(for: $0)?.id } ?? currentUserId
                 )
             } else if message.hasPrefix("Rejection denied") {
                 notificationViewModel.addLocalNotification(
                     title: "Rejection Denied",
                     message: message,
                     type: "trip_assignment",
-                    recipientIdOverride: nil
+                    recipientIdOverride: driverId.flatMap { usersViewModel.driverUser(for: $0)?.id } ?? currentUserId
                 )
             }
         }
@@ -196,16 +200,14 @@ struct FleetManagerDashboardView: View {
                 notificationViewModel.addLocalNotification(
                     title: "Work Order Assigned",
                     message: "A maintenance task has been assigned to personnel.",
-                    type: "work_order_assigned",
-                    recipientIdOverride: nil
+                    type: "work_order_assigned"
                 )
             } else if message.hasPrefix("Task marked") {
                 let status = message.replacingOccurrences(of: "Task marked ", with: "").replacingOccurrences(of: ".", with: "")
                 notificationViewModel.addLocalNotification(
                     title: "Work Order \(status.capitalized)",
                     message: message,
-                    type: "work_order_assigned",
-                    recipientIdOverride: nil
+                    type: "work_order_assigned"
                 )
             }
         }
