@@ -895,18 +895,13 @@ struct ActiveNavigationDetailView: View {
             self.isTripStopped = UserDefaults.standard.bool(forKey: "trip_\(trip.id.uuidString)_paused")
             locationService.requestPermission()
             locationService.notificationService = services.notificationService
+            locationService.userManagementService = services.userManagementService
             locationService.startTracking(
                 tripId: trip.id,
                 vehicleId: trip.vehicleId,
                 driverId: trip.driverId,
                 service: services.tripService
             )
-
-            Task {
-                let fmId = try? await services.userManagementService.fetchUsers()
-                    .first(where: { $0.role == .fleetManager })?.id
-                locationService.fmRecipientId = fmId
-            }
 
             focusOnDriverAndRoute()
         }

@@ -21,8 +21,9 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private var activeDriverId: UUID?
     private var tripService: TripServiceProtocol?
     var notificationService: NotificationServiceProtocol?
-    var fmRecipientId: UUID?
+    var userManagementService: UserManagementServiceProtocol?
     private var lastAlertTime: Date?
+    private var notifiedDeviationTripIds = Set<UUID>()
 
     private var isStationary: Bool = false
     private var stationaryCount: Int = 0
@@ -237,18 +238,28 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 )
                 _ = try await service.createDeviationAlert(alert)
 
-                if let notificationService {
-                    let notification = AppNotification(
-                        id: UUID(),
-                        title: "Route Deviation Detected",
-                        message: "Vehicle has deviated from planned route by \(String(format: "%.0f", distance)) meters.",
-                        type: "geofence_exit",
-                        isRead: false,
-                        referenceId: tripId,
-                        recipientId: fmRecipientId,
-                        createdAt: Date()
-                    )
-                    _ = try? await notificationService.createNotification(notification)
+                if let driverId = activeDriverId {
+                    _ = try? await userManagementService?.calculateAndUpsertDriverScore(driverId: driverId)
+                }
+
+                guard !notifiedDeviationTripIds.contains(tripId) else { return }
+                notifiedDeviationTripIds.insert(tripId)
+
+                if let notificationService, let userManagementService {
+                    let fmUsers = (try? await userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
+                    for fmUser in fmUsers {
+                        let notification = AppNotification(
+                            id: UUID(),
+                            title: "Route Deviation Detected",
+                            message: "Vehicle has deviated from planned route by \(String(format: "%.0f", distance)) meters.",
+                            type: "route_deviation",
+                            isRead: false,
+                            referenceId: tripId,
+                            recipientId: fmUser.id,
+                            createdAt: Date()
+                        )
+                        _ = try? await notificationService.createNotification(notification)
+                    }
                 }
             } catch {
                 print("Failed to report deviation alert: \(error.localizedDescription)")
