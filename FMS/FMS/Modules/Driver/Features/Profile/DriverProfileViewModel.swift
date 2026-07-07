@@ -125,6 +125,17 @@ final class DriverProfileViewModel: ObservableObject {
         defer { isSavingProfile = false }
 
         do {
+            // Check uniqueness of phone and email
+            let allUsers = try await services.userManagementService.fetchUsers()
+            if allUsers.contains(where: { $0.id != user.id && String($0.contact) == normalizedPhone }) {
+                errorMessage = "This phone number is already associated with another account."
+                return false
+            }
+            if allUsers.contains(where: { $0.id != user.id && $0.email.lowercased() == normalizedEmail.lowercased() }) {
+                errorMessage = "This email is already associated with another account."
+                return false
+            }
+
             var updatedUser = user
             let nameParts = splitName(normalizedName)
             updatedUser.fName = nameParts.first

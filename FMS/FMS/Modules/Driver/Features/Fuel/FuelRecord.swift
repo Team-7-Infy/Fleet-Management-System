@@ -15,7 +15,12 @@ struct FuelRecord: Identifiable, Codable {
     var receiptCode: String?
     var receiptImageURL: String?
 
-    init(id: UUID = UUID(), date: Date, vehicleId: String, tripId: String? = nil, fuelType: FuelType, amountRequested: Double? = nil, cost: Double? = nil, volumeFilled: Double? = nil, pricePerLiter: Double? = nil, currentFuelLevel: Double, status: RequestStatus, receiptCode: String? = nil, receiptImageURL: String? = nil) {
+    // EV-specific fields
+    var kWhAdded: Double?
+    var chargePercentBefore: Double?
+    var chargePercentAfter: Double?
+
+    init(id: UUID = UUID(), date: Date, vehicleId: String, tripId: String? = nil, fuelType: FuelType, amountRequested: Double? = nil, cost: Double? = nil, volumeFilled: Double? = nil, pricePerLiter: Double? = nil, currentFuelLevel: Double, status: RequestStatus, receiptCode: String? = nil, receiptImageURL: String? = nil, kWhAdded: Double? = nil, chargePercentBefore: Double? = nil, chargePercentAfter: Double? = nil) {
         self.id = id
         self.date = date
         self.vehicleId = vehicleId
@@ -29,12 +34,16 @@ struct FuelRecord: Identifiable, Codable {
         self.status = status
         self.receiptCode = receiptCode
         self.receiptImageURL = receiptImageURL
+        self.kWhAdded = kWhAdded
+        self.chargePercentBefore = chargePercentBefore
+        self.chargePercentAfter = chargePercentAfter
     }
 
     enum FuelType: String, Codable, CaseIterable {
         case diesel = "Diesel"
         case petrol = "Petrol"
         case cng = "CNG"
+        case electric = "Electric (EV)"
     }
 
     enum RequestStatus: String, Codable {
@@ -45,10 +54,10 @@ struct FuelRecord: Identifiable, Codable {
     }
 
     var refillUnit: String {
-        fuelType == .cng ? "kg" : "L"
+        fuelType == .cng ? "kg" : fuelType == .electric ? "kWh" : "L"
     }
 
     var priceUnit: String {
-        fuelType == .cng ? "kg" : "L"
+        fuelType == .cng ? "kg" : fuelType == .electric ? "kWh" : "L"
     }
 }

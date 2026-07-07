@@ -14,6 +14,7 @@ final class AppServices {
     let inspectionService: InspectionService
     let expenseService: ExpenseService
     let workOrderAssignmentService: WorkOrderAssignmentService
+    let sosService: SOSService
 
     init() {
         let supabase = SupabaseService()
@@ -32,6 +33,7 @@ final class AppServices {
             userManagementService: userManagementService,
             maintenanceService: maintenanceService
         )
+        sosService = SOSService(supabase: supabase)
 
         ThresholdStore.shared.configure(supabase: supabase)
     }

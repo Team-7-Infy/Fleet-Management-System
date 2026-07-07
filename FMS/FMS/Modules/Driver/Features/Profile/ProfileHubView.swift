@@ -584,6 +584,7 @@ struct EditProfileView: View {
                                 title: "Full Name",
                                 placeholder: "Alex Johnson",
                                 text: $name,
+                                isDisabled: viewModel.isSavingProfile,
                                 focusField: .name,
                                 activeFocus: $focusedField
                             )
@@ -594,6 +595,7 @@ struct EditProfileView: View {
                                 placeholder: "+91 XXXXX XXXXX",
                                 text: $phone,
                                 keyboardType: .phonePad,
+                                isDisabled: viewModel.isSavingProfile,
                                 focusField: .phone,
                                 activeFocus: $focusedField
                             )
@@ -605,6 +607,7 @@ struct EditProfileView: View {
                                 text: $email,
                                 keyboardType: .emailAddress,
                                 autocapitalize: false,
+                                isDisabled: viewModel.isSavingProfile,
                                 focusField: .email,
                                 activeFocus: $focusedField
                             )
@@ -615,6 +618,7 @@ struct EditProfileView: View {
                                 placeholder: "Flat 402, Highrise Apartments",
                                 text: $address,
                                 isMultiline: true,
+                                isDisabled: viewModel.isSavingProfile,
                                 focusField: .address,
                                 activeFocus: $focusedField
                             )
@@ -699,6 +703,7 @@ private struct EditProfileRow: View {
     var keyboardType: UIKeyboardType = .default
     var autocapitalize = true
     var isMultiline = false
+    var isDisabled = false
 
     let focusField: EditProfileField
     var activeFocus: FocusState<EditProfileField?>.Binding
@@ -727,6 +732,7 @@ private struct EditProfileRow: View {
                                 .foregroundStyle(.primary)
                                 .lineLimit(3)
                                 .focused(activeFocus, equals: focusField)
+                                .disabled(isDisabled)
                         } else {
                             TextField(placeholder, text: $text)
                                 .font(.subheadline.weight(.medium))
@@ -734,6 +740,7 @@ private struct EditProfileRow: View {
                                 .keyboardType(keyboardType)
                                 .textInputAutocapitalization(autocapitalize ? .words : .never)
                                 .focused(activeFocus, equals: focusField)
+                                .disabled(isDisabled)
                         }
 
                         Spacer(minLength: 0)

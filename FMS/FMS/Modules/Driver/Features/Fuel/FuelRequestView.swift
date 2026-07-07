@@ -13,6 +13,11 @@ struct FuelRequestView: View {
     @Environment(\.dismiss) var dismiss
 
     let assignedVehicle: String
+    var hasActiveTrip: Bool = false
+
+    init(assignedVehicle: String = "") {
+        self.assignedVehicle = assignedVehicle
+    }
 
     @State private var selectedFuelType: FuelRecord.FuelType = .diesel
     @State private var requestedAmount: String = ""
@@ -20,13 +25,30 @@ struct FuelRequestView: View {
     @State private var isSubmitting: Bool = false
     @State private var showSuccessAlert: Bool = false
 
-    init(assignedVehicle: String = "") {
-        self.assignedVehicle = assignedVehicle
+    // EV-specific fields
+    @State private var kWhAdded: String = ""
+    @State private var chargeBefore: Double = 0.2
+    @State private var chargeAfter: Double = 0.8
+
+    private var isLiquidFuel: Bool {
+        selectedFuelType != .electric
     }
 
     var body: some View {
         NavigationStack {
             Form {
+                if !hasActiveTrip {
+                    Section {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text("Fuel requests should be made during an active trip.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+
                 Section(header: Text("Vehicle Details")) {
                     HStack {
                         Text("Assigned Vehicle")
@@ -44,45 +66,72 @@ struct FuelRequestView: View {
                         }
                     }
 
-                    HStack {
-                        Text("Requested Amount (₹)")
-                        Spacer()
-                        TextField("e.g. 150", text: $requestedAmount)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .accessibilityLabel("Requested Amount (₹)")
+                    if isLiquidFuel {
+                        HStack {
+                            Text("Requested Amount (₹)")
+                            Spacer()
+                            TextField("e.g. 150", text: $requestedAmount)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .accessibilityLabel("Requested Amount (₹)")
+                        }
+                    } else {
+                        HStack {
+                            Text("kWh Added")
+                            Spacer()
+                            TextField("e.g. 50", text: $kWhAdded)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                        }
                     }
                 }
 
-                Section(header: Text("Current Fuel Level (\(Int(currentFuelLevel * 100))%)")) {
-                    VStack {
-                        Slider(value: $currentFuelLevel, in: 0...1, step: 0.05)
-                            .accentColor(fuelColor)
-                            .accessibilityLabel("Current Fuel Level Slider")
-                            .accessibilityValue("\(Int(currentFuelLevel * 100)) percent")
+                if isLiquidFuel {
+                    Section(header: Text("Current Fuel Level (\(Int(currentFuelLevel * 100))%)")) {
+                        VStack {
+                            Slider(value: $currentFuelLevel, in: 0...1, step: 0.05)
+                                .accentColor(fuelColor)
+                                .accessibilityLabel("Current Fuel Level Slider")
+                                .accessibilityValue("\(Int(currentFuelLevel * 100)) percent")
 
-                        HStack {
-                            Text("Empty").font(.caption).foregroundColor(.gray)
-                            Spacer()
-                            Text("Half").font(.caption).foregroundColor(.gray)
-                            Spacer()
-                            Text("Full").font(.caption).foregroundColor(.gray)
+                            HStack {
+                                Text("Empty").font(.caption).foregroundColor(.gray)
+                                Spacer()
+                                Text("Half").font(.caption).foregroundColor(.gray)
+                                Spacer()
+                                Text("Full").font(.caption).foregroundColor(.gray)
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                } else {
+                    Section(header: Text("Charge Level")) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Before Charging")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Slider(value: $chargeBefore, in: 0...1, step: 0.05)
+                                .accentColor(.green)
+                            Text("\(Int(chargeBefore * 100))%")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundColor(.green)
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("After Charging")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Slider(value: $chargeAfter, in: 0...1, step: 0.05)
+                                .accentColor(.green)
+                            Text("\(Int(chargeAfter * 100))%")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundColor(.green)
                         }
                     }
-                    .padding(.vertical, 8)
                 }
 
                 Section {
-                    Button(action: {
-                        if let amount = Double(requestedAmount) {
-                            isSubmitting = true
-                            localStore.submitFuelRequest(vehicleId: assignedVehicle, fuelType: selectedFuelType, amount: amount, currentLevel: currentFuelLevel)
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                                isSubmitting = false
-                                showSuccessAlert = true
-                            }
-                        }
-                    }) {
+                    Button(action: submitForm) {
                         HStack {
                             Spacer()
                             if isSubmitting {
@@ -93,8 +142,8 @@ struct FuelRequestView: View {
                             Spacer()
                         }
                     }
-                    .foregroundColor(requestedAmount.isEmpty ? .gray : .blue)
-                    .disabled(requestedAmount.isEmpty || isSubmitting)
+                    .foregroundColor(isFormValid ? .blue : .gray)
+                    .disabled(!isFormValid || isSubmitting)
                     .accessibilityLabel("Submit Fuel Request")
                 }
             }
@@ -116,6 +165,32 @@ struct FuelRequestView: View {
                     }
                 )
             }
+        }
+    }
+
+    private var isFormValid: Bool {
+        if isLiquidFuel {
+            return !requestedAmount.isEmpty
+        } else {
+            return !kWhAdded.isEmpty
+        }
+    }
+
+    private func submitForm() {
+        isSubmitting = true
+        if isLiquidFuel, let amount = Double(requestedAmount) {
+            localStore.submitFuelRequest(vehicleId: assignedVehicle, fuelType: selectedFuelType, amount: amount, currentLevel: currentFuelLevel)
+        } else if let kWh = Double(kWhAdded) {
+            localStore.submitFuelRequest(
+                vehicleId: assignedVehicle,
+                fuelType: selectedFuelType,
+                amount: kWh * 8.0,
+                currentLevel: chargeAfter
+            )
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            isSubmitting = false
+            showSuccessAlert = true
         }
     }
 

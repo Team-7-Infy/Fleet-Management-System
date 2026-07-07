@@ -362,8 +362,11 @@ struct DashboardView: View {
                 }
             }
             .onChange(of: trips) { _, newTrips in
-                if let live = newTrips.first(where: { $0.status == .inProgress }), activeTripForNavigation == nil {
-                    activeTripForNavigation = live
+                if activeTripForNavigation == nil {
+                    for t in newTrips where t.status == .inProgress {
+                        activeTripForNavigation = t
+                        break
+                    }
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ReloadTrips"))) { _ in
@@ -407,40 +410,7 @@ struct DashboardView: View {
                 Alert(
                     title: Text("EMERGENCY SOS"),
                     message: Text("Are you sure you want to trigger an SOS? This will instantly cancel your active trip and alert the fleet manager."),
-                    primaryButton: .destructive(Text("Trigger SOS")) {
-                        let tripToCancel = trips.first(where: { $0.status == .inProgress }) ?? trips.first(where: { $0.status == .accepted }) ?? trips.first(where: { $0.status == .scheduled })
-                        if let trip = tripToCancel {
-                            Task {
-                                do {
-                                    try await services.tripService.updateTripStatus(
-                                        id: trip.id,
-                                        status: .cancelled,
-                                        rejectionReason: "SOS Emergency: Cancelled via emergency SOS alert."
-                                    )
-
-                                    let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
-                                    for fmUser in fmUsers {
-                                        let notification = AppNotification(
-                                            id: UUID(),
-                                            title: "CRITICAL: Driver SOS Emergency",
-                                            message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation).",
-                                            type: "sos_emergency",
-                                            isRead: false,
-                                            referenceId: trip.id,
-                                            recipientId: fmUser.id,
-                                            createdAt: Date()
-                                        )
-                                        _ = try? await services.notificationService.createNotification(notification)
-                                    }
-
-                                    await viewModel.fetchDashboardData()
-                                    await onRefreshData?()
-                                } catch {
-                                    print("Failed to cancel trip on SOS: \(error)")
-                                }
-                            }
-                        }
-                    },
+                    primaryButton: .destructive(Text("Trigger SOS"), action: triggerSOS),
                     secondaryButton: .cancel()
                 )
             }
@@ -612,6 +582,57 @@ struct DashboardView: View {
             await onRefreshData?()
         } catch {
             print("Failed to reject trip: \(error)")
+        }
+    }
+
+    private func triggerSOS() {
+        let tripToCancel = trips.first(where: { $0.status == .inProgress }) ?? trips.first(where: { $0.status == .accepted }) ?? trips.first(where: { $0.status == .scheduled })
+        Task {
+            do {
+                if let trip = tripToCancel {
+                    try await services.tripService.updateTripStatus(
+                        id: trip.id,
+                        status: .cancelled,
+                        rejectionReason: "SOS Emergency: Cancelled via emergency SOS alert."
+                    )
+                }
+
+                let event = SOSEvent(
+                    id: UUID(),
+                    tripId: tripToCancel?.id,
+                    driverId: driver?.id ?? user.id,
+                    vehicleId: tripToCancel?.vehicleId?.uuidString,
+                    type: "critical",
+                    status: .pending,
+                    latitude: locationService.location?.coordinate.latitude ?? 0,
+                    longitude: locationService.location?.coordinate.longitude ?? 0,
+                    resolvedBy: nil,
+                    resolvedAt: nil,
+                    notes: nil,
+                    createdAt: Date()
+                )
+                _ = try? await services.sosService.createEvent(event)
+
+                let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
+                for fmUser in fmUsers {
+                    let notification = AppNotification(
+                        id: UUID(),
+                        title: "CRITICAL: Driver SOS Emergency",
+                        message: "Driver has triggered emergency SOS alert for Trip from \(tripToCancel?.startLocation ?? "N/A") to \(tripToCancel?.endLocation ?? "N/A").",
+                        type: "sos_emergency",
+                        isRead: false,
+                        referenceId: tripToCancel?.id,
+                        recipientId: fmUser.id,
+                        createdAt: Date()
+                    )
+                    _ = try? await services.notificationService.createNotification(notification)
+                }
+
+                await viewModel.fetchDashboardData()
+                await onRefreshData?()
+            } catch {
+                print("Failed to cancel trip on SOS: \(error)")
+            }
         }
     }
 }
@@ -976,12 +997,17 @@ struct ActionTile: View {
 }
 
 struct PendingRequestCard: View {
+    @EnvironmentObject var localStore: LocalDataStore
     let trip: Trip
     let vehicles: [Vehicle]
     var showActions: Bool = true
     var onCardTap: (() -> Void)? = nil
     var onAcceptTap: (() -> Void)? = nil
     var onRejectTap: (() -> Void)? = nil
+
+    private var hasPreTripInspection: Bool {
+        localStore.inspectedVehicles.contains(trip.id.uuidString)
+    }
 
     private var vehicleNumber: String {
         vehicles.first(where: { $0.id == trip.vehicleId })?.licencePlate ?? ""
@@ -1137,6 +1163,24 @@ struct PendingRequestCard: View {
                 .onTapGestureIf(enabled: !showActions && onCardTap != nil) {
                     onCardTap?()
                 }
+
+            if !showActions {
+                Divider()
+                HStack(spacing: 8) {
+                    Image(systemName: trip.status == .cancelled ? "xmark.circle.fill" : trip.status == .completed ? "checkmark.circle.fill" : "clock.fill")
+                        .font(.caption)
+                        .foregroundColor(trip.status == .cancelled ? .red : trip.status == .completed ? .green : .orange)
+                    if trip.status == .cancelled && hasPreTripInspection {
+                        Text("Cancelled (Pre-Trip Inspection Completed)")
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(.red)
+                    } else {
+                        Text(trip.status.rawValue.capitalized)
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
 
             if showActions {
                 Divider()

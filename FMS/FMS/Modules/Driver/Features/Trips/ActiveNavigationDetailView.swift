@@ -119,6 +119,9 @@ class LiveNavigationViewModel: ObservableObject {
     @Published var distanceCovered: String = "120 km"
     @Published var distanceRemaining: String = "45 km"
     @Published var eta: String = "14:30 PM"
+    @Published var routeStepInstructions: [String] = []
+    @Published var routeStepDistances: [CLLocationDistance] = []
+    @Published var routeTotalDistance: CLLocationDistance = 0
     
     let tripId: String
     let services: AppServices
@@ -214,6 +217,19 @@ class LiveNavigationViewModel: ObservableObject {
                 timeFormatter.timeStyle = .short
                 self.eta = timeFormatter.string(from: etaDate)
                 
+                self.routeTotalDistance = route.distance
+                var instructions: [String] = []
+                var distances: [CLLocationDistance] = []
+                for step in route.steps {
+                    let trimmed = step.instructions.trimmingCharacters(in: .whitespaces)
+                    if !trimmed.isEmpty {
+                        instructions.append(trimmed)
+                        distances.append(step.distance)
+                    }
+                }
+                self.routeStepInstructions = instructions
+                self.routeStepDistances = distances
+                
                 if self.waypoints.isEmpty {
                     self.generateWaypointsFromPolyline()
                 }
@@ -285,6 +301,7 @@ struct ActiveNavigationDetailView: View {
     
     // ViewModel state
     @StateObject private var viewModel: LiveNavigationViewModel
+    @StateObject private var voiceGuidance = VoiceGuidanceManager()
     
     // GPS Heading Position Tracker (iOS 17+)
     @State private var cameraPosition: MapCameraPosition = .userLocation(followsHeading: true, fallback: .automatic)
@@ -496,12 +513,10 @@ struct ActiveNavigationDetailView: View {
                         .frame(width: 44, height: 44)
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Proceed to")
-                                .font(.system(size: 18, weight: .bold))
+                            Text(voiceGuidance.currentInstruction.isEmpty ? "Proceed to the route" : voiceGuidance.currentInstruction)
+                                .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(.white)
-                            Text("the route")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(.white)
+                                .lineLimit(2)
                         }
                         
                         Spacer()
@@ -806,22 +821,38 @@ struct ActiveNavigationDetailView: View {
                                 status: .cancelled,
                                 rejectionReason: "SOS Emergency: Automatically cancelled via emergency SOS alert during active navigation."
                             )
-                            
-                            // Send notification to manager instantly
-                            let fmUserId = try? await services.userManagementService.fetchUsers()
-                                .first(where: { $0.role == .fleetManager })?.id
-                            let notification = AppNotification(
+
+                            let event = SOSEvent(
                                 id: UUID(),
-                                title: "CRITICAL: Driver SOS Emergency",
-                                message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation) during active navigation.",
-                                type: "geofence_exit",
-                                isRead: false,
-                                referenceId: trip.id,
-                                recipientId: fmUserId,
+                                tripId: trip.id,
+                                driverId: driver?.id ?? user.id,
+                                vehicleId: assignedVehicle,
+                                type: "critical",
+                                status: .pending,
+                                latitude: locationService.location?.coordinate.latitude ?? 0,
+                                longitude: locationService.location?.coordinate.longitude ?? 0,
+                                resolvedBy: nil,
+                                resolvedAt: nil,
+                                notes: nil,
                                 createdAt: Date()
                             )
-                            _ = try? await services.notificationService.createNotification(notification)
-                            
+                            _ = try? await services.sosService.createEvent(event)
+
+                            let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
+                            for fmUser in fmUsers {
+                                let notification = AppNotification(
+                                    id: UUID(),
+                                    title: "CRITICAL: Driver SOS Emergency",
+                                    message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation) during active navigation.",
+                                    type: "sos_emergency",
+                                    isRead: false,
+                                    referenceId: trip.id,
+                                    recipientId: fmUser.id,
+                                    createdAt: Date()
+                                )
+                                _ = try? await services.notificationService.createNotification(notification)
+                            }
+
                             await MainActor.run {
                                 onBack()
                             }
@@ -883,9 +914,20 @@ struct ActiveNavigationDetailView: View {
             let nearestIdx = nearestRouteIndex(to: newLocation.coordinate, coordinates: viewModel.routeCoordinates)
             let remainingKm = calculateRemainingDistance(from: nearestIdx, coordinates: viewModel.routeCoordinates)
             liveDistanceRemaining = String(format: "%.1f km", remainingKm)
+
+            let remainingMeters = remainingKm * 1000.0
+            voiceGuidance.update(remainingDistance: remainingMeters, nearestCoordIdx: nearestIdx)
         }
         .onDisappear {
             locationService.stopTracking()
+            voiceGuidance.stop()
+        }
+        .onReceive(viewModel.$routeStepInstructions) { instructions in
+            guard !instructions.isEmpty else { return }
+            voiceGuidance.configure(
+                instructions: instructions,
+                distances: viewModel.routeStepDistances
+            )
         }
         .onReceive(viewModel.$waypoints) { waypoints in
             guard !waypoints.isEmpty, let vehicleId = trip.vehicleId, let driverId = trip.driverId else { return }
