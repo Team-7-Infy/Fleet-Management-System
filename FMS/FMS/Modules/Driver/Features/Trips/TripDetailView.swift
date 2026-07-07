@@ -206,30 +206,50 @@ struct TripDetailView: View {
                         // 3. Vehicle Maintenance & Health Card
                         VehicleMaintenanceReportCard(vehicleNumber: vehicleNumber)
 
-                        // 4. Cancel Assignment Button (Only for active or scheduled assignments)
+                        // 4. Cancel Assignment Button (Gated: locked within 3 hours of departure, except for in-progress trips)
+                        let cancellationLocked = (trip.status == .accepted || trip.status == .scheduled || trip.status == .pending) && Date() >= trip.startTime.addingTimeInterval(-TripTimingPolicy.cancellationLockWindow)
                         VStack(spacing: 8) {
                             Text("Need to cancel this assignment?")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .padding(.top, 14)
 
-                            Button(action: {
-                                isCancelConfirmed = false
-                                cancelReason = ""
-                                cancelComments = ""
-                                showingCancelModal = true
-                            }) {
+                            if cancellationLocked {
                                 HStack {
-                                    Image(systemName: "xmark.circle.fill")
-                                    Text("Cancel Assignment")
+                                    Spacer()
+                                    Image(systemName: "lock.fill")
+                                    Text("Cancellation Locked")
                                         .fontWeight(.bold)
+                                    Spacer()
                                 }
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(Color.red)
+                                .background(Color.red.opacity(0.15))
+                                .foregroundColor(.red.opacity(0.6))
                                 .cornerRadius(16)
-                                .shadow(color: Color.red.opacity(0.15), radius: 8, x: 0, y: 4)
+
+                                Text("Cancellation is locked within 3 hours of departure. Contact your fleet manager if you cannot complete this trip.")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                            } else {
+                                Button(action: {
+                                    isCancelConfirmed = false
+                                    cancelReason = ""
+                                    cancelComments = ""
+                                    showingCancelModal = true
+                                }) {
+                                    HStack {
+                                        Image(systemName: "xmark.circle.fill")
+                                        Text("Cancel Assignment")
+                                            .fontWeight(.bold)
+                                    }
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                                    .background(Color.red)
+                                    .cornerRadius(16)
+                                    .shadow(color: Color.red.opacity(0.15), radius: 8, x: 0, y: 4)
+                                }
                             }
                         }
                     }

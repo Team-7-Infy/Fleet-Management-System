@@ -71,16 +71,22 @@ struct DashboardView: View {
         // The nearest accepted or inspection-eligible Scheduled Trip (top card if no Live Trip exists)
         let nearestScheduledTrip = liveTrip == nil ? allScheduled.first(where: {
             $0.status == .accepted ||
-            (($0.status == .scheduled || $0.status == .pending) && Date() >= $0.startTime.addingTimeInterval(-3 * 3600))
+            (($0.status == .scheduled || $0.status == .pending) && Date() >= $0.startTime.addingTimeInterval(-TripTimingPolicy.preTripInspectionWindow))
         }) : nil
 
         // Is Pre-Trip Inspection enabled for the nearest Scheduled Trip?
         let isInspectionEnabled: Bool = {
             if let nearest = nearestScheduledTrip {
-                let threeHoursBefore = nearest.startTime.addingTimeInterval(-3 * 3600)
-                return Date() >= threeHoursBefore
+                let windowBefore = nearest.startTime.addingTimeInterval(-TripTimingPolicy.preTripInspectionWindow)
+                return Date() >= windowBefore
             }
             return false
+        }()
+
+        // Is Start Trip enabled for the nearest Scheduled Trip? (1 hour before departure)
+        let isStartTripEnabled: Bool = {
+            guard let nearest = nearestScheduledTrip else { return false }
+            return Date() >= nearest.startTime.addingTimeInterval(-TripTimingPolicy.startTripWindow)
         }()
 
         // Remaining scheduled trips for the section list below
@@ -176,6 +182,7 @@ struct DashboardView: View {
                                         isInspected: localStore.inspectedVehicles.contains(nearest.id.uuidString),
                                         activeTripExists: false,
                                         isInspectionEnabled: isInspectionEnabled,
+                                        canStartTrip: isStartTripEnabled,
                                         onPerformInspection: {
                                             selectedTripToStart = nearest.id.uuidString
                                             showingInspectionSheet = true
@@ -254,7 +261,7 @@ struct DashboardView: View {
                             } else {
                                 VStack(spacing: 16) {
                                     ForEach(displayedScheduled) { trip in
-                                        if (trip.status == .pending || trip.status == .scheduled) && Date() < trip.startTime.addingTimeInterval(-3 * 3600) {
+                                        if (trip.status == .pending || trip.status == .scheduled) && Date() < trip.startTime.addingTimeInterval(-TripTimingPolicy.preTripInspectionWindow) {
                                             PendingRequestCard(
                                                 trip: trip,
                                                 vehicles: vehicles,
@@ -1834,6 +1841,7 @@ struct UpcomingLiveTripCard: View {
     let isInspected: Bool
     let activeTripExists: Bool
     let isInspectionEnabled: Bool
+    let canStartTrip: Bool
     let onPerformInspection: () -> Void
     let onStartTrip: () -> Void
 
@@ -2007,7 +2015,7 @@ struct UpcomingLiveTripCard: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
-            } else {
+            } else if canStartTrip {
                 Button(action: {
                     HapticManager.shared.triggerImpact(style: .medium)
                     onStartTrip()
@@ -2031,6 +2039,25 @@ struct UpcomingLiveTripCard: View {
                     .foregroundColor(.white)
                     .cornerRadius(14)
                     .shadow(color: Color.blue.opacity(0.35), radius: 8, x: 0, y: 4)
+                }
+            } else {
+                VStack(spacing: 8) {
+                    HStack {
+                        Spacer()
+                        Image(systemName: "lock.fill")
+                        Text("Start Trip Locked")
+                            .fontWeight(.bold)
+                        Spacer()
+                    }
+                    .padding(.vertical, 16)
+                    .background(Color.white.opacity(0.15))
+                    .foregroundColor(.white.opacity(0.6))
+                    .cornerRadius(14)
+
+                    Text("You can start this trip 1 hour before the scheduled departure.")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
         }
