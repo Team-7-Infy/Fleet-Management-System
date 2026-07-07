@@ -18,6 +18,7 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
     var finalFuelLevel: Double?
     var driverNote: String?
     var vehicleTypeRequested: String?
+    var postTripInspectionDueAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id = "tripid"
@@ -37,6 +38,7 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
         case finalFuelLevel = "final_fuel_level"
         case driverNote = "driver_note"
         case vehicleTypeRequested = "vehicletype_requested"
+        case postTripInspectionDueAt = "post_trip_inspection_due_at"
     }
 }
 

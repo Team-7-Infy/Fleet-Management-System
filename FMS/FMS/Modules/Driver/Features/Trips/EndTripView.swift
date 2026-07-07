@@ -326,6 +326,8 @@ struct EndTripView: View {
                 updatedTrip.status = .completed
                 updatedTrip.endTime = Date()
                 updatedTrip.driverNote = failedItems.isEmpty ? "Post-trip check completed normally." : "Post-trip inspection failed."
+                let distanceDelta = max(0, odoDouble - previousOdometer)
+                updatedTrip.distanceKm = distanceDelta
 
                 _ = try await services.tripService.updateTrip(updatedTrip)
                 UserDefaults.standard.removeObject(forKey: "trip_\(trip.id.uuidString)_paused")

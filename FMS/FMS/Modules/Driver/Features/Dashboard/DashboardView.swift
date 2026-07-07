@@ -124,8 +124,8 @@ struct DashboardView: View {
 
                         // --- 1. Active/Post-Trip Section (Highest Priority) ---
                         ZStack {
-                            if let pendingPostTripId = localStore.pendingPostTripInspectionTripId,
-                               let matchingTrip = trips.first(where: { $0.id.uuidString == pendingPostTripId }) {
+                            if let pendingPostTrip = localStore.pendingPostTripInspection,
+                               let matchingTrip = trips.first(where: { $0.id.uuidString == pendingPostTrip.tripId }) {
                                 VStack(alignment: .leading, spacing: 10) {
                                     SectionHeader(title: "Post-Trip Inspection Required")
                                     PostTripInspectionCard(
@@ -147,11 +147,11 @@ struct DashboardView: View {
                                         tripId: active.id.uuidString,
                                         startLocation: active.startLocation,
                                         endLocation: active.endLocation,
-                                        distanceCovered: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? "120 km" : "0 km",
-                                        distanceRemaining: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? "45 km" : formattedDistance(for: active),
+                                        distanceCovered: "—",
+                                        distanceRemaining: formattedDistance(for: active),
                                         eta: formattedEta(for: active),
-                                        remainingTime: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? "2h 15m" : "Calculating...",
-                                        progress: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? 0.65 : 0.0,
+                                        remainingTime: "Calculating...",
+                                        progress: 0.0,
                                         onCardTap: { showingTripDetailsSheet = true },
                                         onNavigationTap: {
                                             localStore.isNavigationActive = true
@@ -493,19 +493,16 @@ struct DashboardView: View {
                     trip: tripToInspect,
                     services: services,
                     onComplete: { finalOdometer, notes in
-                        localStore.pendingPostTripInspectionTripId = nil
+                        localStore.pendingPostTripInspection = nil
                         
                         Task {
                             await onRefreshData?()
                         }
                         
-                        // Calculate metrics
-                        let startOdo = Double(UserDefaults.standard.integer(forKey: "trip_\(tripToInspect.id.uuidString)_pre_odo"))
-                        let finalOdo = Double(finalOdometer) ?? (startOdo > 0 ? startOdo + 12.4 : 124000.0)
-                        let startOdoVal = startOdo > 0 ? startOdo : (finalOdo - 12.4)
-                        
-                        self.successDistance = max(1.2, finalOdo - startOdoVal)
-                        self.successDuration = max(15, Int(Date().timeIntervalSince(tripToInspect.startTime)) / 60)
+                        // Calculate metrics from real data
+                        let tripStart = tripToInspect.actualStartTime ?? tripToInspect.startTime
+                        self.successDistance = tripToInspect.distanceKm ?? max(1.2, (Double(finalOdometer) ?? 0) - (tripToInspect.finalOdometer ?? 0))
+                        self.successDuration = max(15, Int(Date().timeIntervalSince(tripStart)) / 60)
                         self.completedTripForSuccess = tripToInspect
                         
                         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
@@ -566,8 +563,10 @@ struct DashboardView: View {
     }
 
     private func formattedDistance(for trip: Trip) -> String {
-        let hash = abs(trip.id.uuidString.hashValue)
-        return "\(50 + (hash % 450)) km"
+        guard let km = trip.distanceKm, km > 0 else { return "—" }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return (formatter.string(from: NSNumber(value: km)) ?? "\(km)") + " km"
     }
 
     private func formattedEta(for trip: Trip) -> String {
@@ -981,8 +980,10 @@ struct PendingRequestCard: View {
     }
 
     private var displayDistance: String {
-        let hash = abs(trip.id.uuidString.hashValue)
-        return "\(50 + (hash % 450)) km"
+        guard let km = trip.distanceKm, km > 0 else { return "—" }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return (formatter.string(from: NSNumber(value: km)) ?? "\(km)") + " km"
     }
 
     private var displayEta: String {
@@ -1840,8 +1841,7 @@ struct UpcomingLiveTripCard: View {
     }
 
     private var displayDistance: String {
-        let hash = abs(trip.id.uuidString.hashValue)
-        let km = 1000 + (hash % 500)
+        guard let km = trip.distanceKm, km > 0 else { return "—" }
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         return (formatter.string(from: NSNumber(value: km)) ?? "\(km)") + " km"
@@ -2136,19 +2136,53 @@ extension View {
 }
 
 struct PostTripInspectionCard: View {
+    @EnvironmentObject var localStore: LocalDataStore
     let trip: Trip
     let vehicles: [Vehicle]
     let onPerformInspection: () -> Void
-    
+
+    @State private var now = Date()
+
+    private var deadline: Date? {
+        localStore.pendingPostTripInspection?.deadline
+    }
+
+    private var timeRemaining: TimeInterval {
+        guard let deadline else { return 0 }
+        return deadline.timeIntervalSince(now)
+    }
+
+    private var isOverdue: Bool {
+        timeRemaining <= 0
+    }
+
+    private var countdownText: String {
+        guard let deadline else { return "" }
+        if isOverdue { return "Overdue" }
+        let remaining = Int(timeRemaining)
+        let hours = remaining / 3600
+        let minutes = (remaining % 3600) / 60
+        if hours > 0 {
+            return "\(hours)h \(minutes)m remaining"
+        }
+        return "\(minutes)m remaining"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("PENDING POST-TRIP INSPECTION")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.orange)
-                        .tracking(1.0)
-                    
+                    HStack {
+                        Text(isOverdue ? "OVERDUE POST-TRIP INSPECTION" : "PENDING POST-TRIP INSPECTION")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(isOverdue ? .red : .orange)
+                            .tracking(1.0)
+
+                        Text("Complete within 2 hours of trip completion")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+
                     let plate = vehicles.first(where: { $0.id == trip.vehicleId })?.licencePlate ?? "Unknown"
                     Text("Vehicle: \(plate)")
                         .font(.title3)
@@ -2156,11 +2190,11 @@ struct PostTripInspectionCard: View {
                         .foregroundColor(.primary)
                 }
                 Spacer()
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.orange)
+                Image(systemName: isOverdue ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+                    .foregroundColor(isOverdue ? .red : .orange)
                     .font(.title2)
             }
-            
+
             HStack(spacing: 8) {
                 Image(systemName: "number")
                     .foregroundColor(.secondary)
@@ -2168,7 +2202,20 @@ struct PostTripInspectionCard: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
-            
+
+            if let deadline {
+                HStack(spacing: 6) {
+                    Image(systemName: isOverdue ? "clock.badge.exclamationmark" : "clock")
+                        .foregroundColor(isOverdue ? .red : .orange)
+                    Text(countdownText)
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(isOverdue ? .red : .orange)
+                    Text("- Due \(deadline.formatted(date: .omitted, time: .shortened))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+
             Button(action: onPerformInspection) {
                 HStack {
                     Text("Perform Post-Trip Inspection")
@@ -2181,7 +2228,7 @@ struct PostTripInspectionCard: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
                 .foregroundColor(.white)
-                .background(Color.orange)
+                .background(isOverdue ? Color.red : Color.orange)
                 .cornerRadius(12)
             }
             .buttonStyle(PlainButtonStyle())
@@ -2190,5 +2237,8 @@ struct PostTripInspectionCard: View {
         .background(Color(UIColor.secondarySystemGroupedBackground))
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.04), radius: 10, y: 5)
+        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { newNow in
+            now = newNow
+        }
     }
 }

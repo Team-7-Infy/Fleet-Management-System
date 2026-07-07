@@ -273,10 +273,7 @@ struct CompletedTripDetailView: View {
     @State private var showingReportIssueSheet = false
 
     private var distanceValue: Double {
-        if let end = trip.finalOdometer {
-            return end - 124000
-        }
-        return 0.0
+        trip.distanceKm ?? 0.0
     }
 
     private var estimatedFuelLiters: Double {
@@ -463,7 +460,7 @@ struct CompletedTripDetailView: View {
                             Text("Start Level")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            Text("95%")
+                            Text("—")
                                 .font(.subheadline)
                                 .fontWeight(.bold)
                                 .foregroundColor(.green)
@@ -476,7 +473,7 @@ struct CompletedTripDetailView: View {
                             Text("End Level")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            Text("78%")
+                            Text(trip.finalFuelLevel.map { "\(Int($0))%" } ?? "—")
                                 .font(.subheadline)
                                 .fontWeight(.bold)
                                 .foregroundColor(.orange)
@@ -509,7 +506,7 @@ struct CompletedTripDetailView: View {
                         Text("DISTANCE TRAVELLED")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.secondary)
-                        Text("\(Int(distanceValue)) km")
+                        Text(distanceValue > 0 ? "\(Int(distanceValue)) km" : "—")
                             .font(.subheadline)
                             .fontWeight(.bold)
                     }
@@ -520,7 +517,7 @@ struct CompletedTripDetailView: View {
                         Text("FUEL CONSUMED (EST)")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.secondary)
-                        Text(String(format: "%.1f L", estimatedFuelLiters))
+                        Text(distanceValue > 0 ? String(format: "%.1f L", estimatedFuelLiters) : "—")
                             .font(.subheadline)
                             .fontWeight(.bold)
                     }

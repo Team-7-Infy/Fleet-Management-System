@@ -298,7 +298,6 @@ struct ActiveNavigationDetailView: View {
     
     // End Trip Flow States
     @State private var showingEndConfirmation = false
-    @State private var showingCompletionForm = false
     @State private var showingPostTripInspection = false
     @State private var postTripInspectionSubmitted = false
     @State private var showingTripSuccess = false
@@ -726,7 +725,16 @@ struct ActiveNavigationDetailView: View {
                         // Complete Trip Button
                         Button(action: {
                             HapticManager.shared.triggerImpact(style: .heavy)
-                            localStore.pendingPostTripInspectionTripId = trip.id.uuidString
+                            let deadline = Date().addingTimeInterval(2 * 3600)
+                            localStore.pendingPostTripInspection = PendingPostTripInspection(
+                                tripId: trip.id.uuidString,
+                                deadline: deadline
+                            )
+                            Task {
+                                var updatedTrip = trip
+                                updatedTrip.postTripInspectionDueAt = deadline
+                                _ = try? await services.tripService.updateTrip(updatedTrip)
+                            }
                             onBack()
                         }) {
                             Text("Complete Trip")
@@ -742,49 +750,6 @@ struct ActiveNavigationDetailView: View {
                         .padding(.horizontal)
                         .padding(.top, 4)
                         .padding(.bottom, 8)
-                        .sheet(isPresented: $showingCompletionForm) {
-                            TripCompletionFormView(
-                                activeTripId: trip.id.uuidString,
-                                trip: trip,
-                                previousOdometer: vehicles.first(where: { $0.id == trip.vehicleId })?.odometer ?? 0.0,
-                                onComplete: { finalOdometer, finalFuelLevel, needsMaintenance, driverNote in
-                                    Task {
-                                        var updatedTrip = trip
-                                        let startOdo = Double(UserDefaults.standard.integer(forKey: "trip_\(trip.id.uuidString)_pre_odo"))
-                                        let finalOdo = Double(finalOdometer) ?? (startOdo > 0 ? startOdo + 12.4 : 124000.0)
-                                        updatedTrip.finalOdometer = finalOdo
-                                        updatedTrip.finalFuelLevel = Double(finalFuelLevel.trimmingCharacters(in: CharacterSet(charactersIn: "%"))) ?? 75.0
-                                        updatedTrip.status = .completed
-                                        updatedTrip.endTime = Date()
-                                        updatedTrip.driverNote = driverNote
-                                        _ = try? await services.tripService.updateTrip(updatedTrip)
-                                        
-                                        // Update vehicle odometer in DB
-                                        if let vehicleId = trip.vehicleId,
-                                           var vehicleModel = try? await services.vehicleService.fetchVehicle(id: vehicleId) {
-                                            vehicleModel.odometer = finalOdo
-                                            _ = try? await services.vehicleService.updateVehicle(vehicleModel)
-                                        }
-                                        
-                                        let startOdoVal = startOdo > 0 ? startOdo : (finalOdo - 12.4)
-                                        let dist = max(1.2, finalOdo - startOdoVal)
-                                        let duration = max(15, Int(Date().timeIntervalSince(trip.startTime)) / 60)
-                                        let earn = Double(dist) * 1.95 + 2.0
-                                        
-                                        await MainActor.run {
-                                            locationService.stopTracking()
-                                            self.finalDistance = dist
-                                            self.finalDuration = duration
-                                            self.finalEarnings = earn
-                                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                                                self.showingTripSuccess = true
-                                            }
-                                        }
-                                    }
-                                }
-                            )
-                            .environmentObject(localStore)
-                        }
                     }
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }

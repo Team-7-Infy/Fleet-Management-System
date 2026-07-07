@@ -1,6 +1,11 @@
 import Foundation
 import Combine
 
+struct PendingPostTripInspection: Codable {
+    let tripId: String
+    let deadline: Date
+}
+
 final class LocalDataStore: ObservableObject {
     static let shared = LocalDataStore()
 
@@ -8,10 +13,23 @@ final class LocalDataStore: ObservableObject {
     @Published var incidents: [Incident] = []
     @Published var inspectedVehicles: Set<String> = []
     @Published var isNavigationActive = false
-    @Published var pendingPostTripInspectionTripId: String? = UserDefaults.standard.string(forKey: "pending_post_trip_inspection_id") {
+    @Published var pendingPostTripInspection: PendingPostTripInspection? {
         didSet {
-            UserDefaults.standard.set(pendingPostTripInspectionTripId, forKey: "pending_post_trip_inspection_id")
+            if let data = try? JSONEncoder().encode(pendingPostTripInspection) {
+                UserDefaults.standard.set(data, forKey: "pending_post_trip_inspection")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "pending_post_trip_inspection")
+            }
         }
+    }
+
+    var hasPendingPostTripInspection: Bool {
+        pendingPostTripInspection != nil
+    }
+
+    var isPostTripInspectionOverdue: Bool {
+        guard let pending = pendingPostTripInspection else { return false }
+        return Date() >= pending.deadline
     }
 
     private let fuelKey = "local_fuel_history"
@@ -20,6 +38,10 @@ final class LocalDataStore: ObservableObject {
     private init() {
         loadFuelHistory()
         loadIncidents()
+        if let data = UserDefaults.standard.data(forKey: "pending_post_trip_inspection"),
+           let pending = try? JSONDecoder().decode(PendingPostTripInspection.self, from: data) {
+            pendingPostTripInspection = pending
+        }
     }
 
     // MARK: - Fuel
