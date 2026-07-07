@@ -129,8 +129,9 @@ struct ReportExporter {
         lines.append("Name,Licence,Trips,Overall Score")
         for item in vm.driverPerformance {
             let name = item.user?.displayName ?? "Unknown"
-            let score = vm.usersViewModel.driverScore(for: item.driver.id).map(\.overallScore).map(Int.init) ?? 75
-            lines.append("\(csvEscaped(name)),\(item.driver.licenceNum),\(item.tripCount),\(score)")
+            let scoreOpt = vm.usersViewModel.driverScore(for: item.driver.id).map(\.overallScore).map(Int.init)
+            let scoreStr = scoreOpt.map { "\($0)" } ?? "N/A"
+            lines.append("\(csvEscaped(name)),\(item.driver.licenceNum),\(item.tripCount),\(scoreStr)")
         }
     }
 
@@ -493,9 +494,9 @@ struct ReportExporter {
             ])
             for (i, item) in vm.driverPerformance.enumerated() {
                 let name = item.user?.displayName ?? "Unknown"
-                let score = vm.usersViewModel.driverScore(for: item.driver.id).map(\.overallScore).map(Int.init) ?? 75
-                let scoreColor = score >= 70 ? pc.successColor : (score >= 40 ? pc.warningColor : pc.dangerColor)
-                let scoreStr = "\(score)"
+                let scoreOpt = vm.usersViewModel.driverScore(for: item.driver.id).map(\.overallScore).map(Int.init)
+                let scoreColor = (scoreOpt ?? 75) >= 70 ? pc.successColor : ((scoreOpt ?? 75) >= 40 ? pc.warningColor : pc.dangerColor)
+                let scoreStr = scoreOpt.map { "\($0)" } ?? "N/A"
                 pc.drawTableRow(columns: [
                     (name, nameCol),
                     (item.driver.licenceNum, licCol),
