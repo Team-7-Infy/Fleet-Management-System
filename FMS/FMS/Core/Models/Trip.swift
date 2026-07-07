@@ -6,6 +6,7 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
     var endLocation: String
     var startTime: Date
     var endTime: Date?
+    var actualStartTime: Date?
     var vehicleId: UUID?
     var driverId: UUID?
     var status: TripStatus
@@ -24,6 +25,7 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
         case endLocation = "endlocation"
         case startTime = "starttime"
         case endTime = "endtime"
+        case actualStartTime = "actual_start_time"
         case vehicleId = "vehicleid"
         case driverId = "driverid"
         case status

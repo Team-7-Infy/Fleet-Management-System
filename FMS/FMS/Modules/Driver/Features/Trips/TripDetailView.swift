@@ -135,14 +135,24 @@ struct TripDetailView: View {
                             Divider()
 
                             HStack(spacing: 20) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("START DATE & TIME")
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("SCHEDULED START")
                                         .font(.system(size: 9, weight: .bold))
                                         .foregroundColor(.secondary)
                                     Text(trip.startTime.formatted(date: .abbreviated, time: .shortened))
-                                        .font(.subheadline)
-                                        .fontWeight(.bold)
+                                        .font(.caption)
+                                        .fontWeight(.medium)
                                         .foregroundColor(.primary)
+                                    if let actual = trip.actualStartTime {
+                                        Text("ACTUAL START")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundColor(.secondary)
+                                            .padding(.top, 2)
+                                        Text(actual.formatted(date: .abbreviated, time: .shortened))
+                                            .font(.subheadline)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.primary)
+                                    }
                                 }
 
                                 Spacer()
@@ -346,7 +356,7 @@ struct CompletedTripDetailView: View {
                                 .font(.body)
                                 .fontWeight(.bold)
                                 .foregroundColor(.primary)
-                            Text("Actual Start: \(trip.startTime.formatted(date: .abbreviated, time: .shortened))")
+                            Text("Actual Start: \(trip.actualStartTime?.formatted(date: .abbreviated, time: .shortened) ?? "N/A")")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }

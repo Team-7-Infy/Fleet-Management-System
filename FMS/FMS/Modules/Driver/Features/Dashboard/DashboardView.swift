@@ -182,10 +182,13 @@ struct DashboardView: View {
                                         onStartTrip: {
                                             Task {
                                                 do {
-                                                    try await services.tripService.updateTripStatus(id: nearest.id, status: .inProgress)
+                                                    var updatedTrip = nearest
+                                                    updatedTrip.actualStartTime = Date()
+                                                    updatedTrip.status = .inProgress
+                                                    try await services.tripService.updateTrip(updatedTrip)
                                                     await onRefreshData?()
                                                     await MainActor.run {
-                                                        activeTripForNavigation = nearest
+                                                        activeTripForNavigation = updatedTrip
                                                         showingActiveNavigation = true
                                                     }
                                                 } catch {
