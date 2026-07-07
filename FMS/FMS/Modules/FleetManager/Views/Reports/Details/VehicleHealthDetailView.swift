@@ -28,6 +28,11 @@ struct VehicleHealthDetailView: View {
         .fleetScreenBackground()
         .navigationTitle("Vehicle Health")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ReportExportToolbarItem(reportType: .vehicleHealth, viewModel: reportsViewModel)
+            }
+        }
         .onAppear { localPeriod = reportsViewModel.selectedPeriod }
     }
 

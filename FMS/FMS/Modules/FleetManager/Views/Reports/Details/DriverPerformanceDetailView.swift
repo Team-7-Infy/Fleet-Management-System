@@ -27,6 +27,11 @@ struct DriverPerformanceDetailView: View {
         .fleetScreenBackground()
         .navigationTitle("Driver Perf.")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ReportExportToolbarItem(reportType: .driverPerformance, viewModel: reportsViewModel)
+            }
+        }
         .onAppear { localPeriod = reportsViewModel.selectedPeriod }
     }
 

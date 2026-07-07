@@ -27,6 +27,11 @@ struct FleetUtilizationDetailView: View {
         .fleetScreenBackground()
         .navigationTitle("Utilization")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ReportExportToolbarItem(reportType: .fleetUtilization, viewModel: reportsViewModel)
+            }
+        }
         .onAppear { localPeriod = reportsViewModel.selectedPeriod }
     }
 
