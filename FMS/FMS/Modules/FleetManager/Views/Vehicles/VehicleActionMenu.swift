@@ -37,7 +37,7 @@ struct VehicleActionMenu: View {
                 Task { await viewModel.delete(vehicle) }
             }
         } message: {
-            Text("Vehicle \(vehicle.licencePlate) (\(vehicle.make) \(vehicle.model)) will be permanently removed.")
+            Text("Vehicle \(vehicle.licencePlate) (\(vehicle.make) \(vehicle.model)) will be deactivated. It can be restored later if needed.")
         }
     }
 }

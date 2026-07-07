@@ -1198,7 +1198,7 @@ struct FuelLogView: View {
     @State private var selectedType: String = "Diesel"
     @State private var notes: String = ""
 
-    let fuelTypes = ["Diesel", "Petrol", "CNG", "EV Charging"]
+    let fuelTypes = ["Diesel", "Petrol", "CNG"]
 
     var body: some View {
         NavigationStack {

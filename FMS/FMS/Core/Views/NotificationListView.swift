@@ -154,7 +154,7 @@ struct NotificationRow: View {
         switch notification.type {
         case "user_created": return "person.badge.plus.fill"
         case "trip_assignment": return "map.fill"
-        case "geofence_exit": return "exclamationmark.triangle.fill"
+        case "geofence_exit", "route_deviation": return "exclamationmark.triangle.fill"
         case "vehicle_assigned": return "truck.box.fill"
         case "trip_started": return "play.circle.fill"
         case "trip_completed": return "checkmark.circle.fill"
@@ -168,7 +168,7 @@ struct NotificationRow: View {
 
     private var iconColor: Color {
         switch notification.type {
-        case "geofence_exit", "trip_delay": return .red
+        case "geofence_exit", "route_deviation", "trip_delay": return .red
         case "user_created": return .green
         case "trip_assignment", "vehicle_assigned", "work_order_assigned": return .blue
         case "trip_started", "trip_completed": return .green
@@ -357,7 +357,7 @@ struct NotificationDetailView: View {
         switch notification.type {
         case "user_created": return "person.badge.plus.fill"
         case "trip_assignment": return "map.fill"
-        case "geofence_exit": return "exclamationmark.triangle.fill"
+        case "geofence_exit", "route_deviation": return "exclamationmark.triangle.fill"
         case "vehicle_assigned": return "truck.box.fill"
         case "trip_started": return "play.circle.fill"
         case "trip_completed": return "checkmark.circle.fill"
@@ -371,7 +371,7 @@ struct NotificationDetailView: View {
 
     private var iconColor: Color {
         switch notification.type {
-        case "geofence_exit", "trip_delay": return .red
+        case "geofence_exit", "route_deviation", "trip_delay": return .red
         case "user_created": return .green
         case "trip_assignment", "vehicle_assigned", "work_order_assigned": return .blue
         case "trip_started", "trip_completed": return .green

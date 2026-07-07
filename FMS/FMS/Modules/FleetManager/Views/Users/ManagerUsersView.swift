@@ -389,7 +389,7 @@ struct ManagerUserDetailView: View {
                 }
             }
         } message: {
-            Text("This action cannot be undone. The user and their login will be removed.")
+            Text("The user will be deactivated. Their data is preserved and can be restored later if needed.")
         }
     }
 
