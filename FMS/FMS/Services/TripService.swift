@@ -237,4 +237,18 @@ final actor TripService: TripServiceProtocol {
             }
         }
     }
+
+    func hasPostTripInspection(tripId: UUID) async throws -> Bool {
+        struct InspectionCheck: Codable {
+            let id: UUID
+        }
+        let response: [InspectionCheck] = try await supabase.client
+            .from("vehicle_inspections")
+            .select("id")
+            .eq("trip_id", value: tripId.uuidString)
+            .eq("type", value: "post_trip")
+            .execute()
+            .value
+        return !response.isEmpty
+    }
 }

@@ -30,7 +30,7 @@ final class TripManagementViewModel: ObservableObject {
 
     var rejectionRequests: [Trip] {
         trips.filter { $0.status == .rejectionPending }
-            .sorted { $0.startTime > $1.startTime }
+            .sorted { $0.startTime < $1.startTime }
     }
 
     func load() async {
@@ -39,7 +39,7 @@ final class TripManagementViewModel: ObservableObject {
 
         do {
             trips = try await tripService.fetchTrips()
-                .sorted { $0.startTime > $1.startTime }
+                .sorted { $0.startTime < $1.startTime }
             errorMessage = nil
         } catch is CancellationError {
             errorMessage = nil
@@ -51,40 +51,59 @@ final class TripManagementViewModel: ObservableObject {
     func createTrip(form: FleetManagerTripForm) async -> Bool {
         lastTripNotificationTargetDriverId = nil
         guard form.isValid else {
-            errorMessage = "Enter a pickup location and destination."
+            errorMessage = "Complete trip details. Start location, destination, and manual driver/vehicle selections must be provided."
             clearSuccessMessage()
             return false
         }
 
         do {
-            let trip = try await tripService.createTrip(form.makeTrip())
+            let initialTrip = form.makeTrip()
+            let trip = try await tripService.createTrip(initialTrip)
 
-            if let vehicleType = trip.vehicleTypeRequested, vehicleType.isEmpty == false {
-                let result = try await autoAssign(trip: trip)
-                if let (vehicleId, driverId) = result {
-                    var updatedTrip = trip
-                    updatedTrip.vehicleId = vehicleId
-                    updatedTrip.driverId = driverId
-                    let saved = try await tripService.updateTrip(updatedTrip)
+            if form.isAutoAssign {
+                if let vehicleType = trip.vehicleTypeRequested, vehicleType.isEmpty == false {
+                    let result = try await autoAssign(trip: trip)
+                    if let (vehicleId, driverId) = result {
+                        var updatedTrip = trip
+                        updatedTrip.vehicleId = vehicleId
+                        updatedTrip.driverId = driverId
+                        let saved = try await tripService.updateTrip(updatedTrip)
+                        try await vehicleService.assignDriver(vehicleId: vehicleId, driverId: driverId)
+                        try await vehicleService.setVehicleStatus(vehicleId: vehicleId, status: .assigned)
+                        trips.insert(saved, at: 0)
+                        lastTripNotificationTargetDriverId = driverId
+
+                        let driverName = await resolveDriverName(driverId: driverId)
+                        let vehiclePlate = await resolveVehiclePlate(vehicleId: vehicleId)
+                        showSuccessMessage(
+                            "Trip created — automatically assigned to \(driverName) (\(vehiclePlate))."
+                        )
+                    } else {
+                        trips.insert(trip, at: 0)
+                        showSuccessMessage(
+                            "Trip created — no eligible vehicle or driver was available."
+                        )
+                    }
+                } else {
+                    trips.insert(trip, at: 0)
+                    showSuccessMessage("Trip created (manual assignment required).")
+                }
+            } else {
+                if let vehicleId = trip.vehicleId, let driverId = trip.driverId {
                     try await vehicleService.assignDriver(vehicleId: vehicleId, driverId: driverId)
                     try await vehicleService.setVehicleStatus(vehicleId: vehicleId, status: .assigned)
-                    trips.insert(saved, at: 0)
+                    trips.insert(trip, at: 0)
                     lastTripNotificationTargetDriverId = driverId
 
                     let driverName = await resolveDriverName(driverId: driverId)
                     let vehiclePlate = await resolveVehiclePlate(vehicleId: vehicleId)
                     showSuccessMessage(
-                        "Trip created — assigned to \(driverName) (\(vehiclePlate))."
+                        "Trip created — manually assigned to \(driverName) (\(vehiclePlate))."
                     )
                 } else {
                     trips.insert(trip, at: 0)
-                    showSuccessMessage(
-                        "Trip created — no eligible vehicle or driver was available."
-                    )
+                    showSuccessMessage("Trip created.")
                 }
-            } else {
-                trips.insert(trip, at: 0)
-                showSuccessMessage("Trip created (manual assignment required).")
             }
 
             errorMessage = nil
@@ -263,10 +282,33 @@ final class TripManagementViewModel: ObservableObject {
 
     private func fetchEligibleVehicles(for vehicleType: String) async throws -> [Vehicle] {
         let all = try await vehicleService.fetchVehicles()
-        return all.filter { vehicle in
-            vehicle.status == .available &&
-            vehicle.vehicleType.lowercased() == vehicleType.lowercased()
+        let allTrips = try await tripService.fetchTrips()
+        
+        var eligible: [Vehicle] = []
+        for vehicle in all {
+            guard vehicle.status == .available,
+                  vehicle.vehicleType.lowercased() == vehicleType.lowercased()
+            else { continue }
+            
+            let vehicleTrips = allTrips.filter { $0.vehicleId == vehicle.id }
+            let hasActiveOrScheduled = vehicleTrips.contains { t in
+                t.status == .scheduled || t.status == .pending || t.status == .accepted || t.status == .inProgress
+            }
+            if hasActiveOrScheduled {
+                continue
+            }
+            
+            let completedTrips = vehicleTrips.filter { $0.status == .completed }
+            if let mostRecentCompleted = completedTrips.sorted(by: { $0.startTime > $1.startTime }).first {
+                let hasInspection = try await tripService.hasPostTripInspection(tripId: mostRecentCompleted.id)
+                if !hasInspection {
+                    continue
+                }
+            }
+            
+            eligible.append(vehicle)
         }
+        return eligible
     }
 
     private func fetchEligibleDrivers(for vehicleType: String, tripStart: Date, tripEnd: Date) async throws -> [Driver] {
@@ -277,7 +319,7 @@ final class TripManagementViewModel: ObservableObject {
         let activeUserIds = Set(allUsers.filter { $0.isActive && $0.deletedAt == nil }.map(\.id))
 
         return allDrivers.filter { driver in
-            guard driver.status == .active,
+            guard driver.status != .unavailable && driver.status != .inactive,
                   driver.vehicleType.lowercased() == vehicleType.lowercased(),
                   activeUserIds.contains(driver.userId)
             else { return false }
@@ -290,10 +332,25 @@ final class TripManagementViewModel: ObservableObject {
     private func hasNoOverlap(_ existing: [Trip], tripStart: Date, tripEnd: Date) -> Bool {
         let overlappingStatuses: Set<TripStatus> = [.scheduled, .pending, .accepted, .inProgress]
         for t in existing {
-            guard overlappingStatuses.contains(t.status) else { continue }
-            let tEnd = t.endTime ?? t.startTime.addingTimeInterval(7200)
-            if t.startTime < tripEnd && tEnd > tripStart {
-                return false
+            if overlappingStatuses.contains(t.status) {
+                let tEnd = t.endTime ?? t.startTime.addingTimeInterval(7200)
+                if t.startTime < tripEnd && tEnd > tripStart {
+                    return false
+                }
+            } else if t.status == .completed {
+                let tEnd = t.endTime ?? t.startTime.addingTimeInterval(7200)
+                
+                if tripStart >= t.startTime {
+                    let bufferEnd = tEnd.addingTimeInterval(5 * 3600)
+                    if tripStart < bufferEnd {
+                        return false
+                    }
+                } else {
+                    let bufferStart = t.startTime.addingTimeInterval(-5 * 3600)
+                    if tripEnd > bufferStart {
+                        return false
+                    }
+                }
             }
         }
         return true

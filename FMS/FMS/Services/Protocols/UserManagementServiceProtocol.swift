@@ -20,6 +20,8 @@ protocol UserManagementServiceProtocol: AnyObject, Sendable {
     func fetchDrivers() async throws -> [Driver]
     func createDriver(_ driver: Driver) async throws -> Driver
     func updateDriverProfile(userId: UUID, licenceNumber: String, vehicleType: String) async throws
+    func updateDriverStatus(driverId: UUID, status: String) async throws
+    func updateMaintenancePersonnelStatus(personnelId: UUID, status: String) async throws
 
     func fetchMaintenancePersonnel() async throws -> [MaintenancePersonnel]
     func createMaintenancePersonnel(_ personnel: MaintenancePersonnel) async throws -> MaintenancePersonnel

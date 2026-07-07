@@ -289,6 +289,8 @@ struct FleetManagerDashboardView: View {
             ManagerVehiclesView(
                 viewModel: vehiclesViewModel,
                 usersViewModel: usersViewModel,
+                tripsViewModel: tripsViewModel,
+                maintenanceViewModel: maintenanceViewModel,
                 openAddVehicle: { addSheet = .vehicle },
                 openMaintenanceRequest: { vehicleId in
                     maintenanceVehicleId = vehicleId
@@ -342,10 +344,17 @@ struct FleetManagerDashboardView: View {
         isRefreshingAll = true
         defer { isRefreshingAll = false }
 
-        await usersViewModel.load()
-        await vehiclesViewModel.load()
         await tripsViewModel.load()
         await maintenanceViewModel.load()
+        await usersViewModel.load(
+            trips: tripsViewModel.trips,
+            tasks: maintenanceViewModel.tasks
+        )
+        await vehiclesViewModel.load(
+            trips: tripsViewModel.trips,
+            tasks: maintenanceViewModel.tasks,
+            taskVehicles: maintenanceViewModel.taskVehicles
+        )
         await vehiclesViewModel.loadVehicleHealthScores()
     }
 
@@ -368,7 +377,11 @@ struct ManagerAddSheetView: View {
             case .vehicle:
                 ManagerVehicleFormSheet(viewModel: vehiclesViewModel)
             case .trip:
-                ManagerTripFormSheet(viewModel: tripsViewModel)
+                ManagerTripFormSheet(
+                    viewModel: tripsViewModel,
+                    vehiclesViewModel: vehiclesViewModel,
+                    usersViewModel: usersViewModel
+                )
             case .maintenanceRequest:
                 ManagerMaintenanceRequestSheet(
                     viewModel: maintenanceViewModel,

@@ -310,4 +310,20 @@ final actor UserManagementService: UserManagementServiceProtocol {
             .eq("id", value: id.uuidString)
             .execute()
     }
+
+    func updateDriverStatus(driverId: UUID, status: String) async throws {
+        try await supabase.client
+            .from("drivers")
+            .update(["status": AnyJSON.string(status)])
+            .eq("driverid", value: driverId.uuidString)
+            .execute()
+    }
+
+    func updateMaintenancePersonnelStatus(personnelId: UUID, status: String) async throws {
+        try await supabase.client
+            .from("maintenance_personnel")
+            .update(["status": AnyJSON.string(status)])
+            .eq("personnelid", value: personnelId.uuidString)
+            .execute()
+    }
 }

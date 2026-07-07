@@ -2,7 +2,7 @@ import SwiftUI
 
 enum ManagerUserSegment: String, CaseIterable, Identifiable {
     case drivers
-    case maintenance
+    case mechanics
 
     var id: String { rawValue }
 
@@ -10,8 +10,8 @@ enum ManagerUserSegment: String, CaseIterable, Identifiable {
         switch self {
         case .drivers:
             return "Drivers"
-        case .maintenance:
-            return "Workshop"
+        case .mechanics:
+            return "Mechanics"
         }
     }
 
@@ -19,16 +19,10 @@ enum ManagerUserSegment: String, CaseIterable, Identifiable {
         switch self {
         case .drivers:
             return "No drivers yet"
-        case .maintenance:
-            return "No workshop personnel yet"
+        case .mechanics:
+            return "No mechanics yet"
         }
     }
-}
-
-private struct ManagerUserGroup: Identifiable {
-    var id: String { title }
-    var title: String
-    var users: [User]
 }
 
 struct ManagerUsersView: View {
@@ -37,6 +31,7 @@ struct ManagerUsersView: View {
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
     @Binding var selectedSegment: ManagerUserSegment
     @State private var searchText = ""
+    @State private var selectedStatusFilter = "All"
 
     var openAddUser: () -> Void
 
@@ -44,71 +39,46 @@ struct ManagerUsersView: View {
         switch selectedSegment {
         case .drivers:
             return viewModel.driverUsers
-        case .maintenance:
+        case .mechanics:
             return viewModel.maintenanceUsers
+        }
+    }
+
+    private var availableStatusFilters: [String] {
+        switch selectedSegment {
+        case .drivers:
+            return ["Available", "On Trip", "Scheduled", "Unavailable"]
+        case .mechanics:
+            return ["Available", "In Service", "Unavailable"]
         }
     }
 
     private var users: [User] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard query.isEmpty == false else { return baseUsers }
-        return baseUsers.filter { matchesSearch($0, query: query) }
+        let filteredByStatus = baseUsers.filter { user in
+            guard selectedStatusFilter != "All" else { return true }
+            let status = calculateStatusInfo(for: user).text
+            return status.lowercased() == selectedStatusFilter.lowercased()
+        }
+        guard query.isEmpty == false else { return filteredByStatus }
+        return filteredByStatus.filter { matchesSearch($0, query: query) }
     }
 
-    private var groupedUsers: [ManagerUserGroup] {
-        switch selectedSegment {
-        case .drivers:
-            return makeGroups([
-                ("On Trip", { isDriverOnTrip($0) }),
-                ("Assigned", { isDriverAssigned($0) && isDriverOnTrip($0) == false }),
-                ("Registered", { isDriverOnTrip($0) == false && isDriverAssigned($0) == false })
-            ])
-        case .maintenance:
-            return makeGroups([
-                ("Assigned Work", { hasActiveWork($0) }),
-                ("Registered", { hasActiveWork($0) == false })
-            ])
-        }
+    private func calculateStatusInfo(for user: User) -> (text: String, color: Color) {
+        calculateUserStatus(
+            user: user,
+            unavailableUserIds: viewModel.unavailableUserIds,
+            drivers: viewModel.drivers,
+            maintenancePersonnel: viewModel.maintenancePersonnel,
+            trips: tripsViewModel.trips,
+            tasks: maintenanceViewModel.tasks
+        )
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("User Type", selection: $selectedSegment) {
-                ForEach(ManagerUserSegment.allCases) { segment in
-                    Text(segment.title).tag(segment)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    FeedbackView(success: nil, error: viewModel.errorMessage)
-                    userList
-                }
-                .padding(.horizontal)
-                .padding(.bottom)
-            }
-        }
-        .fleetScreenBackground()
-        .navigationTitle("Users")
-        .navigationBarTitleDisplayMode(.large)
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search users")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Add User", systemImage: "plus", action: openAddUser)
-            }
-        }
-        .refreshable {
-            await viewModel.load()
-            await tripsViewModel.load()
-            await maintenanceViewModel.load()
-        }
-    }
+            FeedbackView(success: nil, error: viewModel.errorMessage)
 
-    private var userList: some View {
-        VStack(spacing: 14) {
             if baseUsers.isEmpty {
                 ContentUnavailableView(
                     selectedSegment.emptyTitle,
@@ -118,29 +88,113 @@ struct ManagerUsersView: View {
             } else if users.isEmpty {
                 ContentUnavailableView.search
             } else {
-                ForEach(groupedUsers) { group in
-                    ManagerUserGroupSection(
-                        title: group.title,
-                        users: group.users,
-                        viewModel: viewModel,
-                        tripsViewModel: tripsViewModel,
-                        maintenanceViewModel: maintenanceViewModel
-                    )
+                List {
+                    ForEach(users) { user in
+                        NavigationLink {
+                            ManagerUserDetailView(
+                                user: user,
+                                viewModel: viewModel,
+                                tripsViewModel: tripsViewModel,
+                                maintenanceViewModel: maintenanceViewModel
+                            )
+                        } label: {
+                            ManagerUserCard(
+                                user: user,
+                                viewModel: viewModel,
+                                tripsViewModel: tripsViewModel,
+                                maintenanceViewModel: maintenanceViewModel
+                            )
+                        }
+                        .listRowBackground(FleetPalette.surface)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                Task { _ = await viewModel.deleteUser(user) }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                        .contextMenu {
+                            Button {
+                                viewModel.toggleUserUnavailable(userId: user.id)
+                            } label: {
+                                if viewModel.unavailableUserIds.contains(user.id) {
+                                    Label("Mark Available", systemImage: "checkmark.circle")
+                                } else {
+                                    Label("Mark Unavailable", systemImage: "minus.circle")
+                                }
+                            }
+
+                            Button(role: .destructive) {
+                                Task { _ = await viewModel.deleteUser(user) }
+                            } label: {
+                                Label("Delete User", systemImage: "trash")
+                            }
+                        }
+                    }
                 }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+                .background(FleetPalette.background)
             }
         }
-    }
+        .fleetScreenBackground()
+        .navigationTitle(selectedSegment.title)
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search users")
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Menu {
+                    Button {
+                        selectedStatusFilter = "All"
+                    } label: {
+                        HStack {
+                            Text("All")
+                            if selectedStatusFilter == "All" {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
 
-    private func makeGroups(_ definitions: [(String, (User) -> Bool)]) -> [ManagerUserGroup] {
-        definitions.compactMap { title, filter in
-            let grouped = users
-                .filter(filter)
-                .sorted {
-                    $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+                    ForEach(availableStatusFilters, id: \.self) { status in
+                        Button {
+                            selectedStatusFilter = status
+                        } label: {
+                            HStack {
+                                Text(status)
+                                if selectedStatusFilter == status {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease")
                 }
-
-            guard grouped.isEmpty == false else { return nil }
-            return ManagerUserGroup(title: title, users: grouped)
+                .accessibilityLabel("Filter by status")
+            }
+            ToolbarItem(placement: .principal) {
+                Picker("User Type", selection: $selectedSegment) {
+                    ForEach(ManagerUserSegment.allCases) { segment in
+                        Text(segment.title).tag(segment)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 200)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Add User", systemImage: "plus", action: openAddUser)
+            }
+        }
+        .onChange(of: selectedSegment) { _, _ in
+            selectedStatusFilter = "All"
+        }
+        .refreshable {
+            await tripsViewModel.load()
+            await maintenanceViewModel.load()
+            await viewModel.load(
+                trips: tripsViewModel.trips,
+                tasks: maintenanceViewModel.tasks
+            )
         }
     }
 
@@ -168,74 +222,12 @@ struct ManagerUsersView: View {
     }
 
     private func matchesSearch(_ user: User, query: String) -> Bool {
-        var searchable = [
+        let searchable = [
             user.displayName,
-            user.shortUID,
-            user.id.uuidString,
-            user.email,
-            user.role.title,
-            user.isActive ? "active" : "inactive",
-            "\(user.contact)",
-            user.address
+            user.shortUID
         ]
-
-        if user.role == .driver, let profile = driverProfile(for: user) {
-            searchable.append(profile.licenceNum)
-            searchable.append(profile.vehicleType)
-            searchable.append(profile.status.title)
-        }
-
-        if user.role == .maintenancePersonnel, let profile = maintenanceProfile(for: user) {
-            searchable.append(profile.status.title)
-        }
-
         return searchable.contains {
             $0.localizedCaseInsensitiveContains(query)
-        }
-    }
-}
-
-private struct ManagerUserGroupSection: View {
-    var title: String
-    var users: [User]
-    @ObservedObject var viewModel: UserManagementViewModel
-    @ObservedObject var tripsViewModel: TripManagementViewModel
-    @ObservedObject var maintenanceViewModel: MaintenanceViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            DashboardSectionTitle(title)
-
-            GlassPanel(hasBorder: false) {
-                VStack(spacing: 0) {
-                    ForEach(users) { user in
-                        NavigationLink {
-                            ManagerUserDetailView(
-                                user: user,
-                                viewModel: viewModel,
-                                tripsViewModel: tripsViewModel,
-                                maintenanceViewModel: maintenanceViewModel
-                            )
-                        } label: {
-                            ManagerUserCard(user: user, viewModel: viewModel)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                Task { _ = await viewModel.deleteUser(user) }
-                            } label: {
-                                Label("Delete User", systemImage: "trash")
-                            }
-                        }
-
-                        if user.id != users.last?.id {
-                            Divider()
-                                .padding(.leading, 62) // Aligns with the end of AvatarView
-                        }
-                    }
-                }
-                .padding(.vertical, -4)
-            }
         }
     }
 }
@@ -243,6 +235,8 @@ private struct ManagerUserGroupSection: View {
 private struct ManagerUserCard: View {
     var user: User
     @ObservedObject var viewModel: UserManagementViewModel
+    @ObservedObject var tripsViewModel: TripManagementViewModel
+    @ObservedObject var maintenanceViewModel: MaintenanceViewModel
 
     var body: some View {
         HStack(spacing: 14) {
@@ -254,11 +248,6 @@ private struct ManagerUserCard: View {
                     .foregroundStyle(FleetPalette.textPrimary)
                     .lineLimit(1)
 
-                Text(subtitleText)
-                    .font(.caption)
-                    .foregroundStyle(FleetPalette.textSecondary)
-                    .lineLimit(1)
-
                 Text("UID \(user.shortUID)")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(FleetPalette.textSecondary)
@@ -266,31 +255,11 @@ private struct ManagerUserCard: View {
             }
 
             Spacer(minLength: 8)
-
-            StatusPill(
-                text: user.isActive ? "Active" : "Inactive",
-                color: user.isActive ? FleetPalette.success : FleetPalette.neutral,
-                dotSize: 8
-            )
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .accessibilityLabel("\(user.displayName), \(user.role.title)")
-    }
-
-    private var subtitleText: String {
-        switch user.role {
-        case .driver:
-            guard let driver = viewModel.drivers.first(where: { $0.userId == user.id }) else {
-                return "Driver"
-            }
-            return driver.vehicleType.capitalized
-        case .maintenancePersonnel:
-            return "Workshop"
-        case .fleetManager:
-            return "Fleet Manager"
-        }
     }
 }
 
@@ -725,5 +694,57 @@ private struct ManagerUserEditView: View {
         default:
             return form.validationMessage(for: field)
         }
+    }
+}
+
+// MARK: - Status Calculation Helper
+func calculateUserStatus(
+    user: User,
+    unavailableUserIds: Set<UUID>,
+    drivers: [Driver],
+    maintenancePersonnel: [MaintenancePersonnel],
+    trips: [Trip],
+    tasks: [MaintenanceTask]
+) -> (text: String, color: Color) {
+    if unavailableUserIds.contains(user.id) {
+        return ("Unavailable", FleetPalette.neutral)
+    }
+
+    switch user.role {
+    case .driver:
+        guard let driver = drivers.first(where: { $0.userId == user.id }) else {
+            return (user.isActive ? "Active" : "Inactive", user.isActive ? FleetPalette.success : FleetPalette.neutral)
+        }
+        
+        // Check if they are On Trip
+        let driverTrips = trips.filter { $0.driverId == driver.id }
+        let hasActiveTrip = driverTrips.contains { $0.status == .accepted || $0.status == .inProgress }
+        if hasActiveTrip {
+            return ("On Trip", FleetPalette.accent)
+        }
+        
+        // Check if they are Scheduled
+        let hasScheduledTrip = driverTrips.contains { $0.status == .scheduled || $0.status == .pending || $0.status == .rejectionPending }
+        if hasScheduledTrip {
+            return ("Scheduled", FleetPalette.warning)
+        }
+        
+        return ("Available", FleetPalette.success)
+        
+    case .maintenancePersonnel:
+        guard let personnel = maintenancePersonnel.first(where: { $0.userId == user.id }) else {
+            return (user.isActive ? "Active" : "Inactive", user.isActive ? FleetPalette.success : FleetPalette.neutral)
+        }
+        
+        // Check if they are In Service
+        let hasActiveWork = tasks.contains { $0.executedBy == personnel.id && $0.status == .inProgress }
+        if hasActiveWork {
+            return ("In Service", FleetPalette.warning)
+        }
+        
+        return ("Available", FleetPalette.success)
+        
+    case .fleetManager:
+        return (user.isActive ? "Active" : "Inactive", user.isActive ? FleetPalette.success : FleetPalette.neutral)
     }
 }

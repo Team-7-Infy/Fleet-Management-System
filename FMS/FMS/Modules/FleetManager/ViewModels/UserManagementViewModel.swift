@@ -11,6 +11,15 @@ final class UserManagementViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var successMessage: String?
     @Published var errorMessage: String?
+    @Published var unavailableUserIds: Set<UUID> = []
+
+    func toggleUserUnavailable(userId: UUID) {
+        if unavailableUserIds.contains(userId) {
+            unavailableUserIds.remove(userId)
+        } else {
+            unavailableUserIds.insert(userId)
+        }
+    }
 
     private let service: UserManagementServiceProtocol
     private let authService: AuthServiceProtocol
@@ -36,7 +45,7 @@ final class UserManagementViewModel: ObservableObject {
         usersForRole(.fleetManager)
     }
 
-    func load() async {
+    func load(trips: [Trip] = [], tasks: [MaintenanceTask] = []) async {
         isLoading = true
         defer { isLoading = false }
 
@@ -47,9 +56,69 @@ final class UserManagementViewModel: ObservableObject {
             async let fetchedFleetManagers = service.fetchFleetManagers()
             async let fetchedScores = service.fetchAllDriverScores()
 
-            users = try await fetchedUsers
-            drivers = try await fetchedDrivers
-            maintenancePersonnel = try await fetchedMaintenance
+            let loadedUsers = try await fetchedUsers
+            var loadedDrivers = try await fetchedDrivers
+            var loadedMaintenance = try await fetchedMaintenance
+
+            // Sync status column in database for drivers
+            for i in 0..<loadedDrivers.count {
+                let driver = loadedDrivers[i]
+                guard let user = loadedUsers.first(where: { $0.id == driver.userId }) else { continue }
+                
+                let calculatedTag: String
+                if unavailableUserIds.contains(user.id) {
+                    calculatedTag = "unavailable"
+                } else {
+                    let driverTrips = trips.filter { $0.driverId == driver.id }
+                    let hasActiveTrip = driverTrips.contains { $0.status == .accepted || $0.status == .inProgress }
+                    if hasActiveTrip {
+                        calculatedTag = "on_trip"
+                    } else {
+                        let hasScheduledTrip = driverTrips.contains { $0.status == .scheduled || $0.status == .pending || $0.status == .rejectionPending }
+                        if hasScheduledTrip {
+                            calculatedTag = "scheduled"
+                        } else {
+                            calculatedTag = "available"
+                        }
+                    }
+                }
+                
+                if driver.status.rawValue != calculatedTag {
+                    try? await service.updateDriverStatus(driverId: driver.id, status: calculatedTag)
+                    if let personnelStatus = PersonnelStatus(rawValue: calculatedTag) {
+                        loadedDrivers[i].status = personnelStatus
+                    }
+                }
+            }
+
+            // Sync status column in database for maintenance personnel
+            for i in 0..<loadedMaintenance.count {
+                let personnel = loadedMaintenance[i]
+                guard let user = loadedUsers.first(where: { $0.id == personnel.userId }) else { continue }
+                
+                let calculatedTag: String
+                if unavailableUserIds.contains(user.id) {
+                    calculatedTag = "unavailable"
+                } else {
+                    let hasActiveWork = tasks.contains { $0.executedBy == personnel.id && $0.status == .inProgress }
+                    if hasActiveWork {
+                        calculatedTag = "in_service"
+                    } else {
+                        calculatedTag = "available"
+                    }
+                }
+                
+                if personnel.status.rawValue != calculatedTag {
+                    try? await service.updateMaintenancePersonnelStatus(personnelId: personnel.id, status: calculatedTag)
+                    if let personnelStatus = PersonnelStatus(rawValue: calculatedTag) {
+                        loadedMaintenance[i].status = personnelStatus
+                    }
+                }
+            }
+
+            users = loadedUsers
+            drivers = loadedDrivers
+            maintenancePersonnel = loadedMaintenance
             fleetManagers = try await fetchedFleetManagers
             driverScores = try await fetchedScores
             errorMessage = nil

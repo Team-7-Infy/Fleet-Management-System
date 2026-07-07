@@ -121,6 +121,8 @@ private enum TripPlaceField: Identifiable {
 struct ManagerTripFormSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: TripManagementViewModel
+    @ObservedObject var vehiclesViewModel: VehicleViewModel
+    @ObservedObject var usersViewModel: UserManagementViewModel
     @State private var form = FleetManagerTripForm()
     @State private var minimumStartTime = Date()
     @State private var selectedPickup: TripPlace?
@@ -131,6 +133,70 @@ struct ManagerTripFormSheet: View {
     @State private var isCalculatingRoute = false
 
     private static let vehicleTypes = ["car", "van", "truck", "bus"]
+
+    private var availableVehicles: [Vehicle] {
+        guard form.vehicleTypeRequested.isEmpty == false else { return [] }
+        let all = vehiclesViewModel.vehicles.filter {
+            $0.vehicleType.lowercased() == form.vehicleTypeRequested.lowercased() &&
+            $0.status == .available
+        }
+        return all.filter { vehicle in
+            let vehicleTrips = viewModel.trips.filter { $0.vehicleId == vehicle.id }
+            let hasActiveOrScheduled = vehicleTrips.contains { t in
+                t.status == .scheduled || t.status == .pending || t.status == .accepted || t.status == .inProgress
+            }
+            return !hasActiveOrScheduled
+        }
+    }
+
+    private var availableDrivers: [Driver] {
+        let typeToFilter: String
+        if let selectedVehicleId = form.selectedVehicleId,
+           let vehicle = vehiclesViewModel.vehicles.first(where: { $0.id == selectedVehicleId }) {
+            typeToFilter = vehicle.vehicleType
+        } else {
+            typeToFilter = form.vehicleTypeRequested
+        }
+        
+        guard typeToFilter.isEmpty == false else { return [] }
+        let activeUserIds = Set(usersViewModel.users.filter { $0.isActive && $0.deletedAt == nil }.map(\.id))
+        
+        let matchingDrivers = usersViewModel.drivers.filter { driver in
+            driver.status != .unavailable && driver.status != .inactive &&
+            driver.vehicleType.lowercased() == typeToFilter.lowercased() &&
+            activeUserIds.contains(driver.userId)
+        }
+        
+        let tripEnd = form.endTime ?? form.startTime.addingTimeInterval(7200)
+        
+        return matchingDrivers.filter { driver in
+            let driverTrips = viewModel.trips.filter { $0.driverId == driver.id }
+            
+            for t in driverTrips {
+                let overlappingStatuses: Set<TripStatus> = [.scheduled, .pending, .accepted, .inProgress]
+                if overlappingStatuses.contains(t.status) {
+                    let tEnd = t.endTime ?? t.startTime.addingTimeInterval(7200)
+                    if t.startTime < tripEnd && tEnd > form.startTime {
+                        return false
+                    }
+                } else if t.status == .completed {
+                    let tEnd = t.endTime ?? t.startTime.addingTimeInterval(7200)
+                    if form.startTime >= t.startTime {
+                        let bufferEnd = tEnd.addingTimeInterval(5 * 3600)
+                        if form.startTime < bufferEnd {
+                            return false
+                        }
+                    } else {
+                        let bufferStart = t.startTime.addingTimeInterval(-5 * 3600)
+                        if tripEnd > bufferStart {
+                            return false
+                        }
+                    }
+                }
+            }
+            return true
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -187,6 +253,52 @@ struct ManagerTripFormSheet: View {
                 .pickerStyle(.menu)
                 .tint(FleetPalette.accent)
                 .fleetField()
+
+                Toggle("Auto Assign", isOn: $form.isAutoAssign)
+                    .fleetField()
+
+                if !form.isAutoAssign {
+                    Picker(selection: $form.selectedVehicleId) {
+                        Text("Select Vehicle").tag(Optional<UUID>.none)
+                        ForEach(availableVehicles) { vehicle in
+                            Text(vehicle.licencePlate).tag(Optional(vehicle.id))
+                        }
+                    } label: {
+                        TripSelectionMenuLabel(
+                            title: "Vehicle",
+                            value: availableVehicles.first(where: { $0.id == form.selectedVehicleId })?.licencePlate,
+                            placeholder: "Select vehicle",
+                            systemImage: "bus.fill"
+                        )
+                    }
+                    .pickerStyle(.menu)
+                    .tint(FleetPalette.accent)
+                    .fleetField()
+
+                    Picker(selection: $form.selectedDriverId) {
+                        Text("Select Driver").tag(Optional<UUID>.none)
+                        ForEach(availableDrivers) { driver in
+                            let user = usersViewModel.user(for: driver.userId)
+                            let uidPrefix = String(driver.id.uuidString.prefix(8))
+                            Text("\(user?.displayName ?? "Driver") (\(uidPrefix))").tag(Optional(driver.id))
+                        }
+                    } label: {
+                        TripSelectionMenuLabel(
+                            title: "Driver",
+                            value: form.selectedDriverId.flatMap { dId in
+                                let driver = usersViewModel.drivers.first(where: { $0.id == dId })
+                                let user = driver.flatMap { usersViewModel.user(for: $0.userId) }
+                                let uidPrefix = String(dId.uuidString.prefix(8))
+                                return "\(user?.displayName ?? "Driver") (\(uidPrefix))"
+                            },
+                            placeholder: "Select driver",
+                            systemImage: "person.fill"
+                        )
+                    }
+                    .pickerStyle(.menu)
+                    .tint(FleetPalette.accent)
+                    .fleetField()
+                }
 
                 DatePicker("Start", selection: $form.startTime, in: minimumStartTime...)
                     .fleetField()
@@ -251,6 +363,17 @@ struct ManagerTripFormSheet: View {
             Task {
                 await calculateRouteIfPossible()
             }
+        }
+        .onChange(of: form.vehicleTypeRequested) { _, _ in
+            form.selectedVehicleId = nil
+            form.selectedDriverId = nil
+        }
+        .onChange(of: form.isAutoAssign) { _, _ in
+            form.selectedVehicleId = nil
+            form.selectedDriverId = nil
+        }
+        .onChange(of: form.selectedVehicleId) { _, _ in
+            form.selectedDriverId = nil
         }
     }
 

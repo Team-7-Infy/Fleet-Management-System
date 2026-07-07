@@ -19,7 +19,7 @@ struct ManagerMaintenanceRequestSheet: View {
     var currentUserId: UUID?
 
     private var hasRegisteredPersonnel: Bool {
-        usersViewModel.maintenancePersonnel.contains { $0.status == .active }
+        !usersViewModel.maintenancePersonnel.isEmpty
     }
 
     private var availableVehicles: [Vehicle] {
@@ -32,12 +32,10 @@ struct ManagerMaintenanceRequestSheet: View {
     }
 
     private var availablePersonnel: [MaintenancePersonnel] {
-        var list = usersViewModel.maintenancePersonnel.filter { $0.status == .active }
-        list = list.filter { person in
-            let hasOpenTask = viewModel.openTasks.contains { $0.executedBy == person.id }
-            return !hasOpenTask
+        usersViewModel.maintenancePersonnel.filter { person in
+            person.status == .available &&
+            !viewModel.openTasks.contains { $0.executedBy == person.id }
         }
-        return list
     }
 
     var body: some View {
