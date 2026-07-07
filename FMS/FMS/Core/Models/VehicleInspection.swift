@@ -1,12 +1,17 @@
 import Foundation
 
+enum VehicleInspectionStatus: String, Codable, Sendable {
+    case passed
+    case failed
+}
+
 struct VehicleInspection: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     var tripId: UUID
     var vehicleId: UUID
     var driverId: UUID
     var type: String
-    var status: String
+    var status: VehicleInspectionStatus
     var odometerReading: Double?
     var fuelLevel: Double?
     var notes: String?

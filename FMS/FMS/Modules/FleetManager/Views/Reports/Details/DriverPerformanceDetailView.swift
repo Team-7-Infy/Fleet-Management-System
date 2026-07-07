@@ -17,6 +17,27 @@ struct DriverPerformanceDetailView: View {
                         reportsViewModel.selectedPeriod = new
                     }
 
+                if reportsViewModel.showScoreWarning {
+                    HStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                            .font(.title3)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Missing Driver Scores")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            Text("Active completed trips exist but driver scores are not calculated yet. Recalculate scores to update reports.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color.orange.opacity(0.12))
+                    .cornerRadius(12)
+                }
+
                 driverSummaryGrid
                 driverTripChart
                 driverList
