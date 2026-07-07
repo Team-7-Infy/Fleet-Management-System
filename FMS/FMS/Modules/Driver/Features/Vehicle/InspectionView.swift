@@ -507,9 +507,7 @@ struct InspectionView: View {
                     let prefix = isPostTrip ? "Post-trip" : "Pre-trip"
                     let description = "\(prefix) inspection failed for \(item.name) on vehicle \(vehicle.licencePlate) (VIN: \(vehicle.id.uuidString)). Odometer: \(odometerInput) km, Fuel: \(fuelInput)%. Details: \(item.failDescription)"
                     
-                    // Fetch active maintenance personnel to assign
-                    let personnelList = try? await services.userManagementService.fetchMaintenancePersonnel()
-                    let activePersonnel = personnelList?.first(where: { $0.status == .active })
+                    let bestPersonnel = try? await services.workOrderAssignmentService.findBestPersonnel()
                     
                     let maintenanceTask = MaintenanceTask(
                         id: UUID(),
@@ -518,8 +516,8 @@ struct InspectionView: View {
                         scheduledDate: DateOnly(wrappedValue: Date()),
                         isUrgent: true,
                         scheduledBy: nil,
-                        executedBy: activePersonnel?.id,
-                        status: activePersonnel != nil ? .assigned : .scheduled,
+                        executedBy: bestPersonnel?.id,
+                        status: bestPersonnel != nil ? .assigned : .scheduled,
                         reportedDate: nil,
                         completedAt: nil,
                         timeTakenHours: nil,
@@ -531,24 +529,33 @@ struct InspectionView: View {
                     
                     _ = try await services.maintenanceService.createTask(maintenanceTask)
                     
-                    // Link vehicle to the task in DB
                     let taskVehicle = TaskVehicle(taskId: maintenanceTask.id, vin: vehicle.id)
                     try await services.maintenanceService.addTaskVehicle(taskVehicle)
+                    
+                    if let personnel = bestPersonnel {
+                        await sendWorkOrderNotification(
+                            services: services,
+                            task: maintenanceTask,
+                            personnel: personnel,
+                            title: item.name
+                        )
+                    }
                 }
                 
-                let fmUserId = try? await services.userManagementService.fetchUsers()
-                    .first(where: { $0.role == .fleetManager })?.id
-                let inspectionNotification = AppNotification(
-                    id: UUID(),
-                    title: "\(isPostTrip ? "Post-trip" : "Pre-trip") Inspection Failed",
-                    message: "\(failedItems.count) defect(s) found on \(vehicle.licencePlate). Work order(s) created for: \(failedItems.map(\.name).joined(separator: ", ")).",
-                    type: "work_order_assigned",
-                    isRead: false,
-                    referenceId: tripUuid,
-                    recipientId: fmUserId,
-                    createdAt: Date()
-                )
-                _ = try? await services.notificationService.createNotification(inspectionNotification)
+                let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
+                for fmUser in fmUsers {
+                    let note = AppNotification(
+                        id: UUID(),
+                        title: "\(isPostTrip ? "Post-trip" : "Pre-trip") Inspection Failed",
+                        message: "\(failedItems.count) defect(s) found on \(vehicle.licencePlate). Work order(s) created for: \(failedItems.map(\.name).joined(separator: ", ")).",
+                        type: "work_order_assigned",
+                        isRead: false,
+                        referenceId: tripUuid,
+                        recipientId: fmUser.id,
+                        createdAt: Date()
+                    )
+                    _ = try? await services.notificationService.createNotification(note)
+                }
                 
                 // 4. Update the vehicle status to .maintenance and clear its driver in DB
                 var updatedVehicle = vehicle
@@ -615,6 +622,23 @@ struct InspectionView: View {
                     showingAlert = true
                 }
             }
+        }
+    }
+
+    private func sendWorkOrderNotification(services: AppServices, task: MaintenanceTask, personnel: MaintenancePersonnel, title: String) async {
+        let users = (try? await services.userManagementService.fetchUsers()) ?? []
+        if let personnelUser = users.first(where: { $0.id == personnel.userId }) {
+            let note = AppNotification(
+                id: UUID(),
+                title: "New Work Order: \(title)",
+                message: task.description,
+                type: "work_order_assigned",
+                isRead: false,
+                referenceId: task.id,
+                recipientId: personnelUser.id,
+                createdAt: Date()
+            )
+            _ = try? await services.notificationService.createNotification(note)
         }
     }
 }

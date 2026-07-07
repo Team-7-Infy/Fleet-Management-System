@@ -13,6 +13,7 @@ final class AppServices {
     let notificationService: NotificationService
     let inspectionService: InspectionService
     let expenseService: ExpenseService
+    let workOrderAssignmentService: WorkOrderAssignmentService
 
     init() {
         let supabase = SupabaseService()
@@ -27,6 +28,10 @@ final class AppServices {
         notificationService = NotificationService(supabase: supabase)
         inspectionService = InspectionService(supabase: supabase)
         expenseService = ExpenseService(supabase: supabase)
+        workOrderAssignmentService = WorkOrderAssignmentService(
+            userManagementService: userManagementService,
+            maintenanceService: maintenanceService
+        )
 
         ThresholdStore.shared.configure(supabase: supabase)
     }

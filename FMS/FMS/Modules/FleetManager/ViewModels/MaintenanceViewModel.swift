@@ -12,10 +12,22 @@ final class MaintenanceViewModel: ObservableObject {
 
     private let maintenanceService: MaintenanceServiceProtocol
     private let vehicleService: VehicleServiceProtocol
+    private let workOrderAssignmentService: WorkOrderAssignmentServiceProtocol
+    private let notificationService: NotificationServiceProtocol
+    private let userManagementService: UserManagementServiceProtocol
 
-    init(maintenanceService: MaintenanceServiceProtocol, vehicleService: VehicleServiceProtocol) {
+    init(
+        maintenanceService: MaintenanceServiceProtocol,
+        vehicleService: VehicleServiceProtocol,
+        workOrderAssignmentService: WorkOrderAssignmentServiceProtocol,
+        notificationService: NotificationServiceProtocol,
+        userManagementService: UserManagementServiceProtocol
+    ) {
         self.maintenanceService = maintenanceService
         self.vehicleService = vehicleService
+        self.workOrderAssignmentService = workOrderAssignmentService
+        self.notificationService = notificationService
+        self.userManagementService = userManagementService
     }
 
     var openTasks: [MaintenanceTask] {
@@ -68,6 +80,32 @@ final class MaintenanceViewModel: ObservableObject {
                 _ = try await vehicleService.updateVehicle(updatedVehicle)
             }
 
+            if task.executedBy == nil {
+                if let best = try? await workOrderAssignmentService.findBestPersonnel() {
+                    try await maintenanceService.assignPersonnel(taskId: task.id, personnelId: best.id)
+                    if let idx = tasks.firstIndex(where: { $0.id == task.id }) {
+                        tasks[idx].executedBy = best.id
+                        tasks[idx].status = .assigned
+                    }
+                    await sendAssignmentNotifications(task: task, personnel: best, title: task.title ?? "Work Order")
+                } else {
+                    let fmUsers = (try? await userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
+                    for fm in fmUsers {
+                        let note = AppNotification(
+                            id: UUID(),
+                            title: "Work Order Unassigned",
+                            message: "No available maintenance personnel. Task '\(task.title ?? task.description)' remains unassigned.",
+                            type: "work_order_assigned",
+                            isRead: false,
+                            referenceId: task.id,
+                            recipientId: fm.id,
+                            createdAt: Date()
+                        )
+                        _ = try? await notificationService.createNotification(note)
+                    }
+                }
+            }
+
             tasks.insert(task, at: 0)
             taskParts[task.id] = []
             sortTasks()
@@ -78,6 +116,39 @@ final class MaintenanceViewModel: ObservableObject {
             errorMessage = error.localizedDescription
             successMessage = nil
             return false
+        }
+    }
+
+    private func sendAssignmentNotifications(task: MaintenanceTask, personnel: MaintenancePersonnel, title: String) async {
+        let users = (try? await userManagementService.fetchUsers()) ?? []
+
+        if let personnelUser = users.first(where: { $0.id == personnel.userId }) {
+            let note = AppNotification(
+                id: UUID(),
+                title: "New Work Order: \(title)",
+                message: task.description,
+                type: "work_order_assigned",
+                isRead: false,
+                referenceId: task.id,
+                recipientId: personnelUser.id,
+                createdAt: Date()
+            )
+            _ = try? await notificationService.createNotification(note)
+        }
+
+        let fmUsers = users.filter { $0.role == .fleetManager }
+        for fm in fmUsers {
+            let note = AppNotification(
+                id: UUID(),
+                title: "Work Order Assigned: \(title)",
+                message: task.description,
+                type: "work_order_assigned",
+                isRead: false,
+                referenceId: task.id,
+                recipientId: fm.id,
+                createdAt: Date()
+            )
+            _ = try? await notificationService.createNotification(note)
         }
     }
 

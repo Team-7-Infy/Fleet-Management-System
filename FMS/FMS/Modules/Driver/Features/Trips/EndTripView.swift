@@ -330,8 +330,7 @@ struct EndTripView: View {
 
                         let description = "Post-trip inspection failed for \(item.name) on vehicle \(vehicle.licencePlate) (VIN: \(vehicle.id.uuidString)). Odometer: \(endOdometer) km, Fuel: \(endFuel)%. Details: \(item.failDescription)"
 
-                        let personnelList = try? await services.userManagementService.fetchMaintenancePersonnel()
-                        let activePersonnel = personnelList?.first(where: { $0.status == .active })
+                        let bestPersonnel = try? await services.workOrderAssignmentService.findBestPersonnel()
 
                         let maintenanceTask = MaintenanceTask(
                             id: UUID(),
@@ -340,8 +339,8 @@ struct EndTripView: View {
                             scheduledDate: DateOnly(wrappedValue: Date()),
                             isUrgent: true,
                             scheduledBy: nil,
-                            executedBy: activePersonnel?.id,
-                            status: activePersonnel != nil ? .assigned : .scheduled,
+                            executedBy: bestPersonnel?.id,
+                            status: bestPersonnel != nil ? .assigned : .scheduled,
                             reportedDate: nil,
                             completedAt: nil,
                             timeTakenHours: nil,
@@ -353,21 +352,26 @@ struct EndTripView: View {
                         _ = try await services.maintenanceService.createTask(maintenanceTask)
                         let taskVehicle = TaskVehicle(taskId: maintenanceTask.id, vin: vehicle.id)
                         try await services.maintenanceService.addTaskVehicle(taskVehicle)
+
+                        if let personnel = bestPersonnel {
+                            await sendWorkOrderNotification(services: services, task: maintenanceTask, personnel: personnel, title: item.name)
+                        }
                     }
 
-                    let fmUserId = try? await services.userManagementService.fetchUsers()
-                        .first(where: { $0.role == .fleetManager })?.id
-                    let postTripNotification = AppNotification(
-                        id: UUID(),
-                        title: "Post-trip Inspection Failed",
-                        message: "\(failedItems.count) defect(s) found on \(vehicle.licencePlate). Work order(s) created for: \(failedItems.map(\.name).joined(separator: ", ")).",
-                        type: "work_order_assigned",
-                        isRead: false,
-                        referenceId: trip.id,
-                        recipientId: fmUserId,
-                        createdAt: Date()
-                    )
-                    _ = try? await services.notificationService.createNotification(postTripNotification)
+                    let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
+                    for fmUser in fmUsers {
+                        let postTripNotification = AppNotification(
+                            id: UUID(),
+                            title: "Post-trip Inspection Failed",
+                            message: "\(failedItems.count) defect(s) found on \(vehicle.licencePlate). Work order(s) created for: \(failedItems.map(\.name).joined(separator: ", ")).",
+                            type: "work_order_assigned",
+                            isRead: false,
+                            referenceId: trip.id,
+                            recipientId: fmUser.id,
+                            createdAt: Date()
+                        )
+                        _ = try? await services.notificationService.createNotification(postTripNotification)
+                    }
 
                     vehicle.status = .inMaintenance
                     vehicle.driverId = nil
@@ -397,6 +401,23 @@ struct EndTripView: View {
             alertMessage = message
             showAlert = true
             isSubmitting = false
+        }
+    }
+
+    private func sendWorkOrderNotification(services: AppServices, task: MaintenanceTask, personnel: MaintenancePersonnel, title: String) async {
+        let users = (try? await services.userManagementService.fetchUsers()) ?? []
+        if let personnelUser = users.first(where: { $0.id == personnel.userId }) {
+            let note = AppNotification(
+                id: UUID(),
+                title: "New Work Order: \(title)",
+                message: task.description,
+                type: "work_order_assigned",
+                isRead: false,
+                referenceId: task.id,
+                recipientId: personnelUser.id,
+                createdAt: Date()
+            )
+            _ = try? await services.notificationService.createNotification(note)
         }
     }
 }
