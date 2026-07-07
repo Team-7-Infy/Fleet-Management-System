@@ -5,20 +5,9 @@ struct ReportExportToolbarItem: View {
     let viewModel: ReportsViewModel
 
     var body: some View {
-        Menu("Export", systemImage: "square.and.arrow.up") {
-            ShareLink(item: csvURL, preview: SharePreview(reportType.rawValue))
-            ShareLink(item: pdfURL, preview: SharePreview(reportType.rawValue))
+        ShareLink(item: pdfURL, preview: SharePreview(reportType.rawValue)) {
+            Label("Export", systemImage: "square.and.arrow.up")
         }
-    }
-
-    private var csvString: String {
-        ReportExporter.csvString(for: reportType, viewModel: viewModel)
-    }
-
-    private var csvURL: URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(reportType.filename).csv")
-        try? csvString.write(to: url, atomically: true, encoding: .utf8)
-        return url
     }
 
     private var pdfData: Data {
