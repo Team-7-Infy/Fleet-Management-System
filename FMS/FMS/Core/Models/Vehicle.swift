@@ -77,6 +77,8 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
         vehicleType: String,
         driverId: UUID? = nil,
         fuelType: String? = nil,
+        fuelCapacityLiters: Double? = nil,
+        batteryCapacityKwh: Double? = nil,
         addedToFleetAt: Date? = nil,
         odometer: Double? = nil,
         maintenanceKmInterval: Int? = nil,
@@ -93,6 +95,8 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
         self.vehicleType = vehicleType
         self.driverId = driverId
         self.fuelType = fuelType
+        self.fuelCapacityLiters = fuelCapacityLiters
+        self.batteryCapacityKwh = batteryCapacityKwh
         self.addedToFleetAt = addedToFleetAt
         self.odometer = odometer
         self.maintenanceKmInterval = maintenanceKmInterval
