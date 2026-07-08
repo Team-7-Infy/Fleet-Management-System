@@ -30,13 +30,13 @@ struct CompleteWorkOrderView: View {
 
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(workOrder.title)
-                                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                                    .font(.title2.weight(.bold))
                                     .foregroundStyle(Color.black)
                                     .lineLimit(2)
                                 
                                 Text(workOrder.description)
-                                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                                    .foregroundStyle(Color.gray)
+                                    .font(.body.weight(.medium))
+                                    .foregroundStyle(Color(UIColor.secondaryLabel))
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -51,7 +51,7 @@ struct CompleteWorkOrderView: View {
                         if let photoUrls = workOrder.photoUrls, !photoUrls.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Attached Photos")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .font(.headline)
                                     .foregroundStyle(Color.black)
                                 
                                 ScrollView(.horizontal, showsIndicators: false) {
@@ -81,7 +81,7 @@ struct CompleteWorkOrderView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             HStack {
                                 Text("Parts Used")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .font(.headline)
                                     .foregroundStyle(Color.black)
                                 Spacer()
                                 Button(action: { showingAddPartsSheet = true }) {
@@ -89,6 +89,9 @@ struct CompleteWorkOrderView: View {
                                         .font(.system(size: 24))
                                         .foregroundStyle(AppColor.inProgress)
                                 }
+                                .accessibilityLabel("Add Parts")
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
                             }
                             
                             // Parts List
@@ -98,7 +101,7 @@ struct CompleteWorkOrderView: View {
                                         HStack(alignment: .top) {
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text(part.name)
-                                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                                    .font(.body.weight(.bold))
                                                     .foregroundStyle(Color.black)
                                                     .fixedSize(horizontal: false, vertical: true)
                                             }
@@ -108,12 +111,12 @@ struct CompleteWorkOrderView: View {
                                             // Amount & Unit Price
                                             VStack(alignment: .trailing, spacing: 4) {
                                                 Text("₹\(formatDecimal(part.amount))")
-                                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                                    .font(.body.weight(.bold))
                                                     .foregroundStyle(Color.black)
                                                 
                                                 Text("₹\(formatDecimal(part.unitPrice))/ea")
-                                                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                                                    .foregroundStyle(Color.gray)
+                                                    .font(.caption.weight(.medium))
+                                                    .foregroundStyle(Color(UIColor.secondaryLabel))
                                             }
                                         }
                                         
@@ -122,18 +125,20 @@ struct CompleteWorkOrderView: View {
                                             HStack(spacing: 16) {
                                                 Button(action: { viewModel.decrementPart(id: part.id) }) {
                                                     Image(systemName: "minus")
-                                                        .foregroundStyle(Color.gray)
-                                                        .font(.system(size: 12, weight: .bold))
-                                                        .frame(width: 24, height: 24)
+                                                        .foregroundStyle(Color(UIColor.secondaryLabel))
+                                                        .font(.caption.weight(.bold))
+                                                        .frame(width: 44, height: 44)
                                                 }
+                                                .accessibilityLabel("Decrease quantity")
                                                 Text("\(part.quantity)")
-                                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                                    .font(.subheadline.weight(.bold))
                                                 Button(action: { viewModel.incrementPart(id: part.id) }) {
                                                     Image(systemName: "plus")
                                                         .foregroundStyle(Color.black)
-                                                        .font(.system(size: 12, weight: .bold))
-                                                        .frame(width: 24, height: 24)
+                                                        .font(.caption.weight(.bold))
+                                                        .frame(width: 44, height: 44)
                                                 }
+                                                .accessibilityLabel("Increase quantity")
                                             }
                                             .padding(.horizontal, 4)
                                             .padding(.vertical, 4)
@@ -146,8 +151,9 @@ struct CompleteWorkOrderView: View {
                                                 Image(systemName: "trash.fill")
                                                     .foregroundStyle(AppColor.destructive.opacity(0.8))
                                                     .font(.system(size: 16))
-                                                    .padding(8)
+                                                    .padding(14)
                                             }
+                                            .accessibilityLabel("Remove part")
                                         }
                                     }
                                 }
@@ -163,10 +169,10 @@ struct CompleteWorkOrderView: View {
                             HStack {
                                 Spacer()
                                 Text("TOTAL PARTS COST")
-                                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .foregroundStyle(Color.gray)
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(Color(UIColor.secondaryLabel))
                                 Text("₹\(formatDecimal(viewModel.totalPartsCost))")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .font(.headline)
                                     .foregroundStyle(Color.black)
                             }
                         }
@@ -179,23 +185,23 @@ struct CompleteWorkOrderView: View {
                         // 3. Labour Cost
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Labour Cost")
-                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .font(.headline)
                                 .foregroundStyle(Color.black)
                             
                             HStack {
                                 Text("₹")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundStyle(Color.gray)
+                                    .font(.title2.weight(.bold))
+                                    .foregroundStyle(Color(UIColor.secondaryLabel))
                                 
                                 Text(viewModel.laborCost.isEmpty ? "0.00" : viewModel.laborCost)
-                                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                                    .font(.title2.weight(.bold))
                                     .foregroundStyle(Color.black)
                                 
                                 Spacer()
                                 
                                 Text(formatTime(viewModel.elapsedTime))
-                                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                                    .foregroundStyle(Color.gray)
+                                    .font(.subheadline.monospaced())
+                                    .foregroundStyle(Color(UIColor.secondaryLabel))
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
                                     .background(Color(hex: 0xE8EAED))
@@ -211,33 +217,35 @@ struct CompleteWorkOrderView: View {
                             )
                             
                             Text("Calculated: hourly rate of ₹\(Int(viewModel.hourlyRate))/hr × \(String(format: "%.3f", viewModel.elapsedTime / 3600.0)) hrs.")
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundStyle(Color.gray)
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(Color(UIColor.secondaryLabel))
                         }
                         
                         // 4. Remarks
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 4) {
                                 Text("Remarks")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .font(.headline)
                                     .foregroundStyle(Color.black)
                                 Text("(Optional)")
-                                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                                    .foregroundStyle(Color.gray)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Color(UIColor.secondaryLabel))
                             }
                             
                             VStack(alignment: .trailing, spacing: 4) {
                                 TextEditor(text: $viewModel.remarks)
-                                    .font(.system(size: 15, design: .rounded))
+                                    .font(.body)
                                     .frame(height: 100)
                                     .padding(12)
                                     .scrollContentBackground(.hidden)
+                                    .accessibilityLabel("Remarks")
                                 
                                 Text("\(viewModel.remarks.count)/250")
-                                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .foregroundStyle(Color.gray)
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(Color(UIColor.secondaryLabel))
                                     .padding(.trailing, 12)
                                     .padding(.bottom, 12)
+                                    .accessibilityLabel("\(viewModel.remarks.count) of 250 characters")
                             }
                             .background(Color(hex: 0xE8EAED))
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -246,26 +254,26 @@ struct CompleteWorkOrderView: View {
                         // 5. Summary
                         VStack(spacing: 16) {
                             Text("SUMMARY")
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
-                                .foregroundStyle(Color.gray)
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(Color(UIColor.secondaryLabel))
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 
                             HStack {
                                 Text("Parts Cost")
-                                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                                    .foregroundStyle(Color.gray)
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(Color(UIColor.secondaryLabel))
                                 Spacer()
                                 Text("₹\(formatDecimal(viewModel.totalPartsCost))")
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .font(.subheadline.weight(.bold))
                                     .foregroundStyle(Color.black)
                             }
                             HStack {
                                 Text("Labour Cost")
-                                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                                    .foregroundStyle(Color.gray)
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(Color(UIColor.secondaryLabel))
                                 Spacer()
                                 Text("₹\(formatDecimal(viewModel.totalLaborCost))")
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .font(.subheadline.weight(.bold))
                                     .foregroundStyle(Color.black)
                             }
                             
@@ -273,11 +281,11 @@ struct CompleteWorkOrderView: View {
                             
                             HStack {
                                 Text("Total Cost")
-                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .font(.title3.weight(.bold))
                                     .foregroundStyle(Color.black)
                                 Spacer()
                                 Text("₹\(formatDecimal(viewModel.totalCost))")
-                                    .font(.system(size: 28, weight: .black, design: .rounded))
+                                    .font(.largeTitle.weight(.black))
                                     .foregroundStyle(AppColor.inProgress)
                             }
                         }
@@ -300,7 +308,7 @@ struct CompleteWorkOrderView: View {
                                 }
                             }) {
                                 Text("Complete")
-                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .font(.headline)
                                     .foregroundStyle(Color.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
@@ -323,7 +331,7 @@ struct CompleteWorkOrderView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("Complete Work Order")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.headline)
             }
         }
         .task {

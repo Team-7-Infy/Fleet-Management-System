@@ -36,17 +36,18 @@ struct AddPartsSheet: View {
             HStack {
                 Spacer()
                 Text("Add Parts")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.title2.weight(.bold))
                 Spacer()
                 
                 Button(action: { dismiss() }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(Color.black)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                         .background(Color.white)
                         .clipShape(Circle())
                 }
+                .accessibilityLabel("Close")
             }
             .padding(24)
             
@@ -71,32 +72,33 @@ struct AddPartsSheet: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(part.name)
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.body.weight(.bold))
                                     .foregroundStyle(Color.black)
                                 Text("₹\(NSDecimalNumber(decimal: part.unitPrice).intValue)/part")
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(Color.gray)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Color(UIColor.secondaryLabel))
                             }
                             
                             Spacer()
                             
                             VStack(alignment: .trailing, spacing: 4) {
                                 Text("\(part.currentQuantity) in stock")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(part.currentQuantity > 0 ? Color.gray : AppColor.destructive)
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(part.currentQuantity > 0 ? Color(UIColor.secondaryLabel) : AppColor.destructive)
                                 
                                 Button(action: {
                                     onAddPart(part, 1)
                                     dismiss() 
                                 }) {
                                     Text("Add")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundStyle(part.currentQuantity > 0 ? AppColor.inProgress : Color.gray)
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(part.currentQuantity > 0 ? AppColor.inProgress : Color(UIColor.secondaryLabel))
                                         .padding(.horizontal, 16)
                                         .padding(.vertical, 6)
                                         .background(part.currentQuantity > 0 ? AppColor.inProgress.opacity(0.1) : Color.gray.opacity(0.1))
                                         .clipShape(Capsule())
                                 }
+                                .accessibilityLabel("Add \(part.name)")
                                 .disabled(part.currentQuantity == 0)
                             }
                         }

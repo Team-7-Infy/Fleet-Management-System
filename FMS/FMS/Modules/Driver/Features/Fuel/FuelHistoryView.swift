@@ -244,6 +244,7 @@ struct TripFuelHistoryView: View {
             Image(systemName: "lock.fill")
                 .font(.system(size: 48))
                 .foregroundColor(.orange)
+                .accessibilityHidden(true)
             Text("Fuel Logging Locked")
                 .font(.title2.weight(.bold))
             Text("Fuel can only be logged during an active trip or within 2 hours of its completion.")
@@ -266,7 +267,7 @@ struct TripFuelHistoryView: View {
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.8))
                     Text("\(Int(estimatedRangeKm)) km")
-                        .font(.system(size: 36, weight: .heavy, design: .rounded))
+                        .font(.largeTitle.weight(.heavy))
                         .foregroundColor(.white)
                 }
                 Spacer()
@@ -329,6 +330,7 @@ struct TripFuelHistoryView: View {
                 .fontWeight(.semibold)
                 .foregroundColor(selectedReceiptImage == nil ? .blue : .green)
             }
+            .accessibilityLabel("Attach Receipt Image")
 
             if isScanningReceipt {
                 HStack(spacing: 8) {

@@ -516,7 +516,7 @@ struct ActiveNavigationDetailView: View {
                         
                         VStack(alignment: .leading, spacing: 2) {
                             Text(voiceGuidance.currentInstruction.isEmpty ? "Proceed to the route" : voiceGuidance.currentInstruction)
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.headline)
                                 .foregroundColor(.white)
                                 .lineLimit(2)
                         }
@@ -640,36 +640,38 @@ struct ActiveNavigationDetailView: View {
                 HStack(spacing: 0) {
                     VStack(spacing: 4) {
                         Text(viewModel.eta)
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .font(.title.weight(.bold))
                             .foregroundColor(.primary)
                         Text("arrival")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.caption.weight(.bold))
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity)
                     
                     VStack(spacing: 4) {
                         Text(liveDistanceRemaining ?? viewModel.distanceRemaining)
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .font(.title.weight(.bold))
                             .foregroundColor(.green)
                         Text("remaining")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.caption.weight(.bold))
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity)
                     
                     VStack(spacing: 4) {
                         Text(isTripStopped ? "0 km/h" : "65 km/h")
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .font(.title.weight(.bold))
                             .foregroundColor(.blue)
                         Text("speed")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.caption.weight(.bold))
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity)
                 }
                 .padding(.horizontal)
                 .contentShape(Rectangle())
+                .accessibilityAddTraits(.isButton)
+                .accessibilityLabel("Show trip details")
                 .onTapGesture {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
                         isExpanded.toggle()
@@ -701,21 +703,22 @@ struct ActiveNavigationDetailView: View {
                             
                             Spacer()
                             
-                            Button(action: {
-                                HapticManager.shared.triggerImpact(style: .medium)
-                                if let url = URL(string: "tel://100") {
-                                    UIApplication.shared.open(url)
-                                }
-                            }) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color(UIColor.systemGray5))
-                                        .frame(width: 38, height: 38)
-                                    Image(systemName: "phone.fill")
-                                        .foregroundColor(.blue)
-                                        .font(.subheadline)
-                                }
-                            }
+                    Button(action: {
+                        HapticManager.shared.triggerImpact(style: .medium)
+                        if let url = URL(string: "tel://100") {
+                            UIApplication.shared.open(url)
+                        }
+                    }) {
+                        ZStack {
+                            Circle()
+                                .fill(Color(UIColor.systemGray5))
+                                .frame(width: 44, height: 44)
+                            Image(systemName: "phone.fill")
+                                .foregroundColor(.blue)
+                                .font(.subheadline)
+                        }
+                    }
+                    .accessibilityLabel("Call Manager")
                         }
                         .padding()
                         .background(RoundedRectangle(cornerRadius: 20).fill(Color(UIColor.secondarySystemGroupedBackground)))
@@ -752,12 +755,13 @@ struct ActiveNavigationDetailView: View {
                                 ZStack {
                                     Circle()
                                         .fill(Color(UIColor.systemGray5))
-                                        .frame(width: 38, height: 38)
+                                        .frame(width: 44, height: 44)
                                     Image(systemName: isTripStopped ? "play.fill" : "pause.fill")
                                         .foregroundColor(.orange)
                                         .font(.subheadline)
                                 }
                             }
+                            .accessibilityLabel(isTripStopped ? "Resume Journey" : "Pause Journey")
                         }
                         .padding()
                         .background(RoundedRectangle(cornerRadius: 20).fill(Color(UIColor.secondarySystemGroupedBackground)))
@@ -863,6 +867,7 @@ struct ActiveNavigationDetailView: View {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 48))
+                            .minimumScaleFactor(0.5)
                             .foregroundColor(.orange)
                         Text("Possible Collision Detected")
                             .font(.headline)
@@ -871,6 +876,7 @@ struct ActiveNavigationDetailView: View {
                             .font(.subheadline)
                             .multilineTextAlignment(.center)
                             .foregroundColor(.secondary)
+                            .accessibilityValue("\(jerkCountdownSeconds) seconds remaining")
                         Button(action: { showingJerkCountdown = false }) {
                             Text("I'm OK — Cancel")
                                 .fontWeight(.semibold)
@@ -880,12 +886,14 @@ struct ActiveNavigationDetailView: View {
                                 .foregroundColor(.white)
                                 .cornerRadius(12)
                         }
+                        .accessibilityLabel("Cancel Emergency SOS")
                     }
                     .padding(24)
                     .background(.regularMaterial)
                     .cornerRadius(20)
                     .padding(40)
                 }
+                .accessibilityAddTraits(.isModal)
                 .transition(.opacity)
                 .zIndex(100)
             }
@@ -1139,7 +1147,7 @@ struct SlideToCancel: View {
                 )
             
             Text("SLIDE TO CANCEL DISPATCH")
-                .font(.system(size: 11, weight: .black, design: .rounded))
+                .font(.caption.weight(.black))
                 .foregroundColor(Color.red.opacity(0.8))
                 .tracking(2.0)
                 .frame(maxWidth: .infinity)
