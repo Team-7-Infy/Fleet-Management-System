@@ -377,7 +377,7 @@ struct InspectionView: View {
     private func persistInspection(tripId: UUID, vehicleId: UUID, driverId: UUID) async throws {
         let inspectionType = isPostTrip ? "post_trip" : "pre_trip"
         let failedItems = viewModel.items.filter { $0.status == .failed }
-        let inspectionStatus = failedItems.isEmpty ? "passed" : "failed"
+        let inspectionStatus: VehicleInspectionStatus = failedItems.isEmpty ? .passed : .failed
 
         let inspection = VehicleInspection(
             id: UUID(),

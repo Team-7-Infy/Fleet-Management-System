@@ -295,7 +295,7 @@ struct ManagerVehicleDetailView: View {
                         .background(FleetPalette.accent.opacity(0.12))
                         .clipShape(Capsule())
 
-                    let healthScore = VehicleHealth.score(for: currentVehicle)
+                    let healthScore = viewModel.vehicleHealthScores.first { $0.vehicle.id == currentVehicle.id }?.score ?? VehicleHealth.score(for: currentVehicle)
                     let healthColor = healthScore >= 80 ? FleetPalette.success : healthScore >= 50 ? FleetPalette.warning : FleetPalette.danger
                     Text("HEALTH \(healthScore)%")
                         .font(.system(size: 9, weight: .black))

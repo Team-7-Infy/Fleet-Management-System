@@ -142,13 +142,53 @@ final actor VehicleService: VehicleServiceProtocol {
     }
 
     func fetchVehicleHealthScores() async throws -> [(vehicleId: UUID, score: Int)] {
+        struct CachedScore: Codable {
+            let vehicleId: UUID
+            let score: Int
+            let calculatedAt: Date
+            
+            enum CodingKeys: String, CodingKey {
+                case vehicleId = "vehicle_id"
+                case score
+                case calculatedAt = "calculated_at"
+            }
+        }
+        
+        let now = Date()
+        
+        // 1. Fetch active vehicles first to verify coverage
         let vehicles: [Vehicle] = try await supabase.client
             .from("vehicles")
             .select()
             .is("deleted_at", value: nil)
             .execute()
             .value
-
+            
+        // 2. Fetch cached health scores
+        let cached: [CachedScore] = (try? await supabase.client
+            .from("vehicle_health_scores")
+            .select()
+            .execute()
+            .value) ?? []
+            
+        let cachedLookup = Dictionary(uniqueKeysWithValues: cached.map { ($0.vehicleId, $0) })
+        
+        // Verify all vehicles are cached and fresh (within 24 hours)
+        let allFresh = !vehicles.isEmpty && vehicles.allSatisfy { vehicle in
+            if let entry = cachedLookup[vehicle.id] {
+                return now.timeIntervalSince(entry.calculatedAt) < 24 * 3600
+            }
+            return false
+        }
+        
+        if allFresh {
+            let cachedResults: [(vehicleId: UUID, score: Int)] = vehicles.map { vehicle in
+                (vehicleId: vehicle.id, score: cachedLookup[vehicle.id]?.score ?? 100)
+            }
+            return cachedResults.sorted(by: { $0.score > $1.score })
+        }
+        
+        // 3. Fallback to recalculating and caching (upserting)
         let allTasks: [MaintenanceTask] = try await supabase.client
             .from("maintenance_task")
             .select()
@@ -223,7 +263,7 @@ final actor VehicleService: VehicleServiceProtocol {
                 let totalLiters = vehicleFuelEntries.compactMap(\.liters).reduce(0, +)
                 let totalDistance = vehicleTrips.compactMap(\.distanceKm).reduce(0, +)
                 if totalDistance > 0 && totalLiters > 0 {
-                    let efficiency = totalDistance / totalLiters // km per liter
+                    let efficiency = totalDistance / totalLiters
                     let expectedEfficiency: Double = vehicle.fuelType == "diesel" ? 12 : vehicle.fuelType == "cng" ? 18 : 14
                     let ratio = min(efficiency / expectedEfficiency, 2.0)
                     fuelEfficiencyScore = min(100, ratio * 50)
@@ -236,7 +276,6 @@ final actor VehicleService: VehicleServiceProtocol {
 
             // Factor 3: Maintenance Adherence
             let completedTasks = vehicleTasks.filter { $0.status == .completed }
-            let openTasks = vehicleTasks.filter { $0.status.isOpen }
             let adherenceScore: Double
             if !vehicleTasks.isEmpty {
                 let totalNeeded = vehicleTasks.count
@@ -250,7 +289,7 @@ final actor VehicleService: VehicleServiceProtocol {
             let vehicleInspections = vehiclesWithInspections[vehicle.id] ?? []
             let inspectionScore: Double
             if !vehicleInspections.isEmpty {
-                let passed = vehicleInspections.filter { $0.status == "passed" }.count
+                let passed = vehicleInspections.filter { $0.status == .passed }.count
                 inspectionScore = Double(passed) / Double(vehicleInspections.count) * 100
             } else {
                 inspectionScore = 100
@@ -271,7 +310,15 @@ final actor VehicleService: VehicleServiceProtocol {
             results.append((vehicle.id, max(0, min(100, Int(overall.rounded())))))
         }
 
-        return results.sorted { $0.score > $1.score }
+        let cacheToUpsert = results.map { CachedScore(vehicleId: $0.vehicleId, score: $0.score, calculatedAt: now) }
+        if !cacheToUpsert.isEmpty {
+            try? await supabase.client
+                .from("vehicle_health_scores")
+                .upsert(cacheToUpsert)
+                .execute()
+        }
+
+        return results.sorted(by: { $0.score > $1.score })
     }
 
     func fetchPostTripInspections() async throws -> [UUID] {

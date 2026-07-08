@@ -303,7 +303,7 @@ final class VehicleInspectionModelTests: XCTestCase {
             vehicleId: UUID(),
             driverId: UUID(),
             type: "pre_trip",
-            status: "passed",
+            status: .passed,
             odometerReading: 12345.6,
             fuelLevel: 0.75,
             notes: "All good",

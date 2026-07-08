@@ -215,24 +215,21 @@ final actor UserManagementService: UserManagementServiceProtocol {
             .value
 
         let totalInspections = inspections.count
-        let failedInspections = inspections.filter { $0.status == "failed" }.count
+        let failedInspections = inspections.filter { $0.status == .failed }.count
         let inspectionRate = totalInspections > 0 ? Double(failedInspections) / Double(totalInspections) : 0.0
         let inspectionScore = totalInspections > 0 ? max(0, (1.0 - inspectionRate) * 100) : 75.0
 
         // Factor 2: Geofence Violation Rate
-        let tripIds = completedTrips.map(\.id)
+        let tripIds = completedTrips.map(\.id.uuidString)
         var deviationAlertsCount = 0
         if !tripIds.isEmpty {
-            for tripId in tripIds {
-                if let alerts = try? await supabase.client
-                    .from("deviation_alert")
-                    .select()
-                    .eq("tripid", value: tripId.uuidString)
-                    .execute()
-                    .value as [DeviationAlert]? {
-                    deviationAlertsCount += alerts.count
-                }
-            }
+            let alerts: [DeviationAlert] = (try? await supabase.client
+                .from("deviation_alert")
+                .select()
+                .in("tripid", values: tripIds)
+                .execute()
+                .value) ?? []
+            deviationAlertsCount = alerts.count
         }
         let violationRate = totalTrips > 0 ? Double(deviationAlertsCount) / Double(max(totalTrips, 1)) : 0.0
         let geofenceScore = totalTrips > 0 ? max(0, (1.0 - min(violationRate, 1.0)) * 100) : 75.0
@@ -289,6 +286,16 @@ final actor UserManagementService: UserManagementServiceProtocol {
             .select()
             .eq("driver_id", value: driverId.uuidString)
             .order("start_time", ascending: true)
+            .execute()
+            .value
+    }
+
+    func fetchDriverSchedules(overlappingStart: Date, overlappingEnd: Date) async throws -> [DriverSchedule] {
+        try await supabase.client
+            .from("driver_schedules")
+            .select()
+            .lt("start_time", value: overlappingEnd)
+            .gt("end_time", value: overlappingStart)
             .execute()
             .value
     }

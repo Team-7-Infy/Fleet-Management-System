@@ -297,7 +297,7 @@ struct EndTripView: View {
                     vehicleId: vehicleId,
                     driverId: driverId,
                     type: "post_trip",
-                    status: failedItems.isEmpty ? "passed" : "failed",
+                    status: failedItems.isEmpty ? .passed : .failed,
                     odometerReading: Double(endOdometer),
                     fuelLevel: Double(endFuel),
                     notes: postTripComments.isEmpty ? nil : postTripComments,
