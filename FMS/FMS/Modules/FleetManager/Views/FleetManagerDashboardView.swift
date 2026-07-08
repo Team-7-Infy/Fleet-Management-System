@@ -344,17 +344,24 @@ struct FleetManagerDashboardView: View {
         isRefreshingAll = true
         defer { isRefreshingAll = false }
 
-        await tripsViewModel.load()
-        await maintenanceViewModel.load()
-        await usersViewModel.load(
+        // Stage 1: trips and maintenance have no data dependency on each other
+        async let tripsLoad: Void = tripsViewModel.load()
+        async let maintLoad: Void = maintenanceViewModel.load()
+        _ = await (tripsLoad, maintLoad)
+
+        // Stage 2: users and vehicles depend on trips + maintenance data
+        async let usersLoad: Void = usersViewModel.load(
             trips: tripsViewModel.trips,
             tasks: maintenanceViewModel.tasks
         )
-        await vehiclesViewModel.load(
+        async let vehiclesLoad: Void = vehiclesViewModel.load(
             trips: tripsViewModel.trips,
             tasks: maintenanceViewModel.tasks,
             taskVehicles: maintenanceViewModel.taskVehicles
         )
+        _ = await (usersLoad, vehiclesLoad)
+
+        // Stage 3: vehicle health scores depend on vehicles being loaded
         await vehiclesViewModel.loadVehicleHealthScores()
     }
 

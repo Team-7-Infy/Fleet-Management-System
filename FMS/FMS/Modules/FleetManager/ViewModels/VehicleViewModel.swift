@@ -29,11 +29,15 @@ final class VehicleViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let postTripInspectionTripIds = (try? await service.fetchPostTripInspections()) ?? []
-            let fetched = try await service.fetchVehicles()
+            async let postTripInspectionsTask = service.fetchPostTripInspections()
+            async let fetchedTask = service.fetchVehicles()
+
+            let postTripInspectionTripIds = (try? await postTripInspectionsTask) ?? []
+            let fetched = try await fetchedTask
                 .filter { $0.isPlaceholderDemoRecord == false }
             
             var syncedVehicles = fetched
+            var statusUpdates: [(vehicleId: UUID, status: VehicleStatus)] = []
             for i in 0..<syncedVehicles.count {
                 let v = syncedVehicles[i]
                 
@@ -67,9 +71,13 @@ final class VehicleViewModel: ObservableObject {
                 }
                 
                 if v.status != dbStatus {
-                    try? await service.setVehicleStatus(vehicleId: v.id, status: dbStatus)
+                    statusUpdates.append((vehicleId: v.id, status: dbStatus))
                     syncedVehicles[i].status = dbStatus
                 }
+            }
+
+            if !statusUpdates.isEmpty {
+                try? await service.bulkSetVehicleStatuses(updates: statusUpdates)
             }
 
             vehicles = syncedVehicles.sorted { $0.licencePlate.localizedCaseInsensitiveCompare($1.licencePlate) == .orderedAscending }
