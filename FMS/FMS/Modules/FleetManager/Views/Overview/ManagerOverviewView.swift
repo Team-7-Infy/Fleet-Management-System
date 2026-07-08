@@ -507,28 +507,29 @@ struct FleetStatusRowContent: View {
     var metrics: [(String, String, Color)]
 
     var body: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 12) {
+            VStack(alignment: .center, spacing: 6) {
                 IconBubble(systemImage: systemImage, tint: tint)
                 Text(title)
-                    .font(.headline.weight(.bold))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(FleetPalette.textPrimary)
+                    .lineLimit(1)
             }
-            .frame(width: 80, alignment: .leading)
+            .frame(width: 68, alignment: .center)
 
             Divider()
                 .padding(.vertical, 4)
 
-            HStack(spacing: 0) {
+            HStack(spacing: 4) {
                 ForEach(metrics, id: \.0) { metric in
-                    VStack(spacing: 6) {
+                    VStack(spacing: 4) {
                         Text(metric.0.uppercased())
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: 9, weight: .bold))
                             .foregroundStyle(FleetPalette.textSecondary)
                             .lineLimit(1)
 
                         Text(metric.1)
-                            .font(.system(size: 20, weight: .heavy, design: .rounded))
+                            .font(.system(size: 19, weight: .heavy, design: .rounded))
                             .foregroundStyle(metric.2)
                     }
                     .frame(maxWidth: .infinity)

@@ -304,7 +304,9 @@ struct FitnessLineChart: View {
         guard let first = data.first?.monthStart, let last = data.last?.monthStart else {
             return Date()...Date()
         }
-        return first...last
+        let calendar = Calendar.current
+        let endOfLast = calendar.date(byAdding: .month, value: 1, to: last)!
+        return first...endOfLast
     }
 
     var body: some View {
@@ -323,6 +325,7 @@ struct FitnessLineChart: View {
             .foregroundStyle(color)
             .symbolSize(24)
         }
+        .clipped()
         .chartXScale(domain: chartDomain)
         .chartXAxis {
             AxisMarks(values: .stride(by: .month)) { _ in
