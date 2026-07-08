@@ -33,8 +33,7 @@ struct ManagerMaintenanceRequestSheet: View {
 
     private var availablePersonnel: [MaintenancePersonnel] {
         usersViewModel.maintenancePersonnel.filter { person in
-            person.status == .available &&
-            !viewModel.openTasks.contains { $0.executedBy == person.id }
+            person.status == .available
         }
     }
 
@@ -71,15 +70,20 @@ struct ManagerMaintenanceRequestSheet: View {
                     Toggle("Urgent", isOn: $form.isUrgent)
                         .fleetField()
 
-                    Picker("Assign To", selection: $form.executedBy) {
-                        Text("Unassigned").tag(Optional<UUID>.none)
-                        ForEach(availablePersonnel) { person in
-                            let user = usersViewModel.user(for: person.userId)
-                            Text(user?.displayName ?? person.id.uuidString)
-                                .tag(Optional(person.id))
+                    Toggle("Auto Assign", isOn: $form.isAutoAssign)
+                        .fleetField()
+
+                    if !form.isAutoAssign {
+                        Picker("Assign To", selection: $form.executedBy) {
+                            Text("Unassigned").tag(Optional<UUID>.none)
+                            ForEach(availablePersonnel) { person in
+                                let user = usersViewModel.user(for: person.userId)
+                                Text(user?.displayName ?? person.id.uuidString)
+                                    .tag(Optional(person.id))
+                            }
                         }
+                        .fleetField()
                     }
-                    .fleetField()
 
                     TextField("Photo URL (optional)", text: $form.photoUrl)
                         .keyboardType(.URL)

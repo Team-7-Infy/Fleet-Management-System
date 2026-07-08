@@ -51,6 +51,17 @@ struct ManagerVehicleFormSheet: View {
         .fleetScreenBackground()
         .navigationTitle(editMode ? "Edit Vehicle" : "Add Vehicle")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            viewModel.successMessage = nil
+            viewModel.errorMessage = nil
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Cancel") {
+                    dismiss()
+                }
+            }
+        }
     }
 
     private var plateField: some View {
@@ -67,10 +78,15 @@ struct ManagerVehicleFormSheet: View {
     }
 
     private var vinField: some View {
-        TextField("VIN UUID (optional)", text: $form.vin)
-            .textInputAutocapitalization(.never)
-            .fleetField()
-            .disabled(editMode)
+        VStack(alignment: .leading, spacing: 4) {
+            TextField("VIN UUID (optional)", text: $form.vin)
+                .textInputAutocapitalization(.never)
+                .fleetField()
+                .disabled(editMode)
+            if let vinMsg = form.vinValidationMessage {
+                FleetFieldValidationMessage(message: vinMsg)
+            }
+        }
     }
 
     private var makeModelRow: some View {
@@ -150,7 +166,7 @@ struct ManagerVehicleFormSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             FleetFormFieldLabel("Status")
             Picker(selection: $form.status) {
-                ForEach(VehicleStatus.allCases) { status in
+                ForEach(editMode ? VehicleStatus.allCases : [.available, .outOfService]) { status in
                     Text(status.title).tag(status)
                 }
             } label: {

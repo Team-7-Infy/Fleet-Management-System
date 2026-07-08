@@ -186,7 +186,7 @@ struct FleetManagerVehicleForm {
         "UP", "WB"
     ]
 
-    private static let statePlatePattern = #"^[A-Z]{2}[0-9]{1,2}[A-Z]{1,3}[0-9]{1,4}$"#
+    private static let statePlatePattern = #"^[A-Z]{2}[0-9]{1,2}([A-Z]{1,3})?[0-9]{1,4}$"#
     private static let bharatPlatePattern = #"^[0-9]{2}BH[0-9]{4}[A-Z]{1,2}$"#
 
     var vehicleId: UUID? {
@@ -226,6 +226,15 @@ struct FleetManagerVehicleForm {
         return nil
     }
 
+    var vinValidationMessage: String? {
+        let trimmed = vin.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard UUID(uuidString: trimmed) != nil else {
+            return "VIN must be a valid UUID format."
+        }
+        return nil
+    }
+
     var validationMessage: String? {
         if normalizedLicencePlate.isEmpty {
             return "Enter an Indian vehicle plate number."
@@ -251,6 +260,10 @@ struct FleetManagerVehicleForm {
             return yearValidationMessage
         }
 
+        if let vinValidationMessage {
+            return vinValidationMessage
+        }
+
         if vehicleId == nil {
             return "VIN must be empty for auto-generation or a valid UUID."
         }
@@ -260,6 +273,7 @@ struct FleetManagerVehicleForm {
 
     var isValid: Bool {
         vehicleId != nil &&
+        vinValidationMessage == nil &&
         make.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
         model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
         Self.isValidIndianLicencePlate(licencePlate) &&
@@ -391,6 +405,7 @@ struct FleetManagerMaintenanceTaskForm {
     var executedBy: UUID?
     var status: MaintenanceTaskStatus = .scheduled
     var photoUrl = ""
+    var isAutoAssign = true
 
     var isValid: Bool {
         title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
@@ -407,7 +422,7 @@ struct FleetManagerMaintenanceTaskForm {
             scheduledDate: DateOnly(wrappedValue: scheduledDate),
             isUrgent: isUrgent,
             scheduledBy: scheduledBy,
-            executedBy: executedBy,
+            executedBy: isAutoAssign ? nil : executedBy,
             status: status,
             reportedDate: Date(),
             completedAt: nil,
@@ -595,7 +610,7 @@ extension PersonnelStatus: Identifiable {
         case .unavailable:
             return "Unavailable"
         case .inService:
-            return "In Service"
+            return "In Progress"
         }
     }
 }

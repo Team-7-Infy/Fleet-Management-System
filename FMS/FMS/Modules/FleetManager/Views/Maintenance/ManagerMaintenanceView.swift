@@ -112,12 +112,12 @@ struct ManagerMaintenanceView: View {
         .task {
             await viewModel.load()
             await vehiclesViewModel.load()
-            await usersViewModel.load()
+            await usersViewModel.load(tasks: viewModel.tasks)
         }
         .refreshable {
             await viewModel.load()
             await vehiclesViewModel.load()
-            await usersViewModel.load()
+            await usersViewModel.load(tasks: viewModel.tasks)
         }
     }
 }

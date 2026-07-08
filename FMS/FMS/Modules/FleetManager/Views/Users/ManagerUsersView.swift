@@ -49,7 +49,7 @@ struct ManagerUsersView: View {
         case .drivers:
             return ["Available", "On Trip", "Scheduled", "Unavailable"]
         case .mechanics:
-            return ["Available", "In Service", "Unavailable"]
+            return ["Available", "In Progress", "Unavailable"]
         }
     }
 
@@ -291,6 +291,7 @@ struct ManagerUserDetailView: View {
         return maintenanceViewModel.tasks.filter { $0.executedBy == maintenanceProfile.id }
     }
 
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -323,20 +324,21 @@ struct ManagerUserDetailView: View {
                     )
                     showEditSheet = true
                 } label: {
-                    Label("Edit User", systemImage: "pencil")
+                    Label("Edit Profile Details", systemImage: "pencil")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(FleetPalette.accent)
+                .buttonStyle(.bordered)
+                .padding(.horizontal)
 
                 Button(role: .destructive) {
                     showDeleteConfirm = true
                 } label: {
-                    Label("Delete User", systemImage: "trash")
+                    Label(user.isActive ? "Deactivate Account" : "Activate Account", systemImage: user.isActive ? "person.crop.circle.badge.xmark" : "person.crop.circle.badge.checkmark")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(FleetPalette.danger)
+                .buttonStyle(.bordered)
+                .padding(.horizontal)
+                .padding(.bottom, 30)
             }
             .padding()
         }
@@ -411,7 +413,20 @@ struct ManagerUserDetailView: View {
                         Divider()
                         InfoRow(title: "Vehicle Type", value: driverProfile.vehicleType.isEmpty ? "Not available" : driverProfile.vehicleType.capitalized)
                         Divider()
-                        InfoRow(title: "Status", value: driverProfile.status.title)
+                        HStack {
+                            Text("Status")
+                                .font(.subheadline)
+                                .foregroundStyle(FleetPalette.textSecondary)
+                                .frame(width: 112, alignment: .leading)
+                            
+                            Spacer()
+                            
+                            StatusPill(
+                                text: driverProfile.status.title,
+                                color: FleetPalette.personnelStatus(driverProfile.status),
+                                dotSize: 8
+                            )
+                        }
                         Divider()
                         InfoRow(title: "Phone", value: "\(user.contact)")
                         Divider()
@@ -736,10 +751,10 @@ func calculateUserStatus(
             return (user.isActive ? "Active" : "Inactive", user.isActive ? FleetPalette.success : FleetPalette.neutral)
         }
         
-        // Check if they are In Service
+        // Check if they are In Progress
         let hasActiveWork = tasks.contains { $0.executedBy == personnel.id && $0.status == .inProgress }
         if hasActiveWork {
-            return ("In Service", FleetPalette.warning)
+            return ("In Progress", FleetPalette.warning)
         }
         
         return ("Available", FleetPalette.success)

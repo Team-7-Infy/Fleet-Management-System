@@ -24,12 +24,24 @@ final class DriverProfileViewModel: ObservableObject {
     @Published var onTimeRate: String = "0%"
     @Published var safetyScore: Int = 85
     @Published var lastTripDate: String = "N/A"
+    @Published var status: PersonnelStatus
 
     let dateOfJoining: String
     let licenseNumber: String
     let aadharNumber: String
     let assignedVehicle: String
-    let status: String
+
+    var statusText: String {
+        status.title
+    }
+
+    var statusColor: Color {
+        FleetPalette.personnelStatus(status)
+    }
+
+    var canToggleAvailability: Bool {
+        status == .available || status == .unavailable
+    }
 
     init(services: AppServices, driver: Driver?, user: User) {
         self.services = services
@@ -45,10 +57,10 @@ final class DriverProfileViewModel: ObservableObject {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd MMM, yyyy"
         dateOfJoining = formatter.string(from: user.createdAt)
-        licenseNumber = driver?.licenceNum ?? "DL-2024-987654"
+        licenseNumber = driver?.licenceNum ?? "N/A"
         aadharNumber = user.aadhar
-        assignedVehicle = driver?.vehicleType ?? "Truck"
-        status = (driver?.status ?? .active).rawValue.capitalized
+        assignedVehicle = driver?.vehicleType ?? "None"
+        status = driver?.status ?? .active
     }
 
     func loadStats() async {
@@ -56,6 +68,8 @@ final class DriverProfileViewModel: ObservableObject {
         do {
             let trips = try await services.tripService.fetchTrips(forDriverId: driverId)
             let completed = trips.filter { $0.status == .completed }
+            let scoreRecord = try? await services.userManagementService.fetchDriverScore(driverId: driverId)
+            
             await MainActor.run {
                 completedTrips = completed.count
                 totalTrips = "\(trips.count)"
@@ -65,9 +79,26 @@ final class DriverProfileViewModel: ObservableObject {
                     f.dateFormat = "dd MMM, yyyy"
                     lastTripDate = f.string(from: last.startTime)
                 }
+                if let scoreRecord = scoreRecord {
+                    safetyScore = Int(scoreRecord.overallScore)
+                } else {
+                    safetyScore = 85
+                }
             }
         } catch {
             print("Failed to load trips: \(error)")
+        }
+    }
+
+    func setStatus(_ newStatus: PersonnelStatus) async {
+        guard let driver = driver else { return }
+        do {
+            try await services.userManagementService.updateDriverStatus(driverId: driver.id, status: newStatus.rawValue)
+            await MainActor.run {
+                self.status = newStatus
+            }
+        } catch {
+            print("Failed to update status: \(error)")
         }
     }
 
