@@ -64,5 +64,4 @@ The FMS employs a highly polished, native Apple aesthetic. We extensively utiliz
 
 ## 👥 Contributors
 Developed by the FMS Engineering Team at Infosys.
-*   **[Your Name]** - iOS Software Engineer (Fleet Manager Module)
-*   **Team:** 9 iOS Engineers collaborating via Agile methodologies.
+*   **Team 7:** 9 iOS Engineers collaborating via Agile methodologies.
