@@ -338,7 +338,7 @@ struct EndTripView: View {
                             description: description,
                             scheduledDate: DateOnly(wrappedValue: Date()),
                             isUrgent: true,
-                            scheduledBy: nil,
+                            scheduledBy: UUID(uuidString: "21000000-0000-0000-0000-000000000001"),
                             executedBy: bestPersonnel?.id,
                             status: bestPersonnel != nil ? .assigned : .scheduled,
                             reportedDate: nil,

@@ -79,6 +79,7 @@ final class SupabaseWorkOrderService: WorkOrderServicing {
         // When completed, reset the vehicle status to active
         if status == .completed {
             try await markVehicleActive(for: id)
+            try? await markPersonnelAvailable(for: id)
         }
     }
     
@@ -210,6 +211,22 @@ final class SupabaseWorkOrderService: WorkOrderServicing {
                 .from("vehicles")
                 .update(["status": AnyJSON.string("available")])
                 .eq("vin", value: tv.vin.uuidString)
+                .execute()
+        }
+    }
+
+    private func markPersonnelAvailable(for taskID: UUID) async throws {
+        let tasks: [WorkOrder] = try await client
+            .from("maintenance_task")
+            .select("executedby")
+            .eq("taskid", value: taskID.uuidString)
+            .execute()
+            .value
+        if let executedBy = tasks.first?.executedBy {
+            try await client
+                .from("maintenance_personnel")
+                .update(["status": AnyJSON.string("available")])
+                .eq("personnelid", value: executedBy.uuidString)
                 .execute()
         }
     }

@@ -100,7 +100,9 @@ struct PastWorkOrderDetailsView: View {
                         detailRow(title: "Vehicle", value: workOrder.vehicleName)
                     }
                     
-                    if let assignedBy = viewModel.assignedBy {
+                    if workOrder.taskTitle?.hasPrefix("Routine Maintenance -") == true {
+                        detailRow(title: "Assigned By", value: "Auto assigned by Manager")
+                    } else if let assignedBy = viewModel.assignedBy {
                         detailRow(title: "Assigned By", value: assignedBy.fullName)
                     } else {
                         detailRow(title: "Assigned By", value: "Fleet Manager")

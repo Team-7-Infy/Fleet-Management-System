@@ -76,7 +76,6 @@ struct ManagerVehiclesView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
 
             if viewModel.vehicles.isEmpty {
                 ContentUnavailableView(
@@ -94,6 +93,7 @@ struct ManagerVehiclesView: View {
                                 vehicle: vehicle,
                                 viewModel: viewModel,
                                 usersViewModel: usersViewModel,
+                                maintenanceViewModel: maintenanceViewModel,
                                 openMaintenanceRequest: openMaintenanceRequest
                             )
                         } label: {
@@ -224,6 +224,7 @@ struct ManagerVehicleDetailView: View {
     var vehicle: Vehicle
     @ObservedObject var viewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
+    @ObservedObject var maintenanceViewModel: MaintenanceViewModel
     var openMaintenanceRequest: (UUID?) -> Void
 
     @State private var showEditSheet = false
@@ -332,6 +333,19 @@ struct ManagerVehicleDetailView: View {
                     InfoRow(title: "Fuel Type", value: currentVehicle.fuelType?.capitalized ?? "N/A")
                     Divider()
                     InfoRow(title: "Status", value: currentVehicle.status.title)
+                    if currentVehicle.status == .inMaintenance {
+                        let linkedTaskIds = maintenanceViewModel.taskVehicles
+                            .flatMap { _, vehicles in vehicles }
+                            .filter { $0.vin == currentVehicle.id }
+                            .map { $0.taskId }
+                        if let activeTask = maintenanceViewModel.tasks.first(where: { linkedTaskIds.contains($0.id) && $0.status != .completed }) {
+                            let assignee = usersViewModel.personnelUser(for: activeTask.executedBy)
+                            Divider()
+                            InfoRow(title: "Maintenance", value: activeTask.displayTitle)
+                            Divider()
+                            InfoRow(title: "Assigned To", value: assignee?.displayName ?? "Unassigned")
+                        }
+                    }
                     if let kmInterval = currentVehicle.maintenanceKmInterval {
                         Divider()
                         InfoRow(title: "Service Every", value: "\(kmInterval) km")

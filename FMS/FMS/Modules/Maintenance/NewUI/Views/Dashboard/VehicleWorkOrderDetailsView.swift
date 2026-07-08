@@ -226,7 +226,7 @@ struct VehicleWorkOrderDetailsView: View {
                                 .fixedSize(horizontal: true, vertical: false)
                         }
                         
-                        Text("Assigned")
+                        Text(workOrder.taskTitle?.hasPrefix("Routine Maintenance -") == true ? "Auto assigned by Manager" : "Assigned")
                             .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundStyle(Color.gray)
                     }
