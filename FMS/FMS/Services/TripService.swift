@@ -149,6 +149,14 @@ final actor TripService: TripServiceProtocol {
             .value
     }
 
+    func deleteRouteWaypoints(tripId: UUID) async throws {
+        try await supabase.client
+            .from("route_waypoints")
+            .delete()
+            .eq("tripid", value: tripId.uuidString)
+            .execute()
+    }
+
     func fetchRouteWaypoints(tripId: UUID) async throws -> [RouteWaypoint] {
         try await supabase.client
             .from("route_waypoints")
