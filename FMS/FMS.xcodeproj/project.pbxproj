@@ -826,9 +826,9 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FMS/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app requires access to the camera to take photos of vehicle defects during pre-trip inspection.";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "";
-				INFOPLIST_KEY_NSLocationUsageDescription = "";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "FleetMS needs background location access to track your route and log telemetry during active trips.";
+				INFOPLIST_KEY_NSLocationUsageDescription = "FleetMS uses your location to track trips and provide navigation.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "FleetMS uses your location to track trips and provide navigation.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app requires access to the photo library to upload defect photos during pre-trip inspection.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -866,9 +866,9 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FMS/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app requires access to the camera to take photos of vehicle defects during pre-trip inspection.";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "";
-				INFOPLIST_KEY_NSLocationUsageDescription = "";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "FleetMS needs background location access to track your route and log telemetry during active trips.";
+				INFOPLIST_KEY_NSLocationUsageDescription = "FleetMS uses your location to track trips and provide navigation.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "FleetMS uses your location to track trips and provide navigation.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app requires access to the photo library to upload defect photos during pre-trip inspection.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

@@ -21,10 +21,13 @@ protocol MaintenanceServiceProtocol: AnyObject, Sendable {
     func unholdTask(id: UUID) async throws
 
     func fetchTaskParts(taskId: UUID) async throws -> [MaintenanceTaskPart]
+    func fetchAllTaskParts() async throws -> [MaintenanceTaskPart]
     func addTaskPart(_ taskPart: MaintenanceTaskPart) async throws
     func removeTaskPart(taskId: UUID, partId: UUID) async throws
 
     func fetchTaskVehicles(taskId: UUID) async throws -> [TaskVehicle]
+    func fetchAllTaskVehicles() async throws -> [TaskVehicle]
     func addTaskVehicle(_ taskVehicle: TaskVehicle) async throws
     func removeTaskVehicle(taskId: UUID, vin: UUID) async throws
+    func getNextLeastLoadedAssignee() async throws -> UUID?
 }

@@ -19,17 +19,30 @@ struct ManagerVehicleFormSheet: View {
         _editMode = State(initialValue: existingVehicle != nil)
     }
 
+    private var coreFields: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            plateField
+            vinField
+            makeModelRow
+            yearTypeRow
+            ageField
+            FleetFieldValidationMessage(message: visibleYearValidationMessage)
+        }
+    }
+
+    private var settingsFields: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            fuelPicker
+            statusPicker
+            maintenanceFields
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                plateField
-                vinField
-                makeModelRow
-                yearTypeRow
-                FleetFieldValidationMessage(message: visibleYearValidationMessage)
-                fuelPicker
-                statusPicker
-                maintenanceFields
+                coreFields
+                settingsFields
                 FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
                 submitButton
             }
@@ -38,17 +51,16 @@ struct ManagerVehicleFormSheet: View {
         .fleetScreenBackground()
         .navigationTitle(editMode ? "Edit Vehicle" : "Add Vehicle")
         .navigationBarTitleDisplayMode(.inline)
-        .onChange(of: form.licencePlate) { _, newValue in
-            form.licencePlate = FleetManagerVehicleForm.sanitizedLicencePlateInput(newValue)
+        .onAppear {
+            viewModel.successMessage = nil
+            viewModel.errorMessage = nil
         }
-        .onChange(of: form.year) { _, newValue in
-            form.year = String(newValue.filter(\.isNumber).prefix(4))
-        }
-        .onChange(of: form.maintenanceKmInterval) { _, newValue in
-            form.maintenanceKmInterval = String(newValue.filter(\.isNumber).prefix(7))
-        }
-        .onChange(of: form.maintenanceMonthInterval) { _, newValue in
-            form.maintenanceMonthInterval = String(newValue.filter(\.isNumber).prefix(3))
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Cancel") {
+                    dismiss()
+                }
+            }
         }
     }
 
@@ -58,15 +70,23 @@ struct ManagerVehicleFormSheet: View {
                 .textInputAutocapitalization(.characters)
                 .keyboardType(.asciiCapable)
                 .fleetField()
+                .onChange(of: form.licencePlate) { _, newValue in
+                    form.licencePlate = FleetManagerVehicleForm.sanitizedLicencePlateInput(newValue)
+                }
             FleetFieldValidationMessage(message: visiblePlateValidationMessage)
         }
     }
 
     private var vinField: some View {
-        TextField("VIN UUID (optional)", text: $form.vin)
-            .textInputAutocapitalization(.never)
-            .fleetField()
-            .disabled(editMode)
+        VStack(alignment: .leading, spacing: 4) {
+            TextField("VIN UUID (optional)", text: $form.vin)
+                .textInputAutocapitalization(.never)
+                .fleetField()
+                .disabled(editMode)
+            if let vinMsg = form.vinValidationMessage {
+                FleetFieldValidationMessage(message: vinMsg)
+            }
+        }
     }
 
     private var makeModelRow: some View {
@@ -81,8 +101,20 @@ struct ManagerVehicleFormSheet: View {
             TextField("Year", text: $form.year)
                 .keyboardType(.numberPad)
                 .fleetField()
+                .onChange(of: form.year) { _, newValue in
+                    form.year = String(newValue.filter(\.isNumber).prefix(4))
+                }
             vehicleTypePicker
         }
+    }
+
+    private var ageField: some View {
+        TextField("Age (Years)", text: $form.age)
+            .keyboardType(.numberPad)
+            .fleetField()
+            .onChange(of: form.age) { _, newValue in
+                form.age = String(newValue.filter(\.isNumber).prefix(2))
+            }
     }
 
     private var vehicleTypePicker: some View {
@@ -144,7 +176,7 @@ struct ManagerVehicleFormSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             FleetFormFieldLabel("Status")
             Picker(selection: $form.status) {
-                ForEach(VehicleStatus.allCases) { status in
+                ForEach(editMode ? VehicleStatus.allCases : [.available, .outOfService]) { status in
                     Text(status.title).tag(status)
                 }
             } label: {
@@ -169,11 +201,17 @@ struct ManagerVehicleFormSheet: View {
                     Text("KM Interval").font(.caption).foregroundStyle(FleetPalette.textSecondary)
                     TextField("e.g. 10000", text: $form.maintenanceKmInterval)
                         .keyboardType(.numberPad).fleetField()
+                        .onChange(of: form.maintenanceKmInterval) { _, newValue in
+                            form.maintenanceKmInterval = String(newValue.filter(\.isNumber).prefix(7))
+                        }
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Month Interval").font(.caption).foregroundStyle(FleetPalette.textSecondary)
                     TextField("e.g. 6", text: $form.maintenanceMonthInterval)
                         .keyboardType(.numberPad).fleetField()
+                        .onChange(of: form.maintenanceMonthInterval) { _, newValue in
+                            form.maintenanceMonthInterval = String(newValue.filter(\.isNumber).prefix(3))
+                        }
                 }
             }
         }

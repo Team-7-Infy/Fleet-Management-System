@@ -533,7 +533,12 @@ struct InspectionView: View {
                     let prefix = isPostTrip ? "Post-trip" : "Pre-trip"
                     let description = "\(prefix) inspection failed for \(item.name) on vehicle \(vehicle.licencePlate) (VIN: \(vehicle.id.uuidString)). Odometer: \(odometerInput) km, Fuel: \(fuelInput)%. Details: \(item.failDescription)"
                     
-                    let bestPersonnel = try? await services.workOrderAssignmentService.findBestPersonnel()
+                    let bestPersonnelId = try? await services.maintenanceService.getNextLeastLoadedAssignee()
+                    var personnelObj: MaintenancePersonnel? = nil
+                    if let pid = bestPersonnelId {
+                        let allP = (try? await services.userManagementService.fetchMaintenancePersonnel()) ?? []
+                        personnelObj = allP.first(where: { $0.id == pid })
+                    }
                     
                     let maintenanceTask = MaintenanceTask(
                         id: UUID(),
@@ -542,9 +547,9 @@ struct InspectionView: View {
                         scheduledDate: DateOnly(wrappedValue: Date()),
                         isUrgent: true,
                         scheduledBy: nil,
-                        executedBy: bestPersonnel?.id,
-                        status: bestPersonnel != nil ? .assigned : .scheduled,
-                        reportedDate: nil,
+                        executedBy: bestPersonnelId,
+                        status: bestPersonnelId != nil ? .assigned : .scheduled,
+                        reportedDate: Date(),
                         completedAt: nil,
                         timeTakenHours: nil,
                         partsSummary: nil,
@@ -558,7 +563,7 @@ struct InspectionView: View {
                     let taskVehicle = TaskVehicle(taskId: maintenanceTask.id, vin: vehicle.id)
                     try await services.maintenanceService.addTaskVehicle(taskVehicle)
                     
-                    if let personnel = bestPersonnel {
+                    if let personnel = personnelObj {
                         await sendWorkOrderNotification(
                             services: services,
                             task: maintenanceTask,

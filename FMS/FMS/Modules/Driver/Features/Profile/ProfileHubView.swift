@@ -140,17 +140,47 @@ private struct ProfileHeaderCard: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(.green)
-                            .frame(width: 6, height: 6)
-                        Text(viewModel.status)
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.green)
+                    if viewModel.canToggleAvailability {
+                        Menu {
+                            Button {
+                                Task { await viewModel.setStatus(.available) }
+                            } label: {
+                                Label("Go Available", systemImage: "checkmark.circle.fill")
+                            }
+
+                            Button {
+                                Task { await viewModel.setStatus(.unavailable) }
+                            } label: {
+                                Label("Go Offline", systemImage: "slash.circle.fill")
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(viewModel.statusColor)
+                                    .frame(width: 6, height: 6)
+                                Text(viewModel.statusText)
+                                    .font(.caption.weight(.bold))
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 8, weight: .bold))
+                            }
+                            .foregroundStyle(viewModel.statusColor)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(viewModel.statusColor.opacity(0.08), in: Capsule())
+                        }
+                    } else {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(viewModel.statusColor)
+                                .frame(width: 6, height: 6)
+                            Text(viewModel.statusText)
+                                .font(.caption.weight(.bold))
+                        }
+                        .foregroundStyle(viewModel.statusColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(viewModel.statusColor.opacity(0.08), in: Capsule())
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.green.opacity(0.08), in: Capsule())
                 }
 
                 Spacer(minLength: 0)

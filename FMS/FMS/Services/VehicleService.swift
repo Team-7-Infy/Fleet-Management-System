@@ -85,6 +85,19 @@ final actor VehicleService: VehicleServiceProtocol {
             .execute()
     }
 
+    func bulkSetVehicleStatuses(updates: [(vehicleId: UUID, status: VehicleStatus)]) async throws {
+        guard !updates.isEmpty else { return }
+        let grouped = Dictionary(grouping: updates) { $0.status }
+        for (status, items) in grouped {
+            let ids = items.map { $0.vehicleId.uuidString }
+            try await supabase.client
+                .from("vehicles")
+                .update(["status": AnyJSON.string(status.rawValue)])
+                .in("vin", values: ids)
+                .execute()
+        }
+    }
+
     func fetchVehicleDocuments(vehicleId: UUID) async throws -> [VehicleDocument] {
         try await supabase.client
             .from("vehicle_documents")
@@ -156,20 +169,22 @@ final actor VehicleService: VehicleServiceProtocol {
         
         let now = Date()
         
-        // 1. Fetch active vehicles first to verify coverage
-        let vehicles: [Vehicle] = try await supabase.client
+        // 1. Fetch active vehicles and cached scores concurrently
+        async let vehiclesTask: [Vehicle] = supabase.client
             .from("vehicles")
             .select()
             .is("deleted_at", value: nil)
             .execute()
             .value
-            
-        // 2. Fetch cached health scores
-        let cached: [CachedScore] = (try? await supabase.client
+
+        async let cachedTask: [CachedScore] = supabase.client
             .from("vehicle_health_scores")
             .select()
             .execute()
-            .value) ?? []
+            .value
+
+        let vehicles = try await vehiclesTask
+        let cached = (try? await cachedTask) ?? []
             
         let cachedLookup = Dictionary(uniqueKeysWithValues: cached.map { ($0.vehicleId, $0) })
         
@@ -188,18 +203,44 @@ final actor VehicleService: VehicleServiceProtocol {
             return cachedResults.sorted(by: { $0.score > $1.score })
         }
         
-        // 3. Fallback to recalculating and caching (upserting)
-        let allTasks: [MaintenanceTask] = try await supabase.client
+        // 3. Fallback to recalculating — fetch all independent datasets concurrently
+        async let allTasksTask: [MaintenanceTask] = supabase.client
             .from("maintenance_task")
             .select()
             .execute()
             .value
 
-        let allTaskVehicles: [TaskVehicle] = try await supabase.client
+        async let allTaskVehiclesTask: [TaskVehicle] = supabase.client
             .from("task_vehicles")
             .select()
             .execute()
             .value
+
+        async let allInspectionsTask: [VehicleInspection] = supabase.client
+            .from("vehicle_inspections")
+            .select()
+            .execute()
+            .value
+
+        async let fuelEntriesTask: [ExpenseEntry] = supabase.client
+            .from("expense_entries")
+            .select()
+            .eq("expense_type", value: "fuel")
+            .execute()
+            .value
+
+        async let allTripsTask: [Trip] = supabase.client
+            .from("trips")
+            .select()
+            .eq("status", value: "completed")
+            .execute()
+            .value
+
+        let allTasks = try await allTasksTask
+        let allTaskVehicles = try await allTaskVehiclesTask
+        let allInspections = try await allInspectionsTask
+        let fuelEntries = try await fuelEntriesTask
+        let allTrips = try await allTripsTask
 
         let vehiclesWithTasks: [UUID: [MaintenanceTask]] = {
             var map: [UUID: [MaintenanceTask]] = [:]
@@ -212,30 +253,8 @@ final actor VehicleService: VehicleServiceProtocol {
             return map
         }()
 
-        let allInspections: [VehicleInspection] = try await supabase.client
-            .from("vehicle_inspections")
-            .select()
-            .execute()
-            .value
-
         let vehiclesWithInspections = Dictionary(grouping: allInspections) { $0.vehicleId }
-
-        let fuelEntries: [ExpenseEntry] = try await supabase.client
-            .from("expense_entries")
-            .select()
-            .eq("expense_type", value: "fuel")
-            .execute()
-            .value
-
         let fuelByVehicle = Dictionary(grouping: fuelEntries) { $0.vehicleId }
-
-        let allTrips: [Trip] = try await supabase.client
-            .from("trips")
-            .select()
-            .eq("status", value: "completed")
-            .execute()
-            .value
-
         let tripsByVehicle = Dictionary(grouping: allTrips) { $0.vehicleId }
 
         var results: [(vehicleId: UUID, score: Int)] = []
@@ -332,5 +351,22 @@ final actor VehicleService: VehicleServiceProtocol {
             .execute()
             .value
         return response.map(\.trip_id)
+    }
+
+    func fetchCompletedMaintenanceTasks() async throws -> [MaintenanceTask] {
+        return try await supabase.client
+            .from("maintenance_task")
+            .select()
+            .eq("status", value: "completed")
+            .execute()
+            .value
+    }
+
+    func fetchTaskVehicles() async throws -> [TaskVehicle] {
+        return try await supabase.client
+            .from("task_vehicles")
+            .select()
+            .execute()
+            .value
     }
 }

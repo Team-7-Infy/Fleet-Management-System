@@ -45,7 +45,7 @@ struct EndTripView: View {
                             .font(.headline)
                             .fontWeight(.bold)
                             .foregroundColor(.white)
-                        
+
                         HStack {
                             Button(action: { dismiss() }) {
                                 HStack(spacing: 4) {
@@ -63,12 +63,12 @@ struct EndTripView: View {
                     }
                     .padding(.horizontal)
                     .padding(.top, 44)
-                    
+
                     HStack(spacing: 12) {
                         Image(systemName: "shield.fill")
                             .font(.title2)
                             .foregroundColor(.white)
-                        
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Post-Trip Safety Inspection")
                                 .font(.headline)
@@ -105,7 +105,7 @@ struct EndTripView: View {
                                     .foregroundColor(.secondary)
                                     .tracking(1.0)
                             }
-                            
+
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack {
                                     Image(systemName: "speedometer")
@@ -115,7 +115,7 @@ struct EndTripView: View {
                                         .fontWeight(.semibold)
                                         .foregroundColor(.primary)
                                 }
-                                
+
                                 HStack(spacing: 6) {
                                     TextField("e.g. \(Int(previousOdometer))", text: $endOdometer)
                                         .keyboardType(.numberPad)
@@ -128,7 +128,7 @@ struct EndTripView: View {
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
                                 }
-                                
+
                                 if let val = Double(endOdometer), val < previousOdometer {
                                     Text("Odometer must be at least \(Int(previousOdometer)) km")
                                         .font(.caption)
@@ -148,7 +148,7 @@ struct EndTripView: View {
                                         .fontWeight(.semibold)
                                         .foregroundColor(.primary)
                                 }
-                                
+
                                 HStack(spacing: 8) {
                                     TextField("e.g. 75", text: $endFuel)
                                         .keyboardType(.numberPad)
@@ -157,12 +157,12 @@ struct EndTripView: View {
                                         .padding(.vertical, 8)
                                         .background(Color(.systemGray6))
                                         .cornerRadius(8)
-                                    
+
                                     Text("%")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
                                 }
-                                
+
                                 if !endFuel.isEmpty {
                                     if let val = Int(endFuel), (val < 0 || val > 100) {
                                         Text("Fuel level must be between 0 and 100")
@@ -351,7 +351,12 @@ struct EndTripView: View {
 
                         let description = "Post-trip inspection failed for \(item.name) on vehicle \(vehicle.licencePlate) (VIN: \(vehicle.id.uuidString)). Odometer: \(endOdometer) km, Fuel: \(endFuel)%. Details: \(item.failDescription)"
 
-                        let bestPersonnel = try? await services.workOrderAssignmentService.findBestPersonnel()
+                        let bestPersonnelId = try? await services.maintenanceService.getNextLeastLoadedAssignee()
+                        var personnelObj: MaintenancePersonnel? = nil
+                        if let pid = bestPersonnelId {
+                            let allP = (try? await services.userManagementService.fetchMaintenancePersonnel()) ?? []
+                            personnelObj = allP.first(where: { $0.id == pid })
+                        }
 
                         let maintenanceTask = MaintenanceTask(
                             id: UUID(),
@@ -360,9 +365,9 @@ struct EndTripView: View {
                             scheduledDate: DateOnly(wrappedValue: Date()),
                             isUrgent: true,
                             scheduledBy: nil,
-                            executedBy: bestPersonnel?.id,
-                            status: bestPersonnel != nil ? .assigned : .scheduled,
-                            reportedDate: nil,
+                            executedBy: bestPersonnelId,
+                            status: bestPersonnelId != nil ? .assigned : .scheduled,
+                            reportedDate: Date(),
                             completedAt: nil,
                             timeTakenHours: nil,
                             partsSummary: nil,
@@ -374,7 +379,7 @@ struct EndTripView: View {
                         let taskVehicle = TaskVehicle(taskId: maintenanceTask.id, vin: vehicle.id)
                         try await services.maintenanceService.addTaskVehicle(taskVehicle)
 
-                        if let personnel = bestPersonnel {
+                        if let personnel = personnelObj {
                             await sendWorkOrderNotification(services: services, task: maintenanceTask, personnel: personnel, title: item.name)
                         }
                     }
@@ -399,6 +404,8 @@ struct EndTripView: View {
                 }
 
                 _ = try await services.vehicleService.updateVehicle(vehicle)
+
+                await RoutineMaintenanceScheduler.checkAndSchedule(vehicle: vehicle, services: services)
 
                 await MainActor.run {
                     isSubmitting = false

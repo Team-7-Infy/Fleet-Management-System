@@ -151,6 +151,14 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
             .value
     }
 
+    func fetchAllTaskParts() async throws -> [MaintenanceTaskPart] {
+        try await supabase.client
+            .from("maintenance_task_parts")
+            .select()
+            .execute()
+            .value
+    }
+
     func addTaskPart(_ taskPart: MaintenanceTaskPart) async throws {
         try await supabase.client
             .from("maintenance_task_parts")
@@ -176,6 +184,14 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
             .value
     }
 
+    func fetchAllTaskVehicles() async throws -> [TaskVehicle] {
+        try await supabase.client
+            .from("task_vehicles")
+            .select()
+            .execute()
+            .value
+    }
+
     func addTaskVehicle(_ taskVehicle: TaskVehicle) async throws {
         try await supabase.client
             .from("task_vehicles")
@@ -190,5 +206,64 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
             .eq("taskid", value: taskId.uuidString)
             .eq("vin", value: vin.uuidString)
             .execute()
+    }
+
+    func getNextLeastLoadedAssignee() async throws -> UUID? {
+        let activePersonnel: [MaintenancePersonnel] = try await supabase.client
+            .from("maintenance_personnel")
+            .select()
+            .eq("status", value: "active")
+            .execute()
+            .value
+
+        if activePersonnel.isEmpty {
+            return nil
+        }
+
+        let allTasks = try await fetchTasks()
+
+        let openTasks = allTasks.filter { task in
+            guard task.executedBy != nil else { return false }
+            return task.status != .completed && task.status != .verified && task.status != .closed && task.status != .fake
+        }
+
+        var workloads: [UUID: Int] = [:]
+        for p in activePersonnel {
+            workloads[p.id] = openTasks.filter { $0.executedBy == p.id }.count
+        }
+
+        guard let minWorkload = workloads.values.min() else { return nil }
+        let candidates = activePersonnel.filter { workloads[$0.id] == minWorkload }
+
+        if candidates.count == 1 {
+            return candidates[0].id
+        }
+
+        var latestReportedDate: [UUID: Date] = [:]
+        for c in candidates {
+            let candidateTasks = allTasks.filter { $0.executedBy == c.id }
+            let reportedDates = candidateTasks.compactMap { $0.reportedDate }
+            if let latest = reportedDates.max() {
+                latestReportedDate[c.id] = latest
+            }
+        }
+
+        let sortedCandidates = candidates.sorted { c1, c2 in
+            let date1 = latestReportedDate[c1.id]
+            let date2 = latestReportedDate[c2.id]
+
+            switch (date1, date2) {
+            case (nil, nil):
+                return c1.id.uuidString < c2.id.uuidString
+            case (nil, .some):
+                return true
+            case (.some, nil):
+                return false
+            case (.some(let d1), .some(let d2)):
+                return d1 < d2
+            }
+        }
+
+        return sortedCandidates.first?.id
     }
 }

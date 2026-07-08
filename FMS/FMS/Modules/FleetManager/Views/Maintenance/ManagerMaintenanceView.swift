@@ -112,12 +112,12 @@ struct ManagerMaintenanceView: View {
         .task {
             await viewModel.load()
             await vehiclesViewModel.load()
-            await usersViewModel.load()
+            await usersViewModel.load(tasks: viewModel.tasks)
         }
         .refreshable {
             await viewModel.load()
             await vehiclesViewModel.load()
-            await usersViewModel.load()
+            await usersViewModel.load(tasks: viewModel.tasks)
         }
     }
 }
@@ -128,8 +128,12 @@ private struct ManagerWorkOrderCard: View {
     @ObservedObject var vehiclesViewModel: VehicleViewModel
 
     private var vehicle: Vehicle? {
-        guard let vin = viewModel.vehicles(for: task).first?.vin else { return nil }
-        return vehiclesViewModel.vehicle(for: vin)
+        let links = viewModel.vehicles(for: task)
+        print("[DEBUG] Task \(task.id.uuidString) has \(links.count) links: \(links.map { $0.vin.uuidString })")
+        guard let vin = links.first?.vin else { return nil }
+        let v = vehiclesViewModel.vehicle(for: vin)
+        print("[DEBUG] Task \(task.id.uuidString) looking up vin \(vin.uuidString) -> found vehicle: \(v?.licencePlate ?? "nil")")
+        return v
     }
 
     var body: some View {

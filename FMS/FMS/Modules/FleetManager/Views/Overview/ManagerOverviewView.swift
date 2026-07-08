@@ -37,24 +37,23 @@ struct ManagerOverviewView: View {
     }
 
     private var availableDrivers: [Driver] {
-        usersViewModel.drivers
-            .filter { $0.status == .active && busyDriverIDs.contains($0.id) == false }
+        usersViewModel.drivers.filter { $0.status == .available }
     }
 
     private var enrouteDrivers: [Driver] {
-        usersViewModel.drivers.filter { busyDriverIDs.contains($0.id) }
+        usersViewModel.drivers.filter { $0.status == .onTrip || $0.status == .scheduled }
     }
 
     private var offDutyDrivers: [Driver] {
-        usersViewModel.drivers.filter { $0.status != .active }
+        usersViewModel.drivers.filter { $0.status != .available && $0.status != .onTrip && $0.status != .scheduled }
     }
 
     private var availableVehicles: [Vehicle] {
-        vehiclesViewModel.vehicles.filter { $0.status == .available && $0.driverId == nil }
+        vehiclesViewModel.vehicles.filter { $0.status == .available }
     }
 
     private var enrouteVehicles: [Vehicle] {
-        vehiclesViewModel.vehicles.filter { $0.status == .available && $0.driverId != nil }
+        vehiclesViewModel.vehicles.filter { $0.status == .assigned }
     }
 
     private var maintenanceVehicles: [Vehicle] {
@@ -504,28 +503,29 @@ struct FleetStatusRowContent: View {
     var metrics: [(String, String, Color)]
 
     var body: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 12) {
+            VStack(alignment: .center, spacing: 6) {
                 IconBubble(systemImage: systemImage, tint: tint)
                 Text(title)
-                    .font(.headline.weight(.bold))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(FleetPalette.textPrimary)
+                    .lineLimit(1)
             }
-            .frame(width: 80, alignment: .leading)
+            .frame(width: 68, alignment: .center)
 
             Divider()
                 .padding(.vertical, 4)
 
-            HStack(spacing: 0) {
+            HStack(spacing: 4) {
                 ForEach(metrics, id: \.0) { metric in
-                    VStack(spacing: 6) {
+                    VStack(spacing: 4) {
                         Text(metric.0.uppercased())
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: 9, weight: .bold))
                             .foregroundStyle(FleetPalette.textSecondary)
                             .lineLimit(1)
 
                         Text(metric.1)
-                            .font(.system(size: 20, weight: .heavy, design: .rounded))
+                            .font(.system(size: 19, weight: .heavy, design: .rounded))
                             .foregroundStyle(metric.2)
                     }
                     .frame(maxWidth: .infinity)
@@ -746,10 +746,10 @@ private struct DriverStatusRow: View {
 
             Text(driver.status.title.uppercased())
                 .font(.system(size: 10, weight: .black))
-                .foregroundColor(color)
+                .foregroundColor(FleetPalette.personnelStatus(driver.status))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(color.opacity(0.12))
+                .background(FleetPalette.personnelStatus(driver.status).opacity(0.12))
                 .clipShape(Capsule())
         }
     }

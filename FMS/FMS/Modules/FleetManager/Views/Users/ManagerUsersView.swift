@@ -49,7 +49,7 @@ struct ManagerUsersView: View {
         case .drivers:
             return ["Available", "On Trip", "Scheduled", "Unavailable"]
         case .mechanics:
-            return ["Available", "In Service", "Unavailable"]
+            return ["Available", "In Progress", "Unavailable"]
         }
     }
 
@@ -291,6 +291,7 @@ struct ManagerUserDetailView: View {
         return maintenanceViewModel.tasks.filter { $0.executedBy == maintenanceProfile.id }
     }
 
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -323,20 +324,21 @@ struct ManagerUserDetailView: View {
                     )
                     showEditSheet = true
                 } label: {
-                    Label("Edit User", systemImage: "pencil")
+                    Label("Edit Profile Details", systemImage: "pencil")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(FleetPalette.accent)
+                .buttonStyle(.bordered)
+                .padding(.horizontal)
 
                 Button(role: .destructive) {
                     showDeleteConfirm = true
                 } label: {
-                    Label("Delete User", systemImage: "trash")
+                    Label(user.isActive ? "Deactivate Account" : "Activate Account", systemImage: user.isActive ? "person.crop.circle.badge.xmark" : "person.crop.circle.badge.checkmark")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(FleetPalette.danger)
+                .buttonStyle(.bordered)
+                .padding(.horizontal)
+                .padding(.bottom, 30)
             }
             .padding()
         }
@@ -374,12 +376,12 @@ struct ManagerUserDetailView: View {
                 Text(user.email)
                     .font(.subheadline)
                     .foregroundStyle(FleetPalette.textSecondary)
-                
+
                 HStack(spacing: 8) {
                     Text("UID \(user.shortUID)")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(FleetPalette.textSecondary)
-                    
+
                     Text(user.role.title.uppercased())
                         .font(.system(size: 9, weight: .black))
                         .foregroundColor(FleetPalette.accent)
@@ -403,7 +405,7 @@ struct ManagerUserDetailView: View {
     private var driverInfoCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Driver Info")
-            
+
             GlassPanel(hasBorder: false) {
                 if let driverProfile {
                     VStack(spacing: 12) {
@@ -411,7 +413,20 @@ struct ManagerUserDetailView: View {
                         Divider()
                         InfoRow(title: "Vehicle Type", value: driverProfile.vehicleType.isEmpty ? "Not available" : driverProfile.vehicleType.capitalized)
                         Divider()
-                        InfoRow(title: "Status", value: driverProfile.status.title)
+                        HStack {
+                            Text("Status")
+                                .font(.subheadline)
+                                .foregroundStyle(FleetPalette.textSecondary)
+                                .frame(width: 112, alignment: .leading)
+
+                            Spacer()
+
+                            StatusPill(
+                                text: driverProfile.status.title,
+                                color: FleetPalette.personnelStatus(driverProfile.status),
+                                dotSize: 8
+                            )
+                        }
                         Divider()
                         InfoRow(title: "Phone", value: "\(user.contact)")
                         Divider()
@@ -433,7 +448,7 @@ struct ManagerUserDetailView: View {
     private var driverTripHistorySection: some View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Trip History")
-            
+
             GlassPanel(hasBorder: false) {
                 let completedTrips = driverTrips.filter { $0.status == .completed }
                 if completedTrips.isEmpty {
@@ -449,7 +464,7 @@ struct ManagerUserDetailView: View {
                                 Text("\(trip.startLocation) to \(trip.endLocation)")
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(FleetPalette.textPrimary)
-                                
+
                                 if let endTime = trip.endTime {
                                     Text("Completed \(endTime, style: .date)")
                                         .font(.caption)
@@ -457,7 +472,7 @@ struct ManagerUserDetailView: View {
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            
+
                             if trip.id != completedTrips.last?.id {
                                 Divider()
                             }
@@ -471,7 +486,7 @@ struct ManagerUserDetailView: View {
     private var maintenanceInfoCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Personnel Info")
-            
+
             GlassPanel(hasBorder: false) {
                 if let maintenanceProfile {
                     VStack(spacing: 12) {
@@ -497,7 +512,7 @@ struct ManagerUserDetailView: View {
     private var maintenanceTasksHistorySection: some View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Work History")
-            
+
             GlassPanel(hasBorder: false) {
                 if workOrders.isEmpty {
                     EmptyStateView(
@@ -512,23 +527,23 @@ struct ManagerUserDetailView: View {
                                 Text(task.title ?? "Maintenance Task")
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(FleetPalette.textPrimary)
-                                
+
                                 HStack {
                                     StatusPill(
                                         text: task.status.title,
                                         color: FleetPalette.maintenanceStatus(task.status),
                                         dotSize: 8
                                     )
-                                    
+
                                     Spacer()
-                                    
+
                                     Text("Scheduled \(task.scheduledDate.date, style: .date)")
                                         .font(.caption)
                                         .foregroundStyle(FleetPalette.textSecondary)
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            
+
                             if task.id != workOrders.last?.id {
                                 Divider()
                             }
@@ -542,7 +557,7 @@ struct ManagerUserDetailView: View {
     private var managerInfoCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Manager Info")
-            
+
             GlassPanel(hasBorder: false) {
                 VStack(spacing: 12) {
                     InfoRow(title: "Phone", value: "\(user.contact)")
@@ -715,35 +730,35 @@ func calculateUserStatus(
         guard let driver = drivers.first(where: { $0.userId == user.id }) else {
             return (user.isActive ? "Active" : "Inactive", user.isActive ? FleetPalette.success : FleetPalette.neutral)
         }
-        
+
         // Check if they are On Trip
         let driverTrips = trips.filter { $0.driverId == driver.id }
         let hasActiveTrip = driverTrips.contains { $0.status == .accepted || $0.status == .inProgress }
         if hasActiveTrip {
             return ("On Trip", FleetPalette.accent)
         }
-        
+
         // Check if they are Scheduled
         let hasScheduledTrip = driverTrips.contains { $0.status == .scheduled || $0.status == .pending || $0.status == .rejectionPending }
         if hasScheduledTrip {
             return ("Scheduled", FleetPalette.warning)
         }
-        
+
         return ("Available", FleetPalette.success)
-        
+
     case .maintenancePersonnel:
         guard let personnel = maintenancePersonnel.first(where: { $0.userId == user.id }) else {
             return (user.isActive ? "Active" : "Inactive", user.isActive ? FleetPalette.success : FleetPalette.neutral)
         }
-        
-        // Check if they are In Service
+
+        // Check if they are In Progress
         let hasActiveWork = tasks.contains { $0.executedBy == personnel.id && $0.status == .inProgress }
         if hasActiveWork {
-            return ("In Service", FleetPalette.warning)
+            return ("In Progress", FleetPalette.warning)
         }
-        
+
         return ("Available", FleetPalette.success)
-        
+
     case .fleetManager:
         return (user.isActive ? "Active" : "Inactive", user.isActive ? FleetPalette.success : FleetPalette.neutral)
     }

@@ -31,7 +31,16 @@ final class MaintenanceViewModel: ObservableObject {
     }
 
     var openTasks: [MaintenanceTask] {
-        tasks.filter { $0.status != .completed }
+        tasks.filter { $0.status != .completed && $0.status != .verified && $0.status != .closed && $0.status != .fake }
+    }
+
+    func getNextLeastLoadedAssigneeId() async -> UUID? {
+        do {
+            return try await maintenanceService.getNextLeastLoadedAssignee()
+        } catch {
+            print("Failed to get next least loaded assignee: \(error)")
+            return nil
+        }
     }
 
     func load() async {
@@ -41,17 +50,16 @@ final class MaintenanceViewModel: ObservableObject {
         do {
             let fetchedTasks = try await maintenanceService.fetchTasks()
                 .sorted { $0.scheduledDate.date < $1.scheduledDate.date }
-            var fetchedTaskVehicles: [UUID: [TaskVehicle]] = [:]
-            var fetchedTaskParts: [UUID: [MaintenanceTaskPart]] = [:]
 
-            for task in fetchedTasks {
-                fetchedTaskVehicles[task.id] = (try? await maintenanceService.fetchTaskVehicles(taskId: task.id)) ?? []
-                fetchedTaskParts[task.id] = (try? await maintenanceService.fetchTaskParts(taskId: task.id)) ?? []
-            }
+            async let allTaskVehicles = maintenanceService.fetchAllTaskVehicles()
+            async let allTaskParts = maintenanceService.fetchAllTaskParts()
+
+            let taskVehiclesByTask = Dictionary(grouping: try await allTaskVehicles) { $0.taskId }
+            let taskPartsByTask = Dictionary(grouping: try await allTaskParts) { $0.taskId }
 
             tasks = fetchedTasks
-            taskVehicles = fetchedTaskVehicles
-            taskParts = fetchedTaskParts
+            taskVehicles = taskVehiclesByTask
+            taskParts = taskPartsByTask
             errorMessage = nil
         } catch is CancellationError {
             errorMessage = nil
@@ -80,7 +88,7 @@ final class MaintenanceViewModel: ObservableObject {
                 _ = try await vehicleService.updateVehicle(updatedVehicle)
             }
 
-            if task.executedBy == nil {
+            if form.isAutoAssign && task.executedBy == nil {
                 if let best = try? await workOrderAssignmentService.findBestPersonnel() {
                     try await maintenanceService.assignPersonnel(taskId: task.id, personnelId: best.id)
                     if let idx = tasks.firstIndex(where: { $0.id == task.id }) {
