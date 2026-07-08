@@ -19,6 +19,7 @@ protocol VehicleServiceProtocol: AnyObject, Sendable {
     func unassignDriver(vehicleId: UUID) async throws
     func setOutOfService(vehicleId: UUID) async throws
     func setVehicleStatus(vehicleId: UUID, status: VehicleStatus) async throws
+    func bulkSetVehicleStatuses(updates: [(vehicleId: UUID, status: VehicleStatus)]) async throws
     func fetchVehicleDocuments(vehicleId: UUID) async throws -> [VehicleDocument]
     func createVehicleDocument(_ document: VehicleDocument) async throws -> VehicleDocument
     func updateVehicleDocument(_ document: VehicleDocument) async throws -> VehicleDocument

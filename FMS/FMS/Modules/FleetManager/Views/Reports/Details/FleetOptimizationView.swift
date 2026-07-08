@@ -52,47 +52,64 @@ struct FleetOptimizationView: View {
         let score = reportsViewModel.fleetHealthScore
         let color = reportsViewModel.fleetHealthColor
 
-        return GlassPanel(hasBorder: false) {
-            HStack(spacing: 16) {
+        return FitnessCategoryCard {
+            HStack(spacing: 20) {
                 ZStack {
                     Circle()
-                        .stroke(color.opacity(0.2), lineWidth: 6)
-                        .frame(width: 56, height: 56)
+                        .stroke(color.opacity(0.12), lineWidth: 8)
+                        .frame(width: 72, height: 72)
                     Circle()
                         .trim(from: 0, to: CGFloat(score) / 100)
-                        .stroke(color.gradient, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                        .frame(width: 56, height: 56)
+                        .stroke(color.gradient, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                        .frame(width: 72, height: 72)
                         .rotationEffect(.degrees(-90))
+                        .shadow(color: color.opacity(0.3), radius: 3, x: 0, y: 2)
                     Text("\(score)")
-                        .font(.title3.weight(.heavy).monospacedDigit())
+                        .font(.system(size: 20, weight: .black, design: .rounded).monospacedDigit())
                         .foregroundStyle(color)
                 }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Fleet Health Score: \(reportsViewModel.fleetHealthLabel)")
-                        .font(.subheadline).bold()
-                        .foregroundStyle(FleetPalette.textPrimary)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text("Fleet Health Score:")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(FleetPalette.textSecondary)
+                        Text(reportsViewModel.fleetHealthLabel.uppercased())
+                            .font(.system(size: 11, weight: .black, design: .rounded))
+                            .foregroundStyle(color)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(color.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+                    
                     Text("\(reportsViewModel.vehiclesNeedingMaintenance.count) vehicles need attention")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(FleetPalette.textPrimary)
                     Text("\(reportsViewModel.topUnderperformingDrivers.count) underperforming drivers")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(FleetPalette.textPrimary)
                 }
             }
         }
     }
 
     private var vehiclesSection: some View {
-        GlassPanel(hasBorder: false) {
+        FitnessCategoryCard {
             VStack(alignment: .leading, spacing: 12) {
-                Label("Vehicles Requiring Maintenance", systemImage: "wrench.and.screwdriver.fill")
-                    .font(.headline)
-                    .foregroundStyle(FleetPalette.warning)
+                HStack(spacing: 8) {
+                    Image(systemName: "wrench.and.screwdriver.fill")
+                        .font(.headline)
+                        .foregroundStyle(FleetPalette.warning)
+                    Text("Vehicles Requiring Maintenance")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(FleetPalette.textPrimary)
+                }
 
                 Text("Vehicles with overdue or unresolved maintenance tasks")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(FleetPalette.textSecondary)
+                    .padding(.bottom, 4)
 
                 let items = reportsViewModel.vehiclesNeedingMaintenancePriority
                 if items.isEmpty {
@@ -107,62 +124,100 @@ struct FleetOptimizationView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                 } else {
-                    ForEach(items.prefix(8), id: \.vehicle.id) { item in
-                        HStack(spacing: 8) {
-                            NavigationLink {
-                                ManagerVehicleDetailView(
-                                    vehicle: item.vehicle,
-                                    viewModel: vehiclesViewModel,
-                                    usersViewModel: usersViewModel,
-                                    openMaintenanceRequest: { _ in }
-                                )
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(item.vehicle.licencePlate)
-                                            .font(.subheadline).bold()
-                                            .foregroundStyle(FleetPalette.textPrimary)
-                                        Text("\(item.vehicle.make) \(item.vehicle.model)")
-                                            .font(.caption)
-                                            .foregroundStyle(FleetPalette.textSecondary)
-                                    }
-                                    Spacer()
-                                    Text("\(item.overdueDays)d overdue")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(item.overdueDays > 14 ? FleetPalette.danger : FleetPalette.warning)
-                                }
-                            }
-                            .buttonStyle(.plain)
-
-                            Button {
-                                vehicleToSchedule = item.vehicle
-                            } label: {
-                                Image(systemName: "wrench.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.white)
-                                    .frame(width: 32, height: 32)
-                                    .background(FleetPalette.warning, in: RoundedRectangle(cornerRadius: 8))
-                            }
-                            .buttonStyle(.plain)
-                            .frame(minWidth: 44, minHeight: 44)
+                    VStack(spacing: 8) {
+                        ForEach(items.prefix(8), id: \.vehicle.id) { item in
+                            vehicleRow(item: item)
                         }
-                        Divider()
                     }
                 }
             }
         }
     }
 
+    private func vehicleRow(item: (vehicle: Vehicle, overdueDays: Int, tasks: [MaintenanceTask])) -> some View {
+        HStack(spacing: 12) {
+            NavigationLink {
+                ManagerVehicleDetailView(
+                    vehicle: item.vehicle,
+                    viewModel: vehiclesViewModel,
+                    usersViewModel: usersViewModel,
+                    openMaintenanceRequest: { _ in }
+                )
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.title3)
+                        .foregroundStyle(FleetPalette.warning)
+                        .frame(width: 36, height: 36)
+                        .background(FleetPalette.warning.opacity(0.08), in: Circle())
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.vehicle.licencePlate)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(FleetPalette.textPrimary)
+                        Text("\(item.vehicle.make) \(item.vehicle.model)")
+                            .font(.caption)
+                            .foregroundStyle(FleetPalette.textSecondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Text("\(item.overdueDays)d overdue")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(item.overdueDays > 14 ? FleetPalette.danger : FleetPalette.warning)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background((item.overdueDays > 14 ? FleetPalette.danger : FleetPalette.warning).opacity(0.12))
+                        .clipShape(Capsule())
+                }
+            }
+            .buttonStyle(.plain)
+            
+            Button {
+                vehicleToSchedule = item.vehicle
+            } label: {
+                Image(systemName: "wrench.and.screwdriver.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        LinearGradient(
+                            colors: [FleetPalette.warning, FleetPalette.warning.opacity(0.8)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    )
+                    .shadow(color: FleetPalette.warning.opacity(0.2), radius: 4, x: 0, y: 2)
+            }
+            .buttonStyle(.plain)
+            .frame(minWidth: 44, minHeight: 44)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(FleetPalette.background, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(FleetPalette.tertiary.opacity(0.08), lineWidth: 1)
+        }
+    }
+
     private var driversSection: some View {
-        GlassPanel(hasBorder: false) {
+        FitnessCategoryCard {
             VStack(alignment: .leading, spacing: 12) {
-                Label("Underperforming Drivers", systemImage: "person.fill.xmark")
-                    .font(.headline)
-                    .foregroundStyle(FleetPalette.danger)
+                HStack(spacing: 8) {
+                    Image(systemName: "person.fill.xmark")
+                        .font(.headline)
+                        .foregroundStyle(FleetPalette.danger)
+                    Text("Underperforming Drivers")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(FleetPalette.textPrimary)
+                }
 
                 Text("Drivers with low on-time completion rate")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(FleetPalette.textSecondary)
+                    .padding(.bottom, 4)
 
                 let items = reportsViewModel.topUnderperformingDrivers
                 if items.isEmpty {
@@ -177,57 +232,89 @@ struct FleetOptimizationView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                 } else {
-                    ForEach(items.prefix(8), id: \.driver.id) { item in
-                        HStack(spacing: 8) {
-                            if let user = item.user {
-                                NavigationLink {
-                                    ManagerUserDetailView(
-                                        user: user,
-                                        viewModel: usersViewModel,
-                                        tripsViewModel: reportsViewModel.tripsViewModel,
-                                        maintenanceViewModel: maintenanceViewModel
-                                    )
-                                } label: {
-                                    rowLabel(for: item)
-                                }
-                                .buttonStyle(.plain)
-                            } else {
-                                rowLabel(for: item)
-                            }
-
-                            Button {
-                                driverToCall = (item.driver, item.user)
-                            } label: {
-                                Image(systemName: "phone.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.white)
-                                    .frame(width: 32, height: 32)
-                                    .background(FleetPalette.success, in: RoundedRectangle(cornerRadius: 8))
-                            }
-                            .buttonStyle(.plain)
-                            .frame(minWidth: 44, minHeight: 44)
+                    VStack(spacing: 8) {
+                        ForEach(items.prefix(8), id: \.driver.id) { item in
+                            driverRow(item: item)
                         }
-                        Divider()
                     }
                 }
             }
         }
     }
 
-    private func rowLabel(for item: (driver: Driver, user: User?, totalTrips: Int, onTimeRate: Double)) -> some View {
-        HStack {
+    private func driverRow(item: (driver: Driver, user: User?, totalTrips: Int, onTimeRate: Double)) -> some View {
+        HStack(spacing: 12) {
+            if let user = item.user {
+                NavigationLink {
+                    ManagerUserDetailView(
+                        user: user,
+                        viewModel: usersViewModel,
+                        tripsViewModel: reportsViewModel.tripsViewModel,
+                        maintenanceViewModel: maintenanceViewModel
+                    )
+                } label: {
+                    driverRowLabel(for: item)
+                }
+                .buttonStyle(.plain)
+            } else {
+                driverRowLabel(for: item)
+            }
+            
+            Button {
+                driverToCall = (item.driver, item.user)
+            } label: {
+                Image(systemName: "phone.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        LinearGradient(
+                            colors: [FleetPalette.success, FleetPalette.success.opacity(0.8)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    )
+                    .shadow(color: FleetPalette.success.opacity(0.2), radius: 4, x: 0, y: 2)
+            }
+            .buttonStyle(.plain)
+            .frame(minWidth: 44, minHeight: 44)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(FleetPalette.background, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(FleetPalette.tertiary.opacity(0.08), lineWidth: 1)
+        }
+    }
+    
+    private func driverRowLabel(for item: (driver: Driver, user: User?, totalTrips: Int, onTimeRate: Double)) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "person.crop.circle.badge.exclamationmark.fill")
+                .font(.title3)
+                .foregroundStyle(FleetPalette.danger)
+                .frame(width: 36, height: 36)
+                .background(FleetPalette.danger.opacity(0.08), in: Circle())
+            
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.user?.displayName ?? "Unknown Driver")
-                    .font(.subheadline).bold()
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(FleetPalette.textPrimary)
                 Text("\(item.totalTrips) trips completed")
                     .font(.caption)
                     .foregroundStyle(FleetPalette.textSecondary)
             }
+            
             Spacer()
-            Text("\(Int(item.onTimeRate.rounded()))%")
-                .font(.subheadline.weight(.semibold))
+            
+            Text("\(Int(item.onTimeRate.rounded()))% on-time")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(item.onTimeRate < 40 ? FleetPalette.danger : FleetPalette.warning)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background((item.onTimeRate < 40 ? FleetPalette.danger : FleetPalette.warning).opacity(0.12))
+                .clipShape(Capsule())
         }
     }
 
@@ -257,3 +344,4 @@ struct FleetOptimizationView: View {
         UIApplication.shared.open(url)
     }
 }
+

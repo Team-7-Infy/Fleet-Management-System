@@ -8,16 +8,18 @@ struct FitnessMetricHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label.uppercased())
-                .font(.caption.bold())
-                .foregroundStyle(.secondary)
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .tracking(0.8)
+                .foregroundStyle(FleetPalette.accent)
 
             Text(value)
-                .font(.system(size: 36, weight: .heavy, design: .rounded))
+                .font(.system(size: 38, weight: .black, design: .rounded).monospacedDigit())
                 .foregroundStyle(FleetPalette.textPrimary)
 
             Text(subtitle)
-                .font(.subheadline)
-                .foregroundStyle(.tertiary)
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(FleetPalette.textSecondary)
         }
     }
 }
+

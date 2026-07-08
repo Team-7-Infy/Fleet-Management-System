@@ -151,6 +151,14 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
             .value
     }
 
+    func fetchAllTaskParts() async throws -> [MaintenanceTaskPart] {
+        try await supabase.client
+            .from("maintenance_task_parts")
+            .select()
+            .execute()
+            .value
+    }
+
     func addTaskPart(_ taskPart: MaintenanceTaskPart) async throws {
         try await supabase.client
             .from("maintenance_task_parts")
@@ -172,6 +180,14 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
             .from("task_vehicles")
             .select()
             .eq("taskid", value: taskId.uuidString)
+            .execute()
+            .value
+    }
+
+    func fetchAllTaskVehicles() async throws -> [TaskVehicle] {
+        try await supabase.client
+            .from("task_vehicles")
+            .select()
             .execute()
             .value
     }
