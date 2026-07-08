@@ -25,7 +25,7 @@ struct AddPartsSheet: View {
             )
         }.filter { part in
             let matchesVehicle = vehicleType == nil || part.vehicletype == nil || part.vehicletype?.lowercased() == vehicleType?.lowercased()
-            let matchesSearch = searchText.isEmpty || part.name.localizedCaseInsensitiveContains(searchText) || part.id.uuidString.localizedCaseInsensitiveContains(searchText)
+            let matchesSearch = part.matches(searchText: searchText)
             return matchesVehicle && matchesSearch
         }
     }

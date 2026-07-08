@@ -331,6 +331,8 @@ struct ActiveNavigationDetailView: View {
     
     // General SOS alerts
     @State private var showingSOSAlert = false
+    @State private var showingJerkCountdown = false
+    @State private var jerkCountdownSeconds = 5
     
     // Reroute state
     @State private var showingRerouteConfirm = false
@@ -351,6 +353,7 @@ struct ActiveNavigationDetailView: View {
     @State private var lastOffset: CGFloat = 0.0
     @State private var isExpanded = false
     @State private var liveDistanceRemaining: String? = nil
+    @State private var voiceTokens: [NSObjectProtocol] = []
     
     private var assignedVehicle: String {
         vehicles.first(where: { $0.id == trip.vehicleId })?.licencePlate ?? ""
@@ -847,55 +850,45 @@ struct ActiveNavigationDetailView: View {
                 title: Text("EMERGENCY SOS"),
                 message: Text("Triggering SOS will instantly broadcast your live coordinates and alert fleet dispatch."),
                 primaryButton: .destructive(Text("CONFIRM EMERGENCY SOS")) {
-                    Task {
-                        do {
-                            try await services.tripService.updateTripStatus(
-                                id: trip.id,
-                                status: .cancelled,
-                                rejectionReason: "SOS Emergency: Automatically cancelled via emergency SOS alert during active navigation."
-                            )
-
-                            let event = SOSEvent(
-                                id: UUID(),
-                                tripId: trip.id,
-                                driverId: driver?.id ?? user.id,
-                                vehicleId: assignedVehicle,
-                                type: "critical",
-                                status: .pending,
-                                latitude: locationService.location?.coordinate.latitude ?? 0,
-                                longitude: locationService.location?.coordinate.longitude ?? 0,
-                                resolvedBy: nil,
-                                resolvedAt: nil,
-                                notes: nil,
-                                createdAt: Date()
-                            )
-                            _ = try? await services.sosService.createEvent(event)
-
-                            let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
-                            for fmUser in fmUsers {
-                                let notification = AppNotification(
-                                    id: UUID(),
-                                    title: "CRITICAL: Driver SOS Emergency",
-                                    message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation) during active navigation.",
-                                    type: "sos_emergency",
-                                    isRead: false,
-                                    referenceId: trip.id,
-                                    recipientId: fmUser.id,
-                                    createdAt: Date()
-                                )
-                                _ = try? await services.notificationService.createNotification(notification)
-                            }
-
-                            await MainActor.run {
-                                onBack()
-                            }
-                        } catch {
-                            print("Failed to cancel trip on SOS: \(error)")
-                        }
-                    }
+                    Task { await triggerEmergencySOS() }
                 },
                 secondaryButton: .cancel()
             )
+        }
+        .overlay {
+            if showingJerkCountdown {
+                ZStack {
+                    Color.black.opacity(0.4)
+                        .ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 48))
+                            .foregroundColor(.orange)
+                        Text("Possible Collision Detected")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                        Text("Emergency SOS will be sent in \(jerkCountdownSeconds)s unless cancelled.")
+                            .font(.subheadline)
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(.secondary)
+                        Button(action: { showingJerkCountdown = false }) {
+                            Text("I'm OK — Cancel")
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                        }
+                    }
+                    .padding(24)
+                    .background(.regularMaterial)
+                    .cornerRadius(20)
+                    .padding(40)
+                }
+                .transition(.opacity)
+                .zIndex(100)
+            }
         }
         .sheet(isPresented: $showingCancelSheet, onDismiss: {
             withAnimation(.spring()) {
@@ -932,7 +925,36 @@ struct ActiveNavigationDetailView: View {
                 service: services.tripService
             )
 
+            locationService.onDeviationAlert = { [weak voiceGuidance] distance in
+                voiceGuidance?.announceDeviation(distanceMeters: distance)
+            }
+
+            locationService.onJerkDetected = { [self] in
+                triggerJerkCountdown()
+            }
+
             focusOnDriverAndRoute()
+
+            Task { @MainActor in
+                VoiceActionBridge.shared.activeTripID = trip.id
+            }
+
+            let sosObs = NotificationCenter.default.addObserver(forName: .voiceSOS, object: nil, queue: .main) { _ in
+                HapticManager.shared.triggerNotification(type: .error)
+                showingSOSAlert = true
+            }
+            let pauseObs = NotificationCenter.default.addObserver(forName: .voicePauseResume, object: nil, queue: .main) { _ in
+                HapticManager.shared.triggerImpact(style: .medium)
+                withAnimation(.spring()) {
+                    isTripStopped.toggle()
+                    UserDefaults.standard.set(isTripStopped, forKey: "trip_\(trip.id.uuidString)_paused")
+                }
+            }
+            let rerouteObs = NotificationCenter.default.addObserver(forName: .voiceReroute, object: nil, queue: .main) { _ in
+                HapticManager.shared.triggerImpact(style: .medium)
+                showingRerouteConfirm = true
+            }
+            voiceTokens = [sosObs, pauseObs, rerouteObs]
         }
         .onReceive(locationService.$location) { newLocation in
             guard let newLocation = newLocation else { return }
@@ -959,6 +981,12 @@ struct ActiveNavigationDetailView: View {
             voiceGuidance.update(remainingDistance: remainingMeters, nearestCoordIdx: nearestIdx)
         }
         .onDisappear {
+            voiceTokens.forEach { NotificationCenter.default.removeObserver($0) }
+            voiceTokens.removeAll()
+            VoiceActionBridge.shared.activeTripID = nil
+            locationService.onDeviationAlert = nil
+            locationService.onJerkDetected = nil
+            showingJerkCountdown = false
             locationService.stopTracking()
             voiceGuidance.stop()
         }
@@ -991,6 +1019,71 @@ struct ActiveNavigationDetailView: View {
         }
     }
     
+    @MainActor
+    private func triggerEmergencySOS() async {
+        do {
+            try await services.tripService.updateTripStatus(
+                id: trip.id,
+                status: .cancelled,
+                rejectionReason: "SOS Emergency: Automatically cancelled via emergency SOS alert during active navigation."
+            )
+
+            let event = SOSEvent(
+                id: UUID(),
+                tripId: trip.id,
+                driverId: driver?.id ?? user.id,
+                vehicleId: assignedVehicle,
+                type: "critical",
+                status: .pending,
+                latitude: locationService.location?.coordinate.latitude ?? 0,
+                longitude: locationService.location?.coordinate.longitude ?? 0,
+                resolvedBy: nil,
+                resolvedAt: nil,
+                notes: nil,
+                createdAt: Date()
+            )
+            _ = try? await services.sosService.createEvent(event)
+
+            let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
+            for fmUser in fmUsers {
+                let notification = AppNotification(
+                    id: UUID(),
+                    title: "CRITICAL: Driver SOS Emergency",
+                    message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation) during active navigation.",
+                    type: "sos_emergency",
+                    isRead: false,
+                    referenceId: trip.id,
+                    recipientId: fmUser.id,
+                    createdAt: Date()
+                )
+                _ = try? await services.notificationService.createNotification(notification)
+            }
+
+            onBack()
+        } catch {
+            print("Failed to cancel trip on SOS: \(error)")
+        }
+    }
+
+    @MainActor
+    private func triggerJerkCountdown() {
+        showingJerkCountdown = true
+        jerkCountdownSeconds = 5
+        Task {
+            for seconds in (1...4).reversed() {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                let cancelled = await MainActor.run { !showingJerkCountdown }
+                if cancelled { return }
+                await MainActor.run { jerkCountdownSeconds = seconds }
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            let shouldFire = await MainActor.run { showingJerkCountdown }
+            guard shouldFire else { return }
+            await MainActor.run { showingJerkCountdown = false }
+            await triggerEmergencySOS()
+        }
+    }
+
     private func calculateRemainingDistance(from index: Int, coordinates: [CLLocationCoordinate2D]) -> Double {
         guard index >= 0, index < coordinates.count else { return 0.0 }
         var distance: Double = 0.0

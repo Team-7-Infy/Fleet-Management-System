@@ -4,9 +4,14 @@ struct CompleteWorkOrderView: View {
     @StateObject private var viewModel: CompleteWorkOrderViewModel
     @ObservedObject private var navigation: TabNavigationState
     @State private var showingAddPartsSheet = false
+    @State private var voiceTokens: [NSObjectProtocol] = []
+    @State private var showVoiceAlert = false
+    @State private var voiceAlertMessage = ""
     let dependencies: AppDependencyContainer
+    let workOrderID: WorkOrder.ID
 
     init(workOrderID: WorkOrder.ID, dependencies: AppDependencyContainer, navigation: TabNavigationState) {
+        self.workOrderID = workOrderID
         _viewModel = StateObject(wrappedValue: CompleteWorkOrderViewModel(workOrderID: workOrderID, dependencies: dependencies))
         self.navigation = navigation
         self.dependencies = dependencies
@@ -324,7 +329,51 @@ struct CompleteWorkOrderView: View {
         .task {
             await viewModel.load()
         }
+        .onAppear {
+            VoiceActionBridge.shared.openWorkOrderID = workOrderID
+
+            let addPartObs = NotificationCenter.default.addObserver(forName: .voiceAddPart, object: nil, queue: .main) { [self] note in
+                guard let partName = note.userInfo?["partName"] as? String else { return }
+                let quantity = note.userInfo?["quantity"] as? Int ?? 1
+
+                let candidates = viewModel.inventoryParts.filter { $0.matches(searchText: partName) }
+                if candidates.count == 1, let part = candidates.first {
+                    viewModel.addPart(part, quantity: quantity)
+                } else if candidates.isEmpty {
+                    voiceAlertMessage = "Could not find a part matching \"\(partName)\". Please add it manually from the parts sheet."
+                    showVoiceAlert = true
+                } else {
+                    voiceAlertMessage = "Multiple parts match \"\(partName)\". Please select one from the parts sheet."
+                    showVoiceAlert = true
+                }
+            }
+
+            let remarkObs = NotificationCenter.default.addObserver(forName: .voiceAddRemark, object: nil, queue: .main) { [self] note in
+                guard let text = note.userInfo?["text"] as? String else { return }
+                let currentCount = viewModel.remarks.count
+                let remaining = 250 - currentCount
+                if remaining <= 0 {
+                    voiceAlertMessage = "Remark is already at the 250-character limit."
+                    showVoiceAlert = true
+                } else if text.count > remaining {
+                    viewModel.remarks += String(text.prefix(remaining))
+                    voiceAlertMessage = "Remark was truncated to \(remaining) characters to fit the limit."
+                    showVoiceAlert = true
+                } else {
+                    if viewModel.remarks.isEmpty {
+                        viewModel.remarks = text
+                    } else {
+                        viewModel.remarks += "\n" + text
+                    }
+                }
+            }
+
+            voiceTokens = [addPartObs, remarkObs]
+        }
         .onDisappear {
+            voiceTokens.forEach { NotificationCenter.default.removeObserver($0) }
+            voiceTokens.removeAll()
+            VoiceActionBridge.shared.openWorkOrderID = nil
             viewModel.pauseWorkOrder()
         }
         .sheet(isPresented: $showingAddPartsSheet) {
@@ -336,6 +385,11 @@ struct CompleteWorkOrderView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(viewModel.errorMessage ?? "An error occurred.")
+        }
+        .alert("Voice Action", isPresented: $showVoiceAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(voiceAlertMessage)
         }
     }
     

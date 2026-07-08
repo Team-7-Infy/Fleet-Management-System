@@ -22,6 +22,10 @@ struct InventoryItem: Identifiable, Codable, Hashable {
     
     var quantity: Int { quantityOnHand ?? 0 }
     var unitPrice: Decimal { Decimal(cost ?? 0) }
+
+    func matches(searchText: String) -> Bool {
+        searchText.isEmpty || name.localizedCaseInsensitiveContains(searchText) || id.uuidString.localizedCaseInsensitiveContains(searchText)
+    }
 }
 
 typealias SparePart = InventoryItem

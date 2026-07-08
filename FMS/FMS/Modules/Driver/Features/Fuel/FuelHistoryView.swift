@@ -29,6 +29,8 @@ struct TripFuelHistoryView: View {
     @State private var ocrNumber: String?
     @State private var showOCRReview = false
     @State private var receiptImageData: Data?
+    @State private var isScanningReceipt = false
+    @State private var ocrScanFailed = false
     @State private var showingSaveError = false
     @State private var saveErrorMessage = ""
     private var fuelLogs: [FuelLog]? = nil
@@ -190,6 +192,50 @@ struct TripFuelHistoryView: View {
                 receiptNumber: $ocrNumber
             )
         }
+        .onChange(of: selectedReceiptImage) { _, newItem in
+            guard let item = newItem else { return }
+            isScanningReceipt = true
+            ocrScanFailed = false
+            Task {
+                guard let data = try? await item.loadTransferable(type: Data.self) else {
+                    await MainActor.run { isScanningReceipt = false }
+                    return
+                }
+                await MainActor.run { receiptImageData = data }
+
+                let result: OCRReceiptResult? = await withCheckedContinuation { continuation in
+                    guard let image = UIImage(data: data) else {
+                        continuation.resume(returning: nil)
+                        return
+                    }
+                    OCRService.extractReceiptInfo(from: image) { ocrResult in
+                        continuation.resume(returning: ocrResult)
+                    }
+                }
+
+                await MainActor.run {
+                    isScanningReceipt = false
+                    guard let result,
+                          result.amount != nil || result.date != nil || result.vendor != nil || result.receiptNumber != nil
+                    else {
+                        ocrScanFailed = true
+                        return
+                    }
+
+                    ocrAmount = result.amount
+                    ocrDate = result.date
+                    ocrVendor = result.vendor
+                    ocrNumber = result.receiptNumber
+
+                    if receiptCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                       let num = result.receiptNumber {
+                        receiptCode = num
+                    }
+
+                    showOCRReview = true
+                }
+            }
+        }
     }
 
     private var lockedState: some View {
@@ -284,6 +330,26 @@ struct TripFuelHistoryView: View {
                 .foregroundColor(selectedReceiptImage == nil ? .blue : .green)
             }
 
+            if isScanningReceipt {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Scanning receipt…")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 4)
+                .accessibilityLabel("Scanning Receipt")
+            }
+
+            if ocrScanFailed {
+                Text("Couldn't read the receipt automatically — you can still enter the details below.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .accessibilityLabel("OCR Scan Failed")
+                    .padding(.vertical, 4)
+            }
+
             if ocrAmount != nil || ocrDate != nil || ocrVendor != nil || ocrNumber != nil {
                 Button(action: { showOCRReview = true }) {
                     HStack {
@@ -376,7 +442,7 @@ struct TripFuelHistoryView: View {
                 date: refillDate
             )
 
-            if let error = await localStore.lastFuelSaveError {
+            if let error = localStore.lastFuelSaveError {
                 await MainActor.run {
                     saveErrorMessage = error
                     showingSaveError = true
