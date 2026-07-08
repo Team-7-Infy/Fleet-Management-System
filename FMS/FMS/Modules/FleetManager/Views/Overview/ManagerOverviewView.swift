@@ -12,6 +12,9 @@ struct ManagerOverviewView: View {
     var currentUserId: UUID?
     var onProfile: (() -> Void)?
     var onShowReportsHub: (() -> Void)?
+    var onSelectDriversTab: (() -> Void)?
+    var onSelectVehiclesTab: (() -> Void)?
+    var onSelectMaintenanceTab: (() -> Void)?
     @State private var selectedActiveTripID: UUID?
 
     private var activeTrips: [Trip] {
@@ -61,13 +64,24 @@ struct ManagerOverviewView: View {
         vehiclesViewModel.maintenanceVehicles
     }
 
+    private var scheduledTasksCount: Int {
+        maintenanceViewModel.openTasks.filter { $0.status == .scheduled || $0.status == .assigned }.count
+    }
+
+    private var inProgressTasksCount: Int {
+        maintenanceViewModel.openTasks.filter { $0.status == .inProgress }.count
+    }
+
+    private var onHoldTasksCount: Int {
+        maintenanceViewModel.openTasks.filter { $0.status == .onHold }.count
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 headerBar
                 activeTripsHeaderCard
                 fleetStatusSection
-                maintenanceSection
                 ReportsNavRow(action: onShowReportsHub)
             }
             .padding()
@@ -176,15 +190,8 @@ struct ManagerOverviewView: View {
 
             GlassPanel(hasBorder: false) {
                 VStack(spacing: 0) {
-                    NavigationLink {
-                        DashboardDriverStatusListView(
-                            usersViewModel: usersViewModel,
-                            tripsViewModel: tripsViewModel,
-                            maintenanceViewModel: maintenanceViewModel,
-                            activeDrivers: enrouteDrivers,
-                            availableDrivers: availableDrivers,
-                            offDutyDrivers: offDutyDrivers
-                        )
+                    Button {
+                        onSelectDriversTab?()
                     } label: {
                         FleetStatusRowContent(
                             title: "Drivers",
@@ -202,14 +209,8 @@ struct ManagerOverviewView: View {
                     Divider()
                         .padding(.vertical, 4)
 
-                    NavigationLink {
-                        DashboardVehicleStatusListView(
-                            usersViewModel: usersViewModel,
-                            vehiclesViewModel: vehiclesViewModel,
-                            onTripVehicles: enrouteVehicles,
-                            availableVehicles: availableVehicles,
-                            maintenanceVehicles: maintenanceVehicles
-                        )
+                    Button {
+                        onSelectVehiclesTab?()
                     } label: {
                         FleetStatusRowContent(
                             title: "Vehicles",
@@ -223,21 +224,40 @@ struct ManagerOverviewView: View {
                         )
                     }
                     .buttonStyle(.plain)
+
+                    Divider()
+                        .padding(.vertical, 4)
+
+                    Button {
+                        onSelectMaintenanceTab?()
+                    } label: {
+                        FleetStatusRowContent(
+                            title: "Maintenance",
+                            systemImage: "wrench.and.screwdriver.fill",
+                            tint: FleetPalette.accent,
+                            metrics: [
+                                ("Scheduled", "\(scheduledTasksCount)", Color(hex: 0xB58A00)),
+                                ("Active", "\(inProgressTasksCount)", FleetPalette.success),
+                                ("On hold", "\(onHoldTasksCount)", FleetPalette.danger)
+                            ]
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
     }
 
     private var maintenanceSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 DashboardSectionTitle("Maintenance")
                 Spacer()
                 HStack(spacing: 4) {
-                    Circle().fill(FleetPalette.warning).frame(width: 8, height: 8)
+                    Circle().fill(Color(hex: 0xB58A00)).frame(width: 6, height: 6)
                     Text("\(maintenanceViewModel.openTasks.count) open")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(FleetPalette.textSecondary)
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color(hex: 0xB58A00))
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
@@ -246,26 +266,22 @@ struct ManagerOverviewView: View {
             }
             .padding(.horizontal, 2)
 
-            GlassPanel(hasBorder: false) {
-                VStack(spacing: 0) {
-                    if maintenanceViewModel.openTasks.isEmpty {
+            VStack(spacing: 10) {
+                if maintenanceViewModel.openTasks.isEmpty {
+                    GlassPanel(hasBorder: false) {
                         EmptyStateView(
                             title: "No Open Maintenance",
                             message: "All vehicles are serviced and ready.",
                             systemImage: "wrench.and.screwdriver"
                         )
                         .padding(.vertical, 20)
-                    } else {
-                        ForEach(Array(maintenanceViewModel.openTasks.prefix(3).enumerated()), id: \.element.id) { index, task in
-                            DashboardMaintenanceRow(
-                                task: task,
-                                assignee: usersViewModel.personnelUser(for: task.executedBy)
-                            )
-                            if index < min(maintenanceViewModel.openTasks.count, 3) - 1 {
-                                Divider()
-                                    .padding(.vertical, 12)
-                            }
-                        }
+                    }
+                } else {
+                    ForEach(Array(maintenanceViewModel.openTasks.prefix(3).enumerated()), id: \.element.id) { index, task in
+                        DashboardMaintenanceRow(
+                            task: task,
+                            assignee: usersViewModel.personnelUser(for: task.executedBy)
+                        )
                     }
                 }
             }
@@ -370,8 +386,8 @@ struct ActiveTripGradientCard: View {
                     Image(systemName: "clock.fill")
                         .font(.caption2)
                         .foregroundColor(.white.opacity(0.8))
-                    Text("ETA \(formattedTime(trip.endTime ?? trip.startTime.addingTimeInterval(8 * 3600)))")
-                        .font(.caption2.weight(.bold))
+                    Text(tripTimingString(for: trip))
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
                 .padding(.horizontal, 10)
@@ -498,6 +514,12 @@ struct ActiveTripGradientCard: View {
         formatter.dateFormat = "hh:mm a"
         return formatter.string(from: date)
     }
+
+    private func tripTimingString(for trip: Trip) -> String {
+        let startStr = formattedTime(trip.startTime)
+        let endStr = formattedTime(trip.endTime ?? trip.startTime.addingTimeInterval(8 * 3600))
+        return "\(startStr) - \(endStr)"
+    }
 }
 
 struct FleetStatusRowContent: View {
@@ -511,11 +533,12 @@ struct FleetStatusRowContent: View {
             VStack(alignment: .center, spacing: 6) {
                 IconBubble(systemImage: systemImage, tint: tint)
                 Text(title)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(FleetPalette.textPrimary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            .frame(width: 68, alignment: .center)
+            .frame(width: 88, alignment: .center)
 
             Divider()
                 .padding(.vertical, 4)
@@ -527,6 +550,7 @@ struct FleetStatusRowContent: View {
                             .font(.system(size: 9, weight: .bold))
                             .foregroundStyle(FleetPalette.textSecondary)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.7)
 
                         Text(metric.1)
                             .font(.system(size: 19, weight: .heavy, design: .rounded))
@@ -550,42 +574,87 @@ private struct DashboardMaintenanceRow: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            IconBubble(
-                systemImage: task.isUrgent ? "exclamationmark.triangle.fill" : "wrench.and.screwdriver.fill",
-                tint: task.isUrgent ? FleetPalette.danger : FleetPalette.warning
-            )
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(task.description)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(FleetPalette.textPrimary)
-                    .lineLimit(1)
-
-                HStack(spacing: 8) {
-                    Text(FleetManagerFormat.day.string(from: task.scheduledDate.date))
-                    Text("•")
-                    Text(assignee.map { "\($0.displayName)" } ?? "Unassigned")
+            ZStack(alignment: .topTrailing) {
+                IconBubble(
+                    systemImage: task.isUrgent ? "exclamationmark.triangle.fill" : "wrench.and.screwdriver.fill",
+                    tint: task.isUrgent ? FleetPalette.danger : FleetPalette.warning
+                )
+                
+                if task.isUrgent {
+                    Circle()
+                        .fill(FleetPalette.danger)
+                        .frame(width: 8, height: 8)
+                        .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
+                        .offset(x: 1, y: -1)
                 }
-                .font(.caption)
-                .foregroundStyle(FleetPalette.textSecondary)
             }
 
-            Spacer()
+            VStack(alignment: .leading, spacing: 6) {
+                Text(task.description)
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(FleetPalette.textPrimary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            Text(task.status.title)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(FleetPalette.maintenanceStatus(task.status))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(FleetPalette.maintenanceStatus(task.status).opacity(0.12))
-                .clipShape(Capsule())
+                HStack(spacing: 8) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 9))
+                        Text(FleetManagerFormat.day.string(from: task.scheduledDate.date))
+                    }
+                    Text("•")
+                    HStack(spacing: 3) {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 9))
+                        Text(assignee.map { "\($0.displayName)" } ?? "Unassigned")
+                    }
+                }
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(FleetPalette.textPrimary.opacity(0.55))
+            }
+
+            Spacer(minLength: 8)
+
+            let pillColor = statusColor(for: task.status)
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(pillColor)
+                    .frame(width: 5, height: 5)
+                Text(task.status.title)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(pillColor)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(pillColor.opacity(0.08))
+            .clipShape(Capsule())
+            .overlay {
+                Capsule()
+                    .stroke(pillColor.opacity(0.12), lineWidth: 1)
+            }
         }
-        .contentShape(Rectangle())
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .background(FleetPalette.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(FleetPalette.tertiary.opacity(0.06), lineWidth: 1)
+        }
+    }
+
+    private func statusColor(for status: MaintenanceTaskStatus) -> Color {
+        switch status {
+        case .scheduled, .onHold:
+            return Color(hex: 0xB58A00) // Highly legible dark amber
+        default:
+            return FleetPalette.maintenanceStatus(status)
+        }
     }
 }
 
 private struct DashboardDriverStatusListView: View {
     @ObservedObject var usersViewModel: UserManagementViewModel
+    @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var tripsViewModel: TripManagementViewModel
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
     var activeDrivers: [Driver]
@@ -632,6 +701,7 @@ private struct DashboardDriverStatusListView: View {
                                     ManagerUserDetailView(
                                         user: driverUser,
                                         viewModel: usersViewModel,
+                                        vehiclesViewModel: vehiclesViewModel,
                                         tripsViewModel: tripsViewModel,
                                         maintenanceViewModel: maintenanceViewModel
                                     )

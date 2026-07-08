@@ -16,19 +16,19 @@ struct TripActionMenu: View {
             Button(role: .destructive) {
                 showDeleteConfirm = true
             } label: {
-                Label("Delete / Cancel Trip", systemImage: "trash")
+                Label("Cancel Trip", systemImage: "xmark.circle")
             }
         } label: {
             Image(systemName: "ellipsis.circle")
         }
         .accessibilityLabel("Trip actions")
-        .alert("Delete Trip?", isPresented: $showDeleteConfirm) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
+        .alert("Cancel Trip?", isPresented: $showDeleteConfirm) {
+            Button("Keep Trip", role: .cancel) { }
+            Button("Cancel Trip", role: .destructive) {
                 Task { await viewModel.delete(trip) }
             }
         } message: {
-            Text("Are you sure you want to delete/cancel this trip? This will unassign the driver from the vehicle.")
+            Text("Are you sure you want to cancel this trip? This will unassign the driver from the vehicle.")
         }
     }
 }

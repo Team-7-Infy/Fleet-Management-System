@@ -241,7 +241,17 @@ struct FleetManagerDashboardView: View {
                 refresh: refreshAll,
                 currentUserId: currentUserId,
                 onProfile: { isShowingProfile = true },
-                onShowReportsHub: { isShowingReportsHub = true }
+                onShowReportsHub: { isShowingReportsHub = true },
+                onSelectDriversTab: {
+                    selectedTab = .users
+                    selectedUserSegment = .drivers
+                },
+                onSelectVehiclesTab: {
+                    selectedTab = .vehicles
+                },
+                onSelectMaintenanceTab: {
+                    selectedTab = .maintenance
+                }
             )
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $isShowingProfile) {
@@ -273,6 +283,7 @@ struct FleetManagerDashboardView: View {
         NavigationStack {
             ManagerUsersView(
                 viewModel: usersViewModel,
+                vehiclesViewModel: vehiclesViewModel,
                 tripsViewModel: tripsViewModel,
                 maintenanceViewModel: maintenanceViewModel,
                 selectedSegment: $selectedUserSegment,

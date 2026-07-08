@@ -249,6 +249,7 @@ struct FleetOptimizationView: View {
                     ManagerUserDetailView(
                         user: user,
                         viewModel: usersViewModel,
+                        vehiclesViewModel: vehiclesViewModel,
                         tripsViewModel: reportsViewModel.tripsViewModel,
                         maintenanceViewModel: maintenanceViewModel
                     )

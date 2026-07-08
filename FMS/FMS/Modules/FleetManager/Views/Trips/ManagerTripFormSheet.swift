@@ -9,6 +9,7 @@
 import SwiftUI
 import MapKit
 import Combine
+import CoreLocation
 
 struct TripPlace: Identifiable {
     let id = UUID()
@@ -175,118 +176,191 @@ struct ManagerTripFormSheet: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                TripPlaceButton(
-                    title: "Pickup",
-                    value: selectedPickup?.displayName ?? form.startLocation,
-                    placeholder: "Starting point",
-                    systemImage: "mappin.circle.fill"
-                ) {
-                    pickingPlace = .pickup
-                }
-
-                TripPlaceButton(
-                    title: "Destination",
-                    value: selectedDestination?.displayName ?? form.endLocation,
-                    placeholder: "Destination",
-                    systemImage: "mappin.and.ellipse.circle.fill"
-                ) {
-                    pickingPlace = .destination
-                }
-
+            VStack(alignment: .leading, spacing: 18) {
+                // Prominent Map at the top (Uber-like full-bleed style)
                 TripRouteSelectionMap(
                     pickup: selectedPickup,
                     destination: selectedDestination,
                     route: routeEstimate?.route
                 )
 
+                // Uber-like Pickup & Destination vertical connection block
+                VStack(spacing: 0) {
+                    HStack(spacing: 12) {
+                        Circle()
+                            .fill(FleetPalette.success)
+                            .frame(width: 8, height: 8)
+                        
+                        Button {
+                            pickingPlace = .pickup
+                        } label: {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("PICKUP LOCATION")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(FleetPalette.textSecondary)
+                                Text(selectedPickup?.displayName ?? (form.startLocation.isEmpty ? "Starting point" : form.startLocation))
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(form.startLocation.isEmpty ? FleetPalette.textTertiary : FleetPalette.textPrimary)
+                                    .lineLimit(1)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(.vertical, 12)
+                    
+                    HStack(spacing: 12) {
+                        VStack {
+                            Rectangle()
+                                .fill(FleetPalette.tertiary.opacity(0.3))
+                                .frame(width: 1, height: 16)
+                        }
+                        .frame(width: 8)
+                        
+                        Divider()
+                    }
+                    
+                    HStack(spacing: 12) {
+                        Rectangle()
+                            .fill(FleetPalette.accent)
+                            .frame(width: 8, height: 8)
+                        
+                        Button {
+                            pickingPlace = .destination
+                        } label: {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("DROP LOCATION")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(FleetPalette.textSecondary)
+                                Text(selectedDestination?.displayName ?? (form.endLocation.isEmpty ? "Destination address" : form.endLocation))
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(form.endLocation.isEmpty ? FleetPalette.textTertiary : FleetPalette.textPrimary)
+                                    .lineLimit(1)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(.vertical, 12)
+                }
+                .padding(.horizontal, 16)
+                .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(FleetPalette.tertiary.opacity(0.08), lineWidth: 1)
+                }
+                .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
+
+                // Loading route calculations or metrics
                 if isCalculatingRoute {
-                    Label("Calculating route", systemImage: "clock.arrow.circlepath")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(FleetPalette.accent)
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Calculating optimal route...")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(FleetPalette.accent)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 4)
                 } else if let routeEstimate {
                     TripRouteEstimateCard(estimate: routeEstimate)
                 } else if let routeMessage {
                     Label(routeMessage, systemImage: "exclamationmark.triangle")
-                        .font(.subheadline)
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(FleetPalette.warning)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 4)
                 }
 
-                Picker(selection: $form.vehicleTypeRequested) {
-                    Text("Any").tag("")
-                    ForEach(Self.vehicleTypes, id: \.self) { type in
-                        Text(type.capitalized).tag(type)
-                    }
-                } label: {
-                    TripSelectionMenuLabel(
-                        title: "Required Vehicle Type",
-                        value: form.vehicleTypeRequested.isEmpty ? nil : form.vehicleTypeRequested.capitalized,
-                        placeholder: "Any type",
-                        systemImage: "car.fill"
-                    )
-                }
-                .pickerStyle(.menu)
-                .tint(FleetPalette.accent)
-                .fleetField()
-
-                Toggle("Auto Assign", isOn: $form.isAutoAssign)
-                    .fleetField()
-
-                if !form.isAutoAssign {
-                    Picker(selection: $form.selectedVehicleId) {
-                        Text("Select Vehicle").tag(Optional<UUID>.none)
-                        ForEach(availableVehicles) { vehicle in
-                            Text(vehicle.licencePlate).tag(Optional(vehicle.id))
+                // Vehicle Class & Assignment Container Card
+                FitnessCategoryCard {
+                    VStack(spacing: 14) {
+                        Picker(selection: $form.vehicleTypeRequested) {
+                            Text("Any Type").tag("")
+                            ForEach(Self.vehicleTypes, id: \.self) { type in
+                                Text(type.capitalized).tag(type)
+                            }
+                        } label: {
+                            TripSelectionMenuLabel(
+                                title: "Vehicle Class",
+                                value: form.vehicleTypeRequested.isEmpty ? nil : form.vehicleTypeRequested.capitalized,
+                                placeholder: "Any type",
+                                systemImage: "car.fill"
+                            )
                         }
-                    } label: {
-                        TripSelectionMenuLabel(
-                            title: "Vehicle",
-                            value: availableVehicles.first(where: { $0.id == form.selectedVehicleId })?.licencePlate,
-                            placeholder: "Select vehicle",
-                            systemImage: "bus.fill"
-                        )
-                    }
-                    .pickerStyle(.menu)
-                    .tint(FleetPalette.accent)
-                    .fleetField()
+                        .pickerStyle(.menu)
+                        .tint(FleetPalette.accent)
 
-                    Picker(selection: $form.selectedDriverId) {
-                        Text("Select Driver").tag(Optional<UUID>.none)
-                        ForEach(availableDrivers) { driver in
-                            let user = usersViewModel.user(for: driver.userId)
-                            let uidPrefix = String(driver.id.uuidString.prefix(8))
-                            Text("\(user?.displayName ?? "Driver") (\(uidPrefix))").tag(Optional(driver.id))
+                        Divider()
+
+                        Toggle("Auto Assign Best Driver", isOn: $form.isAutoAssign)
+                            .font(.body.weight(.semibold))
+                            .toggleStyle(SwitchToggleStyle(tint: FleetPalette.accent))
+
+                        if !form.isAutoAssign {
+                            Divider()
+
+                            Picker(selection: $form.selectedVehicleId) {
+                                Text("Choose Vehicle").tag(Optional<UUID>.none)
+                                ForEach(availableVehicles) { vehicle in
+                                    Text(vehicle.licencePlate).tag(Optional(vehicle.id))
+                                }
+                            } label: {
+                                TripSelectionMenuLabel(
+                                    title: "Assign Vehicle",
+                                    value: availableVehicles.first(where: { $0.id == form.selectedVehicleId })?.licencePlate,
+                                    placeholder: "Choose vehicle",
+                                    systemImage: "bus.fill"
+                                )
+                            }
+                            .pickerStyle(.menu)
+                            .tint(FleetPalette.accent)
+
+                            Divider()
+
+                            Picker(selection: $form.selectedDriverId) {
+                                Text("Choose Driver").tag(Optional<UUID>.none)
+                                ForEach(availableDrivers) { driver in
+                                    let user = usersViewModel.user(for: driver.userId)
+                                    let uidPrefix = String(driver.id.uuidString.prefix(8))
+                                    Text("\(user?.displayName ?? "Driver") (\(uidPrefix))").tag(Optional(driver.id))
+                                }
+                            } label: {
+                                TripSelectionMenuLabel(
+                                    title: "Assign Driver",
+                                    value: form.selectedDriverId.flatMap { dId in
+                                        let driver = usersViewModel.drivers.first(where: { $0.id == dId })
+                                        let user = driver.flatMap { usersViewModel.user(for: $0.userId) }
+                                        let uidPrefix = String(dId.uuidString.prefix(8))
+                                        return "\(user?.displayName ?? "Driver") (\(uidPrefix))"
+                                    },
+                                    placeholder: "Choose driver",
+                                    systemImage: "person.fill"
+                                )
+                            }
+                            .pickerStyle(.menu)
+                            .tint(FleetPalette.accent)
                         }
-                    } label: {
-                        TripSelectionMenuLabel(
-                            title: "Driver",
-                            value: form.selectedDriverId.flatMap { dId in
-                                let driver = usersViewModel.drivers.first(where: { $0.id == dId })
-                                let user = driver.flatMap { usersViewModel.user(for: $0.userId) }
-                                let uidPrefix = String(dId.uuidString.prefix(8))
-                                return "\(user?.displayName ?? "Driver") (\(uidPrefix))"
-                            },
-                            placeholder: "Select driver",
-                            systemImage: "person.fill"
-                        )
                     }
-                    .pickerStyle(.menu)
-                    .tint(FleetPalette.accent)
-                    .fleetField()
                 }
 
-                DatePicker("Start", selection: $form.startTime, in: minimumStartTime...)
-                    .fleetField()
+                // Schedule Timing Picker Card
+                FitnessCategoryCard {
+                    VStack(spacing: 14) {
+                        DatePicker("Schedule Start Time", selection: $form.startTime, in: minimumStartTime...)
+                            .font(.body.weight(.semibold))
 
-                DatePicker(
-                    routeEstimate == nil ? "Expected End" : "ETA",
-                    selection: Binding(
-                        get: { form.endTime ?? form.startTime.addingTimeInterval(3600) },
-                        set: { form.endTime = $0 }
-                    ),
-                    in: form.startTime...
-                )
-                .fleetField()
+                        Divider()
+
+                        DatePicker(
+                            routeEstimate == nil ? "Expected End Time" : "Estimated Arrival (ETA)",
+                            selection: Binding(
+                                get: { form.endTime ?? form.startTime.addingTimeInterval(3600) },
+                                set: { form.endTime = $0 }
+                            ),
+                            in: form.startTime...
+                        )
+                        .font(.body.weight(.semibold))
+                    }
+                }
 
                 FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
 
@@ -297,14 +371,21 @@ struct ManagerTripFormSheet: View {
                         }
                     }
                 } label: {
-                    Label("Create Trip", systemImage: "wand.and.stars")
-                        .frame(maxWidth: .infinity)
+                    HStack {
+                        Image(systemName: "wand.and.stars")
+                        Text("Confirm & Create Trip")
+                            .bold()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(form.isValid ? FleetPalette.accent : FleetPalette.neutral.opacity(0.3), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .foregroundColor(form.isValid ? .white : FleetPalette.textTertiary)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(FleetPalette.accent)
+                .buttonStyle(.plain)
                 .disabled(form.isValid == false)
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.bottom, 24)
         }
         .fleetScreenBackground()
         .navigationTitle("Create Trip")
@@ -503,7 +584,7 @@ private struct TripRouteSelectionMap: View {
                     .tint(FleetPalette.accent)
             }
         }
-        .frame(height: 190)
+        .frame(height: 260)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -573,6 +654,8 @@ private struct TripPlacePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var search = TripPlaceSearchViewModel()
     @State private var isResolving = false
+    @State private var resolvedPlace: TripPlace? = nil
+    @State private var mapPosition: MapCameraPosition = .automatic
 
     var body: some View {
         VStack(spacing: 14) {
@@ -583,8 +666,85 @@ private struct TripPlacePickerSheet: View {
                 .padding(.horizontal)
 
             if isResolving {
-                ProgressView("Finding place")
+                ProgressView("Finding place...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let place = resolvedPlace {
+                VStack(spacing: 14) {
+                    MapReader { proxy in
+                        Map(position: $mapPosition) {
+                            Marker(place.name, systemImage: "mappin.circle.fill", coordinate: place.coordinate)
+                                .tint(FleetPalette.accent)
+                        }
+                        .frame(height: 230)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(FleetPalette.tertiary.opacity(0.12), lineWidth: 1)
+                        }
+                        .onTapGesture { position in
+                            if let coordinate = proxy.convert(position, from: .local) {
+                                Task {
+                                    await updateCoordinates(coordinate)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+
+                    Text("Tap anywhere on the map to adjust the pin precisely")
+                        .font(.caption)
+                        .foregroundStyle(FleetPalette.textSecondary)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "mappin.and.ellipse")
+                                .font(.title3)
+                                .foregroundStyle(FleetPalette.accent)
+                                .frame(width: 36, height: 36)
+                                .background(FleetPalette.accent.opacity(0.08), in: Circle())
+                            
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(place.name)
+                                    .font(.headline)
+                                    .foregroundStyle(FleetPalette.textPrimary)
+                                    .lineLimit(1)
+                                if place.address.isEmpty == false {
+                                    Text(place.address)
+                                        .font(.subheadline)
+                                        .foregroundStyle(FleetPalette.textSecondary)
+                                        .lineLimit(2)
+                                }
+                            }
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(FleetPalette.tertiary.opacity(0.08), lineWidth: 1)
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        onSelect(place)
+                    } label: {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Confirm Location")
+                                .bold()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(FleetPalette.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal)
+                    .padding(.bottom, 16)
+                }
             } else if search.results.isEmpty {
                 EmptyStateView(
                     title: "Search for a place",
@@ -625,6 +785,9 @@ private struct TripPlacePickerSheet: View {
                 }
             }
         }
+        .onChange(of: search.query) { _, _ in
+            resolvedPlace = nil
+        }
     }
 
     @MainActor
@@ -634,11 +797,54 @@ private struct TripPlacePickerSheet: View {
 
         do {
             if let place = try await search.place(for: completion) {
-                onSelect(place)
-                dismiss()
+                resolvedPlace = place
+                mapPosition = .region(MKCoordinateRegion(
+                    center: place.coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.015, longitudeDelta: 0.015)
+                ))
             }
         } catch {
             search.errorMessage = error.localizedDescription
+        }
+    }
+
+    private func updateCoordinates(_ coordinate: CLLocationCoordinate2D) async {
+        let geocoder = CLGeocoder()
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        
+        do {
+            let placemarks = try await geocoder.reverseGeocodeLocation(location)
+            if let placemark = placemarks.first {
+                let name = placemark.name ?? placemark.thoroughfare ?? "Selected Location"
+                let subLocality = placemark.subLocality ?? ""
+                let locality = placemark.locality ?? ""
+                let addressParts = [subLocality, locality].filter { !$0.isEmpty }
+                let address = addressParts.isEmpty ? (placemark.name ?? "") : addressParts.joined(separator: ", ")
+                
+                await MainActor.run {
+                    resolvedPlace = TripPlace(
+                        name: name,
+                        address: address,
+                        coordinate: coordinate
+                    )
+                }
+            } else {
+                await MainActor.run {
+                    resolvedPlace = TripPlace(
+                        name: "Custom Location",
+                        address: String(format: "%.5f, %.5f", coordinate.latitude, coordinate.longitude),
+                        coordinate: coordinate
+                    )
+                }
+            }
+        } catch {
+            await MainActor.run {
+                resolvedPlace = TripPlace(
+                    name: "Custom Location",
+                    address: String(format: "%.5f, %.5f", coordinate.latitude, coordinate.longitude),
+                    coordinate: coordinate
+                )
+            }
         }
     }
 }

@@ -11,11 +11,14 @@ struct IconBubble: View {
     var tint: Color
 
     var body: some View {
+        let isYellow = tint == FleetPalette.warning
+        let displayTint = isYellow ? Color(hex: 0xB58A00) : tint
+        
         Image(systemName: systemImage)
             .font(.headline.weight(.semibold))
-            .foregroundStyle(tint)
+            .foregroundStyle(displayTint)
             .frame(width: 48, height: 48)
-            .background(tint.opacity(0.12), in: Circle())
+            .background((isYellow ? FleetPalette.warning : tint).opacity(0.12), in: Circle())
     }
 }
 

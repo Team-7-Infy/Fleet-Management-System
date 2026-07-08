@@ -27,6 +27,7 @@ enum ManagerUserSegment: String, CaseIterable, Identifiable {
 
 struct ManagerUsersView: View {
     @ObservedObject var viewModel: UserManagementViewModel
+    @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var tripsViewModel: TripManagementViewModel
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
     @Binding var selectedSegment: ManagerUserSegment
@@ -94,6 +95,7 @@ struct ManagerUsersView: View {
                             ManagerUserDetailView(
                                 user: user,
                                 viewModel: viewModel,
+                                vehiclesViewModel: vehiclesViewModel,
                                 tripsViewModel: tripsViewModel,
                                 maintenanceViewModel: maintenanceViewModel
                             )
@@ -267,6 +269,7 @@ struct ManagerUserDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State var user: User
     @ObservedObject var viewModel: UserManagementViewModel
+    @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var tripsViewModel: TripManagementViewModel
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
     @State private var showEditSheet = false
@@ -293,7 +296,7 @@ struct ManagerUserDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 20) {
                 userHeroSection
 
                 switch user.role {
@@ -307,38 +310,54 @@ struct ManagerUserDetailView: View {
                     managerInfoCard
                 }
 
-                Button {
-                    editForm = FleetManagerUserForm(
-                        name: user.displayName,
-                        firstName: user.fName,
-                        lastName: user.lName,
-                        email: user.email,
-                        aadhar: user.aadhar,
-                        contact: "\(user.contact)",
-                        address: user.address,
-                        avatarUrl: user.avatarUrl ?? "",
-                        role: user.role,
-                        licenceNumber: driverProfile?.licenceNum ?? "",
-                        vehicleType: driverProfile?.vehicleType ?? "van"
-                    )
-                    showEditSheet = true
-                } label: {
-                    Label("Edit User", systemImage: "pencil")
+                VStack(spacing: 12) {
+                    Button {
+                        editForm = FleetManagerUserForm(
+                            name: user.displayName,
+                            firstName: user.fName,
+                            lastName: user.lName,
+                            email: user.email,
+                            aadhar: user.aadhar,
+                            contact: "\(user.contact)",
+                            address: user.address,
+                            avatarUrl: user.avatarUrl ?? "",
+                            role: user.role,
+                            licenceNumber: driverProfile?.licenceNum ?? "",
+                            vehicleType: driverProfile?.vehicleType ?? "van"
+                        )
+                        showEditSheet = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "pencil")
+                            Text("Edit Profile")
+                                .bold()
+                        }
                         .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(FleetPalette.accent)
+                        .padding(.vertical, 14)
+                        .background(FleetPalette.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
 
-                Button(role: .destructive) {
-                    showDeleteConfirm = true
-                } label: {
-                    Label("Delete User", systemImage: "trash")
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "trash")
+                            Text("Deactivate User")
+                                .bold()
+                        }
                         .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(FleetPalette.danger, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(FleetPalette.danger)
+                .padding(.top, 8)
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.bottom, 24)
         }
         .fleetScreenBackground()
         .navigationTitle(user.role == .driver ? "Driver Details" : "User Details")
@@ -363,61 +382,68 @@ struct ManagerUserDetailView: View {
     }
 
     private var userHeroSection: some View {
-        VStack(spacing: 10) {
-            AvatarView(name: user.displayName, role: user.role, size: 86, imageURL: user.avatarImageURL)
+        FitnessCategoryCard {
+            VStack(spacing: 12) {
+                AvatarView(name: user.displayName, role: user.role, size: 90, imageURL: user.avatarImageURL)
+                    .shadow(color: FleetPalette.accent.opacity(0.15), radius: 6, x: 0, y: 3)
 
-            VStack(spacing: 4) {
-                Text(user.displayName)
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(FleetPalette.textPrimary)
+                VStack(spacing: 6) {
+                    Text(user.displayName)
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundStyle(FleetPalette.textPrimary)
 
-                Text(user.email)
-                    .font(.subheadline)
-                    .foregroundStyle(FleetPalette.textSecondary)
-                
-                HStack(spacing: 8) {
-                    Text("UID \(user.shortUID)")
-                        .font(.caption.weight(.semibold))
+                    Text(user.email)
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(FleetPalette.textSecondary)
                     
-                    Text(user.role.title.uppercased())
-                        .font(.system(size: 9, weight: .black))
-                        .foregroundColor(FleetPalette.accent)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(FleetPalette.accent.opacity(0.12))
-                        .clipShape(Capsule())
+                    HStack(spacing: 10) {
+                        Text("UID: \(user.shortUID)")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(FleetPalette.textSecondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(FleetPalette.background, in: Capsule())
+                            .overlay {
+                                Capsule().stroke(FleetPalette.tertiary.opacity(0.1), lineWidth: 1)
+                            }
+                        
+                        Text(user.role.title.uppercased())
+                            .font(.system(size: 9, weight: .black))
+                            .foregroundColor(FleetPalette.accent)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3.5)
+                            .background(FleetPalette.accent.opacity(0.08))
+                            .clipShape(Capsule())
+                            .overlay {
+                                Capsule().stroke(FleetPalette.accent.opacity(0.12), lineWidth: 1)
+                            }
 
-                    StatusPill(
-                        text: user.isActive ? "Active" : "Inactive",
-                        color: user.isActive ? FleetPalette.success : FleetPalette.neutral,
-                        dotSize: 8
-                    )
+                        StatusPill(
+                            text: user.isActive ? "Active" : "Inactive",
+                            color: user.isActive ? FleetPalette.success : FleetPalette.neutral,
+                            dotSize: 7
+                        )
+                    }
                 }
             }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
     }
 
     private var driverInfoCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Driver Info")
             
-            GlassPanel(hasBorder: false) {
+            FitnessCategoryCard {
                 if let driverProfile {
-                    VStack(spacing: 12) {
-                        InfoRow(title: "License", value: driverProfile.licenceNum.isEmpty ? "Not available" : driverProfile.licenceNum)
-                        Divider()
-                        InfoRow(title: "Vehicle Type", value: driverProfile.vehicleType.isEmpty ? "Not available" : driverProfile.vehicleType.capitalized)
-                        Divider()
-                        InfoRow(title: "Status", value: driverProfile.status.title)
-                        Divider()
-                        InfoRow(title: "Phone", value: "\(user.contact)")
-                        Divider()
-                        InfoRow(title: "Aadhar", value: user.aadhar.isEmpty ? "Not provided" : user.aadhar)
-                        Divider()
-                        InfoRow(title: "Address", value: user.address.isEmpty ? "Not provided" : user.address)
+                    VStack(spacing: 10) {
+                        customInfoRow(title: "License Number", value: driverProfile.licenceNum.isEmpty ? "Not available" : driverProfile.licenceNum, icon: "signature", color: FleetPalette.accent)
+                        customInfoRow(title: "Authorized Vehicle", value: driverProfile.vehicleType.isEmpty ? "Not available" : driverProfile.vehicleType.capitalized, icon: "car.fill", color: FleetPalette.accent)
+                        customInfoRow(title: "Duty Status", value: driverProfile.status.title, icon: "bolt.fill", color: FleetPalette.warning)
+                        customInfoRow(title: "Phone Number", value: "\(user.contact)", icon: "phone.fill", color: FleetPalette.success)
+                        customInfoRow(title: "Aadhar ID", value: user.aadhar.isEmpty ? "Not provided" : user.aadhar, icon: "person.text.rectangle", color: .purple)
+                        customInfoRow(title: "Residential Address", value: user.address.isEmpty ? "Not provided" : user.address, icon: "mappin.and.ellipse", color: .orange)
                     }
                 } else {
                     EmptyStateView(
@@ -434,7 +460,7 @@ struct ManagerUserDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Trip History")
             
-            GlassPanel(hasBorder: false) {
+            FitnessCategoryCard {
                 let completedTrips = driverTrips.filter { $0.status == .completed }
                 if completedTrips.isEmpty {
                     EmptyStateView(
@@ -442,25 +468,22 @@ struct ManagerUserDetailView: View {
                         message: "Completed assignments will appear here.",
                         systemImage: "checkmark.circle"
                     )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
                 } else {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 8) {
                         ForEach(completedTrips) { trip in
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text("\(trip.startLocation) to \(trip.endLocation)")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(FleetPalette.textPrimary)
-                                
-                                if let endTime = trip.endTime {
-                                    Text("Completed \(endTime, style: .date)")
-                                        .font(.caption)
-                                        .foregroundStyle(FleetPalette.textSecondary)
-                                }
+                            NavigationLink {
+                                ManagerTripDetailView(
+                                    trip: trip,
+                                    viewModel: tripsViewModel,
+                                    vehiclesViewModel: vehiclesViewModel,
+                                    usersViewModel: viewModel
+                                )
+                            } label: {
+                                tripRow(trip: trip)
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            
-                            if trip.id != completedTrips.last?.id {
-                                Divider()
-                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -472,16 +495,13 @@ struct ManagerUserDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Personnel Info")
             
-            GlassPanel(hasBorder: false) {
+            FitnessCategoryCard {
                 if let maintenanceProfile {
-                    VStack(spacing: 12) {
-                        InfoRow(title: "Status", value: maintenanceProfile.status.title)
-                        Divider()
-                        InfoRow(title: "Phone", value: "\(user.contact)")
-                        Divider()
-                        InfoRow(title: "Aadhar", value: user.aadhar.isEmpty ? "Not provided" : user.aadhar)
-                        Divider()
-                        InfoRow(title: "Address", value: user.address.isEmpty ? "Not provided" : user.address)
+                    VStack(spacing: 10) {
+                        customInfoRow(title: "Duty Status", value: maintenanceProfile.status.title, icon: "wrench.and.screwdriver.fill", color: FleetPalette.warning)
+                        customInfoRow(title: "Phone Number", value: "\(user.contact)", icon: "phone.fill", color: FleetPalette.success)
+                        customInfoRow(title: "Aadhar ID", value: user.aadhar.isEmpty ? "Not provided" : user.aadhar, icon: "person.text.rectangle", color: .purple)
+                        customInfoRow(title: "Residential Address", value: user.address.isEmpty ? "Not provided" : user.address, icon: "mappin.and.ellipse", color: .orange)
                     }
                 } else {
                     EmptyStateView(
@@ -498,40 +518,19 @@ struct ManagerUserDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Work History")
             
-            GlassPanel(hasBorder: false) {
+            FitnessCategoryCard {
                 if workOrders.isEmpty {
                     EmptyStateView(
                         title: "No tasks assigned",
                         message: "Assigned maintenance tasks will appear here.",
                         systemImage: "wrench.and.screwdriver"
                     )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
                 } else {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 8) {
                         ForEach(workOrders) { task in
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(task.title ?? "Maintenance Task")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(FleetPalette.textPrimary)
-                                
-                                HStack {
-                                    StatusPill(
-                                        text: task.status.title,
-                                        color: FleetPalette.maintenanceStatus(task.status),
-                                        dotSize: 8
-                                    )
-                                    
-                                    Spacer()
-                                    
-                                    Text("Scheduled \(task.scheduledDate.date, style: .date)")
-                                        .font(.caption)
-                                        .foregroundStyle(FleetPalette.textSecondary)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            
-                            if task.id != workOrders.last?.id {
-                                Divider()
-                            }
+                            taskRow(task: task)
                         }
                     }
                 }
@@ -543,16 +542,127 @@ struct ManagerUserDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             DashboardSectionTitle("Manager Info")
             
-            GlassPanel(hasBorder: false) {
-                VStack(spacing: 12) {
-                    InfoRow(title: "Phone", value: "\(user.contact)")
-                    Divider()
-                    InfoRow(title: "Aadhar", value: user.aadhar.isEmpty ? "Not provided" : user.aadhar)
-                    Divider()
-                    InfoRow(title: "Address", value: user.address.isEmpty ? "Not provided" : user.address)
+            FitnessCategoryCard {
+                VStack(spacing: 10) {
+                    customInfoRow(title: "Phone Number", value: "\(user.contact)", icon: "phone.fill", color: FleetPalette.success)
+                    customInfoRow(title: "Aadhar ID", value: user.aadhar.isEmpty ? "Not provided" : user.aadhar, icon: "person.text.rectangle", color: .purple)
+                    customInfoRow(title: "Residential Address", value: user.address.isEmpty ? "Not provided" : user.address, icon: "mappin.and.ellipse", color: .orange)
                 }
             }
         }
+    }
+
+    private func customInfoRow(title: String, value: String, icon: String, color: Color) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 28, height: 28)
+                .background(color.opacity(0.08), in: Circle())
+            
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(FleetPalette.textSecondary)
+            
+            Spacer(minLength: 8)
+            
+            Text(value)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(FleetPalette.textPrimary)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .background(FleetPalette.background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(FleetPalette.tertiary.opacity(0.06), lineWidth: 1)
+        }
+    }
+
+    private func tripRow(trip: Trip) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.title3)
+                .foregroundStyle(FleetPalette.success)
+                .frame(width: 32, height: 32)
+                .background(FleetPalette.success.opacity(0.08), in: Circle())
+            
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(trip.startLocation) → \(trip.endLocation)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(FleetPalette.textPrimary)
+                    .lineLimit(1)
+                
+                if let endTime = trip.endTime {
+                    Text("Completed on \(endTime, style: .date)")
+                        .font(.caption)
+                        .foregroundStyle(FleetPalette.textSecondary)
+                }
+            }
+            
+            Spacer(minLength: 8)
+            
+            Image(systemName: "chevron.right")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(FleetPalette.textSecondary)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(FleetPalette.background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(FleetPalette.tertiary.opacity(0.06), lineWidth: 1)
+        }
+    }
+
+    private func taskRow(task: MaintenanceTask) -> some View {
+        NavigationLink {
+            ManagerServiceDetailView(
+                task: task,
+                viewModel: maintenanceViewModel,
+                vehiclesViewModel: vehiclesViewModel,
+                usersViewModel: viewModel
+            )
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: task.isUrgent ? "exclamationmark.triangle.fill" : "wrench.and.screwdriver.fill")
+                    .font(.title3)
+                    .foregroundStyle(task.isUrgent ? FleetPalette.danger : FleetPalette.warning)
+                    .frame(width: 32, height: 32)
+                    .background((task.isUrgent ? FleetPalette.danger : FleetPalette.warning).opacity(0.08), in: Circle())
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(task.title ?? "Maintenance Task")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(FleetPalette.textPrimary)
+                        .lineLimit(1)
+                    
+                    Text("Scheduled on \(task.scheduledDate.date, style: .date)")
+                        .font(.caption)
+                        .foregroundStyle(FleetPalette.textSecondary)
+                }
+                
+                Spacer(minLength: 8)
+                
+                let pillColor = FleetPalette.maintenanceStatus(task.status)
+                Text(task.status.title)
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(pillColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(pillColor.opacity(0.08))
+                    .clipShape(Capsule())
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .background(FleetPalette.background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(FleetPalette.tertiary.opacity(0.06), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
