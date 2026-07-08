@@ -480,10 +480,7 @@ extension User {
            let url = URL(string: avatarUrl) {
             return url
         }
-
-        let seed = "\(displayName)-\(email)-\(role.rawValue)"
-            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? id.uuidString
-        return URL(string: "https://i.pravatar.cc/240?u=\(seed)")
+        return nil
     }
 }
 

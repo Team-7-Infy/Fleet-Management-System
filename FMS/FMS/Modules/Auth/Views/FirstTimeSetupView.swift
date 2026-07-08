@@ -1,4 +1,6 @@
 import SwiftUI
+import PhotosUI
+import Supabase
 
 struct FirstTimeSetupView: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -23,6 +25,9 @@ struct FirstTimeSetupView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @FocusState private var focusedField: Field?
+    @State private var showValidationErrors = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var selectedPhotoData: Data?
 
     init(authService: AuthServiceProtocol, user: User, onComplete: @escaping (User) -> Void, onLogout: @escaping () -> Void = {}) {
         self.authService = authService
@@ -238,7 +243,7 @@ struct FirstTimeSetupView: View {
             .buttonStyle(FleetGlassButtonStyle())
             .buttonBorderShape(.capsule)
             .padding(.horizontal, 24)
-            .disabled(!isValid || isLoading)
+            .disabled(isLoading)
 
             Button {
                 onLogout()
@@ -376,7 +381,31 @@ struct FirstTimeSetupView: View {
             if user.role == .driver || user.role == .maintenancePersonnel {
                 profileField("Address", systemImage: "mappin.and.ellipse", text: $profileAddress, keyboardType: .default, validationMessage: visibleProfileValidationMessage(for: .address))
                 profileField("Aadhaar no.", systemImage: "number", text: $profileAadhar, keyboardType: .numberPad, validationMessage: visibleProfileValidationMessage(for: .aadhaar))
-                profileField("Photo / DP URL", systemImage: "photo", text: $profileAvatarUrl, keyboardType: .URL, validationMessage: visibleProfileValidationMessage(for: .avatarURL))
+                // Gallery picker for profile photo (replaces URL field)
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images, photoLibrary: .shared()) {
+                    HStack {
+                        Image(systemName: "photo.on.rectangle")
+                        if selectedPhotoData == nil {
+                            Text("Select Photo")
+                        } else {
+                            Text("Photo Selected")
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+                }
+                .fleetField()
+                .onChange(of: selectedPhotoItem) { newItem in
+                    guard let item = newItem else { return }
+                    Task {
+                        if let data = try? await item.loadTransferable(type: Data.self) {
+                            await MainActor.run {
+                                self.selectedPhotoData = data
+                            }
+                        }
+                    }
+                }
+
             }
 
             if user.role == .driver {
@@ -403,7 +432,11 @@ struct FirstTimeSetupView: View {
     }
 
     private func setPassword() {
-        guard isValid else { return }
+        guard isValid else { 
+            showValidationErrors = true
+            errorMessage = "Please complete all required fields correctly."
+            return 
+        }
         isLoading = true
         errorMessage = nil
         Task { @MainActor in
@@ -412,6 +445,12 @@ struct FirstTimeSetupView: View {
                 guard let contact = profileContactValue else {
                     throw AuthError.functionError("Enter a valid contact number.")
                 }
+                
+                var uploadedAvatarUrl = UserProfileValidation.normalizedURL(profileAvatarUrl)
+                if let photoData = selectedPhotoData, let url = try? await uploadProfileImage(photoData) {
+                    uploadedAvatarUrl = url
+                }
+                
                 let activatedUser = try await authService.completeFirstTimeProfile(
                     user: user,
                     name: UserProfileValidation.normalizedName(profileName),
@@ -419,7 +458,7 @@ struct FirstTimeSetupView: View {
                     contact: contact,
                     address: profileAddress.trimmingCharacters(in: .whitespacesAndNewlines),
                     aadhar: UserProfileValidation.normalizedAadhaar(profileAadhar),
-                    avatarUrl: UserProfileValidation.normalizedURL(profileAvatarUrl),
+                    avatarUrl: uploadedAvatarUrl,
                     licenceNumber: UserProfileValidation.normalizedLicenceNumber(licenceNumber),
                     vehicleType: vehicleType
                 )
@@ -431,6 +470,38 @@ struct FirstTimeSetupView: View {
             }
         }
     }
+
+    private func uploadProfileImage(_ imageData: Data) async throws -> String? {
+        guard let image = UIImage(data: imageData),
+              let uploadData = image.jpegData(compressionQuality: 0.82) else { return nil }
+
+        let bucketId = "maintenance"
+        let path = "avatar-\(user.id.uuidString)-\(Int(Date().timeIntervalSince1970)).jpg"
+
+        let baseURL = EnvironmentConfig.supabaseURL
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else { return nil }
+        components.path = "/storage/v1/object/\(bucketId)/\(path)"
+        guard let uploadURL = components.url else { return nil }
+
+        var request = URLRequest(url: uploadURL)
+        request.httpMethod = "PUT"
+        request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
+        request.setValue("3600", forHTTPHeaderField: "cache-control")
+        request.setValue("true", forHTTPHeaderField: "x-upsert")
+        request.setValue(EnvironmentConfig.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        if let token = try? await SupabaseClient(supabaseURL: EnvironmentConfig.supabaseURL, supabaseKey: EnvironmentConfig.supabaseAnonKey).auth.session.accessToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = uploadData
+
+        let (_, urlResponse) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = urlResponse as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+            return nil
+        }
+        
+        return try? SupabaseClient(supabaseURL: EnvironmentConfig.supabaseURL, supabaseKey: EnvironmentConfig.supabaseAnonKey).storage.from(bucketId).getPublicURL(path: path).absoluteString
+    }
+
 
     // MARK: - Shared UI
 
@@ -466,21 +537,23 @@ struct FirstTimeSetupView: View {
     }
 
     private func visibleProfileValidationMessage(for field: UserProfileValidationField) -> String? {
+        let isAttemptedSubmit = showValidationErrors
+
         switch field {
         case .name where UserProfileValidation.normalizedName(profileName).isEmpty:
-            return nil
+            return isAttemptedSubmit ? "Name is required." : nil
         case .email where profileEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:
-            return nil
+            return isAttemptedSubmit ? "Email is required." : nil
         case .contact where UserProfileValidation.normalizedContact(profileContact).isEmpty:
-            return nil
+            return isAttemptedSubmit ? "Contact number is required." : nil
         case .address where profileAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:
-            return nil
+            return isAttemptedSubmit ? "Address is required." : nil
         case .aadhaar where UserProfileValidation.normalizedAadhaar(profileAadhar).isEmpty:
-            return nil
-        case .avatarURL where profileAvatarUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:
+            return isAttemptedSubmit ? "Aadhaar number is required." : nil
+        case .avatarURL:
             return nil
         case .licenceNumber where UserProfileValidation.normalizedLicenceNumber(licenceNumber).isEmpty:
-            return nil
+            return isAttemptedSubmit ? "Licence number is required." : nil
         default:
             return profileValidationIssues.first { $0.field == field }?.message
         }

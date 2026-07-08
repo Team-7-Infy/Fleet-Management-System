@@ -1,4 +1,5 @@
 import SwiftUI
+internal import _LocationEssentials
 
 struct ActiveTrackingView: View {
     @Binding var showingProfile: Bool
