@@ -105,19 +105,16 @@ private struct ProfileHeaderCard: View {
                             .clipShape(Circle())
                             .shadow(radius: 4, x: 0, y: 2)
                     } else if let imageURL = viewModel.profileImageURL {
-                        AsyncImage(url: imageURL) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            default:
-                                avatarPlaceholder
-                            }
+                        CachedAsyncImage(url: imageURL) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 76, height: 76)
+                                .clipShape(Circle())
+                                .shadow(radius: 4, x: 0, y: 2)
+                        } placeholder: {
+                            avatarPlaceholder
                         }
-                        .frame(width: 76, height: 76)
-                        .clipShape(Circle())
-                        .shadow(radius: 4, x: 0, y: 2)
                     } else {
                         avatarPlaceholder
                     }
@@ -511,18 +508,15 @@ struct EditProfileView: View {
                                         .frame(width: 96, height: 96)
                                         .clipShape(Circle())
                                 } else if let imageURL = savedProfileImageURL {
-                                    AsyncImage(url: imageURL) { phase in
-                                        switch phase {
-                                        case .success(let image):
-                                            image
-                                                .resizable()
-                                                .aspectRatio(contentMode: .fill)
-                                        default:
-                                            editAvatarPlaceholder
-                                        }
+                                    CachedAsyncImage(url: imageURL) { image in
+                                        image
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                            .frame(width: 96, height: 96)
+                                            .clipShape(Circle())
+                                    } placeholder: {
+                                        editAvatarPlaceholder
                                     }
-                                    .frame(width: 96, height: 96)
-                                    .clipShape(Circle())
                                 } else {
                                     editAvatarPlaceholder
                                 }

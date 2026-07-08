@@ -169,7 +169,7 @@ struct ActiveTrackingView: View {
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $selectedTrip) { trip in
                 NavigationStack {
-                    TripDetailView(trip: trip)
+                    TripDetailView(trip: trip, services: services)
                         .environmentObject(localStore)
                 }
             }
@@ -250,6 +250,8 @@ struct ActiveTrackingView: View {
                     TripFuelHistoryView(
                         isReadOnly: false,
                         activeTripId: activeTripId,
+                        tripStatus: trips.first(where: { $0.status == .inProgress })?.status,
+                        tripEndTime: trips.first(where: { $0.status == .inProgress })?.endTime,
                         vehicleNumber: "",
                         expenseService: services?.expenseService,
                         driverId: driver?.id,

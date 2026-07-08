@@ -30,7 +30,8 @@ class PerformanceViewModel: ObservableObject {
                 let complianceRate = (score?.complianceViolationRate ?? 100.0) / 100.0
                 let geofenceViolations = Int(score?.geofenceViolationRate ?? 0.0)
                 let hasTrips = !completed.isEmpty
-                let fuel = hasTrips ? 14.5 : 0.0
+                let totalFuelConsumed = completed.compactMap(\.fuelConsumed).reduce(0, +)
+                let fuel = totalFuelConsumed > 0 && totalDistance > 0 ? totalDistance / totalFuelConsumed : (hasTrips ? 14.5 : 0.0)
                 let compliance = hasTrips ? complianceRate : 0.0
                 let careScore = hasTrips ? Int(100 - (score?.inspectionFalseRate ?? 0.0)) : 0
                 let safetyScoreVal = Int(score?.overallScore ?? 0)

@@ -47,12 +47,18 @@ struct EndTripView: View {
                             .foregroundColor(.white)
                         
                         HStack {
-                            Spacer()
-                            Button(action: {
-                                dismiss()
-                            }) {
-                                textClose
+                            Button(action: { dismiss() }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "chevron.left")
+                                        .font(.title3)
+                                        .fontWeight(.bold)
+                                    Text("Back")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                }
+                                .foregroundColor(.white.opacity(0.85))
                             }
+                            Spacer()
                         }
                     }
                     .padding(.horizontal)
@@ -248,7 +254,6 @@ struct EndTripView: View {
                 }
             }
         }
-        .toolbar(.hidden, for: .navigationBar)
         .task {
             if let vehicleId = trip.vehicleId,
                let vehicle = try? await services.vehicleService.fetchVehicle(id: vehicleId) {
@@ -260,17 +265,6 @@ struct EndTripView: View {
         } message: {
             Text(alertMessage)
         }
-    }
-
-    private var textClose: some View {
-        Text("Close")
-            .font(.subheadline)
-            .fontWeight(.semibold)
-            .foregroundColor(.black)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Color.white.opacity(0.85))
-            .clipShape(Capsule())
     }
 
     private func submitTrip() {

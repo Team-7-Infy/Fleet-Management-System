@@ -569,6 +569,8 @@ struct ActiveNavigationDetailView: View {
                                 TripFuelHistoryView(
                                     isReadOnly: false,
                                     activeTripId: viewModel.tripId,
+                                    tripStatus: trip.status,
+                                    tripEndTime: trip.endTime,
                                     vehicleNumber: assignedVehicle,
                                     expenseService: services.expenseService,
                                     driverId: trip.driverId,

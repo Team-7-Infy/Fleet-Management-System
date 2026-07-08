@@ -3,6 +3,9 @@ import SwiftUI
 struct TripDetailView: View {
     let trip: Trip
     var vehicleNumber: String = ""
+    var services: AppServices? = nil
+    var onAccept: (() async -> Void)? = nil
+    var onReject: ((String) async -> Void)? = nil
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var localStore: LocalDataStore
 
@@ -11,6 +14,13 @@ struct TripDetailView: View {
     @State private var cancelReason = ""
     @State private var cancelComments = ""
     @State private var isCancelConfirmed = false
+    @State private var preTripFailureItems: [InspectionItemDB] = []
+    @State private var preTripOdometer: Double? = nil
+    @State private var isLoadingInspection = true
+    @State private var vehicle: Vehicle? = nil
+    @State private var showingRejectSheet = false
+    @State private var preTripFuelLevel: Double? = nil
+    @State private var tripFuelLogs: [FuelLog] = []
 
     var body: some View {
         ZStack {
@@ -18,8 +28,71 @@ struct TripDetailView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
+                    if trip.status == .rejectionPending {
+                        VStack(spacing: 12) {
+                            HStack {
+                                Image(systemName: "xmark.octagon.fill")
+                                    .font(.title3)
+                                Text("Couldn't Start the Trip")
+                                    .fontWeight(.bold)
+                                    .font(.title3)
+                            }
+                            Text("The pre-trip inspection found issues with the vehicle. The trip has been flagged for review and a replacement vehicle is being arranged by your fleet manager.")
+                                .font(.caption)
+                                .multilineTextAlignment(.center)
+                            if !preTripFailureItems.isEmpty {
+                                Divider()
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("Failed Inspection Items:")
+                                        .font(.caption.weight(.bold))
+                                    ForEach(preTripFailureItems) { item in
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "exclamationmark.triangle.fill")
+                                                .font(.caption)
+                                            VStack(alignment: .leading, spacing: 1) {
+                                                Text(item.itemName)
+                                                    .font(.caption.weight(.semibold))
+                                                if let desc = item.failDescription, !desc.isEmpty {
+                                                    Text(desc)
+                                                        .font(.caption2)
+                                                        .opacity(0.8)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if isLoadingInspection {
+                                ProgressView()
+                                    .tint(.white)
+                            }
+                        }
+                        .foregroundColor(.white)
+                        .padding(16)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.red)
+                        .cornerRadius(16)
+                    }
+
+                    if trip.status == .cancelled && trip.cancellationReason == "no_show_pretrip" {
+                        VStack(spacing: 8) {
+                            HStack {
+                                Image(systemName: "xmark.octagon.fill")
+                                Text("Pre-Trip Inspection Missed")
+                                    .fontWeight(.bold)
+                            }
+                            Text("This trip was automatically cancelled because the pre-trip inspection was not completed within the required timeframe.")
+                                .font(.caption)
+                                .multilineTextAlignment(.center)
+                        }
+                        .foregroundColor(.white)
+                        .padding(16)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.red)
+                        .cornerRadius(16)
+                    }
+
                     if trip.status == .completed {
-                        CompletedTripDetailView(trip: trip, vehicleNumber: vehicleNumber)
+                        CompletedTripDetailView(trip: trip, vehicleNumber: vehicleNumber, preTripFailureItems: preTripFailureItems, preTripOdometer: preTripOdometer, preTripFuelLevel: preTripFuelLevel, tripFuelLogs: tripFuelLogs)
                     } else {
                         // --- Original Scheduled/Active Trip Details ---
                         // Clean Inline Title Header
@@ -32,223 +105,265 @@ struct TripDetailView: View {
                                 Spacer()
 
                                 HStack(spacing: 6) {
-                                    Circle().fill(trip.status == .inProgress ? Color.blue : Color.orange).frame(width: 6, height: 6)
+                                    Circle().fill(trip.status == .inProgress ? Color.blue : trip.status == .rejectionPending ? Color.red : Color.orange).frame(width: 6, height: 6)
                                     Text(trip.status.rawValue.uppercased())
                                         .font(.system(size: 11, weight: .bold))
                                 }
-                                .foregroundColor(trip.status == .inProgress ? Color.blue : Color.orange)
+                                .foregroundColor(trip.status == .inProgress ? Color.blue : trip.status == .rejectionPending ? Color.red : Color.orange)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .background(trip.status == .inProgress ? Color.blue.opacity(0.1) : Color.orange.opacity(0.1))
+                                .background(trip.status == .inProgress ? Color.blue.opacity(0.1) : trip.status == .rejectionPending ? Color.red.opacity(0.1) : Color.orange.opacity(0.1))
                                 .clipShape(Capsule())
                             }
 
-                            Text("Assignment Details")
+                            Text(trip.status == .rejectionPending ? "Trip could not be started" : "Assignment Details")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
                         .padding(.horizontal, 4)
                         .padding(.bottom, 4)
 
-                        // 1. Route & Locations Card
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Image(systemName: "map.fill")
-                                    .foregroundColor(.green)
-                                Text("Route & Locations")
-                                    .font(.headline)
-                                    .fontWeight(.bold)
-                            }
-
-                            Divider()
-
-                            VStack(alignment: .leading, spacing: 0) {
-                                // Start Location Header
-                                Text("START LOCATION")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(.secondary)
-                                    .padding(.leading, 30)
-                                    .padding(.bottom, 4)
-                                
-                                // Start Location Address
-                                HStack(alignment: .top, spacing: 16) {
-                                    Circle()
-                                        .fill(Color.green)
-                                        .frame(width: 10, height: 10)
-                                        .padding(.top, 5)
-                                        .frame(width: 14)
-                                    
-                                    Text(trip.startLocation)
-                                        .font(.body)
+                        if trip.status != .rejectionPending {
+                            // 1. Route & Locations Card
+                            VStack(alignment: .leading, spacing: 16) {
+                                HStack {
+                                    Image(systemName: "map.fill")
+                                        .foregroundColor(.green)
+                                    Text("Route & Locations")
+                                        .font(.headline)
                                         .fontWeight(.bold)
-                                        .foregroundColor(.primary)
                                 }
-                                
-                                // Connector
-                                HStack(alignment: .top, spacing: 16) {
-                                    Rectangle()
-                                        .fill(Color.gray.opacity(0.3))
-                                        .frame(width: 2)
-                                        .frame(width: 14)
-                                    
-                                    Spacer().frame(height: 16)
-                                }
-                                .frame(height: 24)
-                                
-                                // End Location Header
-                                Text("END LOCATION")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(.secondary)
-                                    .padding(.leading, 30)
-                                    .padding(.bottom, 4)
-                                
-                                // End Location Address
-                                HStack(alignment: .top, spacing: 16) {
-                                    Image(systemName: "flag.fill")
-                                        .foregroundColor(.red)
-                                        .font(.system(size: 10))
-                                        .padding(.top, 5)
-                                        .frame(width: 14)
-                                    
-                                    Text(trip.endLocation)
-                                        .font(.body)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.primary)
-                                }
-                            }
-                        }
-                        .padding(20)
-                        .background(Color(UIColor.systemBackground))
-                        .cornerRadius(20)
-                        .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
 
-                        // 2. Schedule & Vitals Card
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Image(systemName: "clock.fill")
-                                    .foregroundColor(.purple)
-                                Text("Schedule & Vitals")
-                                    .font(.headline)
-                                    .fontWeight(.bold)
-                            }
+                                Divider()
 
-                            Divider()
-
-                            HStack(spacing: 20) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("SCHEDULED START")
-                                        .font(.system(size: 9, weight: .bold))
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text("START LOCATION")
+                                        .font(.system(size: 10, weight: .bold))
                                         .foregroundColor(.secondary)
-                                    Text(trip.startTime.formatted(date: .abbreviated, time: .shortened))
-                                        .font(.caption)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.primary)
-                                    if let actual = trip.actualStartTime {
-                                        Text("ACTUAL START")
+                                        .padding(.leading, 30)
+                                        .padding(.bottom, 4)
+
+                                    HStack(alignment: .top, spacing: 16) {
+                                        Circle()
+                                            .fill(Color.green)
+                                            .frame(width: 10, height: 10)
+                                            .padding(.top, 5)
+                                            .frame(width: 14)
+
+                                        Text(trip.startLocation)
+                                            .font(.body)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.primary)
+                                    }
+
+                                    HStack(alignment: .top, spacing: 16) {
+                                        Rectangle()
+                                            .fill(Color.gray.opacity(0.3))
+                                            .frame(width: 2)
+                                            .frame(width: 14)
+
+                                        Spacer().frame(height: 16)
+                                    }
+                                    .frame(height: 24)
+
+                                    Text("END LOCATION")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(.secondary)
+                                        .padding(.leading, 30)
+                                        .padding(.bottom, 4)
+
+                                    HStack(alignment: .top, spacing: 16) {
+                                        Image(systemName: "flag.fill")
+                                            .foregroundColor(.red)
+                                            .font(.system(size: 10))
+                                            .padding(.top, 5)
+                                            .frame(width: 14)
+
+                                        Text(trip.endLocation)
+                                            .font(.body)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.primary)
+                                    }
+                                }
+                            }
+                            .padding(20)
+                            .background(Color(UIColor.systemBackground))
+                            .cornerRadius(20)
+                            .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
+
+                            // 2. Schedule & Vitals Card
+                            VStack(alignment: .leading, spacing: 16) {
+                                HStack {
+                                    Image(systemName: "clock.fill")
+                                        .foregroundColor(.purple)
+                                    Text("Schedule & Vitals")
+                                        .font(.headline)
+                                        .fontWeight(.bold)
+                                }
+
+                                Divider()
+
+                                HStack(spacing: 20) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("SCHEDULED START")
                                             .font(.system(size: 9, weight: .bold))
                                             .foregroundColor(.secondary)
-                                            .padding(.top, 2)
-                                        Text(actual.formatted(date: .abbreviated, time: .shortened))
+                                        Text(trip.startTime.formatted(date: .abbreviated, time: .shortened))
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+                                        if let actual = trip.actualStartTime {
+                                            Text("ACTUAL START")
+                                                .font(.system(size: 9, weight: .bold))
+                                                .foregroundColor(.secondary)
+                                                .padding(.top, 2)
+                                            Text(actual.formatted(date: .abbreviated, time: .shortened))
+                                                .font(.subheadline)
+                                                .fontWeight(.bold)
+                                                .foregroundColor(.primary)
+                                        }
+                                    }
+
+                                    Spacer()
+
+                                    VStack(alignment: .trailing, spacing: 4) {
+                                        Text("END DATE & TIME")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundColor(.secondary)
+                                        Text(trip.endTime?.formatted(date: .abbreviated, time: .shortened) ?? "TBD")
                                             .font(.subheadline)
                                             .fontWeight(.bold)
                                             .foregroundColor(.primary)
                                     }
                                 }
 
-                                Spacer()
+                                Divider()
 
-                                VStack(alignment: .trailing, spacing: 4) {
-                                    Text("END DATE & TIME")
-                                        .font(.system(size: 9, weight: .bold))
-                                        .foregroundColor(.secondary)
-                                    Text(trip.endTime?.formatted(date: .abbreviated, time: .shortened) ?? "TBD")
-                                        .font(.subheadline)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.primary)
-                                }
-                            }
+                                HStack(spacing: 20) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("ASSIGNED VEHICLE")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundColor(.secondary)
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "truck.box.fill")
+                                                .foregroundColor(.blue)
+                                                .font(.caption)
+                                            Text(vehicleNumber)
+                                                .font(.subheadline)
+                                                .fontWeight(.bold)
+                                        }
+                                    }
 
-                            Divider()
+                                    Spacer()
 
-                            HStack(spacing: 20) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("ASSIGNED VEHICLE")
-                                        .font(.system(size: 9, weight: .bold))
-                                        .foregroundColor(.secondary)
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "truck.box.fill")
-                                            .foregroundColor(.blue)
-                                            .font(.caption)
-                                        Text(vehicleNumber)
+                                    VStack(alignment: .trailing, spacing: 4) {
+                                        Text("TOTAL DISTANCE")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundColor(.secondary)
+                                        Text("-- km")
                                             .font(.subheadline)
                                             .fontWeight(.bold)
+                                            .foregroundColor(.primary)
                                     }
-                                }
-
-                                Spacer()
-
-                                VStack(alignment: .trailing, spacing: 4) {
-                                    Text("TOTAL DISTANCE")
-                                        .font(.system(size: 9, weight: .bold))
-                                        .foregroundColor(.secondary)
-                                    Text("-- km")
-                                        .font(.subheadline)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.primary)
                                 }
                             }
+                            .padding(20)
+                            .background(Color(UIColor.systemBackground))
+                            .cornerRadius(20)
+                            .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
                         }
-                        .padding(20)
-                        .background(Color(UIColor.systemBackground))
-                        .cornerRadius(20)
-                        .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
 
                         // 3. Vehicle Maintenance & Health Card
-                        VehicleMaintenanceReportCard(vehicleNumber: vehicleNumber)
+                        if trip.status == .rejectionPending {
+                            VehicleMaintenanceReportCard(vehicleNumber: vehicleNumber, failureItems: preTripFailureItems)
+                        } else {
+                            VehicleMaintenanceReportCard(vehicleNumber: vehicleNumber, vehicle: vehicle)
+                        }
 
-                        // 4. Cancel Assignment Button (Gated: locked within 3 hours of departure, except for in-progress trips)
-                        let cancellationLocked = (trip.status == .accepted || trip.status == .scheduled || trip.status == .pending) && Date() >= trip.startTime.addingTimeInterval(-TripTimingPolicy.cancellationLockWindow)
-                        VStack(spacing: 8) {
-                            Text("Need to cancel this assignment?")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 14)
-
-                            if cancellationLocked {
-                                HStack {
-                                    Spacer()
-                                    Image(systemName: "lock.fill")
-                                    Text("Cancellation Locked")
-                                        .fontWeight(.bold)
-                                    Spacer()
-                                }
-                                .padding(.vertical, 16)
-                                .background(Color.red.opacity(0.15))
-                                .foregroundColor(.red.opacity(0.6))
-                                .cornerRadius(16)
-
-                                Text("Cancellation is locked within 3 hours of departure. Contact your fleet manager if you cannot complete this trip.")
-                                    .font(.system(size: 11, weight: .semibold))
+                        if trip.status == .scheduled || trip.status == .pending {
+                            // 4. Accept / Reject section for unaccepted trips
+                            VStack(spacing: 12) {
+                                Divider()
+                                Text("Respond to this assignment")
+                                    .font(.caption)
                                     .foregroundColor(.secondary)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                            } else {
-                                Button(action: {
-                                    isCancelConfirmed = false
-                                    cancelReason = ""
-                                    cancelComments = ""
-                                    showingCancelModal = true
-                                }) {
-                                    HStack {
-                                        Image(systemName: "xmark.circle.fill")
-                                        Text("Cancel Assignment")
-                                            .fontWeight(.bold)
+
+                                HStack(spacing: 12) {
+                                    Button(action: { showingRejectSheet = true }) {
+                                        HStack {
+                                            Image(systemName: "xmark.circle.fill")
+                                            Text("Reject")
+                                                .fontWeight(.bold)
+                                        }
+                                        .foregroundColor(.red)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 16)
+                                        .background(Color.red.opacity(0.1))
+                                        .cornerRadius(16)
                                     }
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
+
+                                    Button(action: {
+                                        Task { await onAccept?() }
+                                    }) {
+                                        HStack {
+                                            Image(systemName: "checkmark.circle.fill")
+                                            Text("Accept")
+                                                .fontWeight(.bold)
+                                        }
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 16)
+                                        .background(Color.green)
+                                        .cornerRadius(16)
+                                        .shadow(color: Color.green.opacity(0.15), radius: 8, x: 0, y: 4)
+                                    }
+                                }
+                            }
+                        } else if trip.status == .accepted {
+                            // 5. Cancel Assignment for accepted trips (gated by 24h lock)
+                            let cancellationLocked = Date() >= trip.startTime.addingTimeInterval(-TripTimingPolicy.cancellationLockWindow)
+                            VStack(spacing: 8) {
+                                Text("Need to cancel this assignment?")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .padding(.top, 14)
+
+                                if cancellationLocked {
+                                    HStack {
+                                        Spacer()
+                                        Image(systemName: "lock.fill")
+                                        Text("Cannot cancel trip now")
+                                            .fontWeight(.bold)
+                                        Spacer()
+                                    }
                                     .padding(.vertical, 16)
-                                    .background(Color.red)
+                                    .background(Color.red.opacity(0.15))
+                                    .foregroundColor(.red.opacity(0.6))
                                     .cornerRadius(16)
-                                    .shadow(color: Color.red.opacity(0.15), radius: 8, x: 0, y: 4)
+
+                                    Text("Cancellation is locked within 24 hours of departure. Contact your fleet manager if you cannot complete this trip.")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                } else {
+                                    Button(action: {
+                                        isCancelConfirmed = false
+                                        cancelReason = ""
+                                        cancelComments = ""
+                                        showingCancelModal = true
+                                    }) {
+                                        HStack {
+                                            Image(systemName: "xmark.circle.fill")
+                                            Text("Cancel Assignment")
+                                                .fontWeight(.bold)
+                                        }
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 16)
+                                        .background(Color.red)
+                                        .cornerRadius(16)
+                                        .shadow(color: Color.red.opacity(0.15), radius: 8, x: 0, y: 4)
+                                    }
                                 }
                             }
                         }
@@ -258,6 +373,46 @@ struct TripDetailView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 40)
             }
+        }
+        .task {
+            guard let services else {
+                isLoadingInspection = false
+                return
+            }
+            // Fetch vehicle data if available
+            if let vehicleId = trip.vehicleId, vehicle == nil {
+                vehicle = try? await services.vehicleService.fetchVehicle(id: vehicleId)
+            }
+            // Fetch inspection data for rejectionPending and completed
+            guard trip.status == .rejectionPending || trip.status == .completed else {
+                isLoadingInspection = false
+                return
+            }
+            do {
+                let inspections = try await services.inspectionService.fetchInspections(tripId: trip.id)
+                let currentVehicleInspections: [VehicleInspection]
+                if let vehicleId = trip.vehicleId {
+                    currentVehicleInspections = inspections.filter { $0.vehicleId == vehicleId }
+                } else {
+                    currentVehicleInspections = inspections
+                }
+                if trip.status == .rejectionPending,
+                   let failedInspection = currentVehicleInspections.first(where: { $0.type == "pre_trip" && $0.status == .failed }) {
+                    let items = try await services.inspectionService.fetchInspectionItems(inspectionId: failedInspection.id)
+                    preTripFailureItems = items.filter { $0.status == "fail" }
+                }
+                if trip.status == .completed {
+                    let preTrip = currentVehicleInspections.first(where: { $0.type == "pre_trip" })
+                    preTripOdometer = preTrip?.odometerReading
+                    preTripFuelLevel = preTrip?.fuelLevel
+                }
+            } catch {
+                print("Failed to fetch inspection data: \(error)")
+            }
+            if trip.status == .completed {
+                tripFuelLogs = (try? await services.fuelService.fetchFuelLogs(tripId: trip.id)) ?? []
+            }
+            isLoadingInspection = false
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -280,6 +435,11 @@ struct TripDetailView: View {
                 comments: $cancelComments
             )
         }
+        .sheet(isPresented: $showingRejectSheet) {
+            RejectTripSheet(trip: trip) { reason in
+                Task { await onReject?(reason) }
+            }
+        }
     }
 }
 
@@ -287,6 +447,10 @@ struct TripDetailView: View {
 struct CompletedTripDetailView: View {
     let trip: Trip
     var vehicleNumber: String = ""
+    var preTripFailureItems: [InspectionItemDB] = []
+    var preTripOdometer: Double? = nil
+    var preTripFuelLevel: Double? = nil
+    var tripFuelLogs: [FuelLog] = []
     @EnvironmentObject var localStore: LocalDataStore
     @EnvironmentObject var locationService: LocationManager
 
@@ -296,12 +460,14 @@ struct CompletedTripDetailView: View {
         trip.distanceKm ?? 0.0
     }
 
-    private var estimatedFuelLiters: Double {
-        distanceValue > 0 ? distanceValue / 8.5 : 0
+    private var startOdometerDisplay: String {
+        guard let odo = preTripOdometer else { return "—" }
+        return "\(Int(odo)) km"
     }
 
-    private var startOdometerDisplay: String {
-        "—"
+    private var mileageDisplay: String {
+        guard let consumed = trip.fuelConsumed, consumed > 0, distanceValue > 0 else { return "—" }
+        return String(format: "%.1f km/L", distanceValue / consumed)
     }
 
     private var endOdometerDisplay: String {
@@ -372,7 +538,7 @@ struct CompletedTripDetailView: View {
                                 .font(.body)
                                 .fontWeight(.bold)
                                 .foregroundColor(.primary)
-                            Text("Actual Start: \(trip.actualStartTime?.formatted(date: .abbreviated, time: .shortened) ?? "N/A")")
+                            Text("Start Time: \(trip.actualStartTime?.formatted(date: .abbreviated, time: .shortened) ?? "N/A")")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -421,12 +587,12 @@ struct CompletedTripDetailView: View {
             .cornerRadius(20)
             .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
 
-            // 2. Odometer & Fuel Reading (Driver Inputs)
+            // 2. Odometer & Distance Card
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    Image(systemName: "square.and.pencil")
+                    Image(systemName: "arrow.triangle.swap")
                         .foregroundColor(.blue)
-                    Text("Driver Transit Inputs")
+                    Text("Odometer & Distance")
                         .font(.headline)
                         .fontWeight(.bold)
                 }
@@ -468,7 +634,43 @@ struct CompletedTripDetailView: View {
 
                 Divider()
 
-                // Fuel Readings
+                // Distance
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("DISTANCE TRAVELLED")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.secondary)
+
+                    HStack {
+                        Image(systemName: "arrow.triangle.swap")
+                            .foregroundColor(.blue)
+                            .font(.caption)
+                        Text(distanceValue > 0 ? "\(Int(distanceValue)) km" : "—")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                    }
+                    .padding(12)
+                    .background(Color.blue.opacity(0.03))
+                    .cornerRadius(10)
+                }
+            }
+            .padding(20)
+            .background(Color(UIColor.systemBackground))
+            .cornerRadius(20)
+            .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
+
+            // 3. Fuel & Mileage Card
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Image(systemName: "fuelpump.fill")
+                        .foregroundColor(.green)
+                    Text("Fuel & Mileage")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                }
+
+                Divider()
+
+                // Fuel Level Readings
                 VStack(alignment: .leading, spacing: 10) {
                     Text("FUEL LEVEL READINGS")
                         .font(.system(size: 9, weight: .bold))
@@ -479,7 +681,7 @@ struct CompletedTripDetailView: View {
                             Text("Start Level")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            Text("—")
+                            Text(preTripFuelLevel.map { "\(Int($0))%" } ?? "—")
                                 .font(.subheadline)
                                 .fontWeight(.bold)
                                 .foregroundColor(.green)
@@ -502,30 +704,15 @@ struct CompletedTripDetailView: View {
                     .background(Color.orange.opacity(0.03))
                     .cornerRadius(10)
                 }
-            }
-            .padding(20)
-            .background(Color(UIColor.systemBackground))
-            .cornerRadius(20)
-            .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
-
-            // 3. Metrics & Fuel Usage Card
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Image(systemName: "chart.bar.doc.horizontal.fill")
-                        .foregroundColor(.blue)
-                    Text("Trip Metrics & Fuel Usage")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                }
 
                 Divider()
 
                 HStack(spacing: 20) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("DISTANCE TRAVELLED")
+                    VStack(alignment: .center, spacing: 4) {
+                        Text("MILEAGE")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.secondary)
-                        Text(distanceValue > 0 ? "\(Int(distanceValue)) km" : "—")
+                        Text(mileageDisplay)
                             .font(.subheadline)
                             .fontWeight(.bold)
                     }
@@ -533,42 +720,73 @@ struct CompletedTripDetailView: View {
                     Spacer()
 
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text("FUEL CONSUMED (EST)")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.secondary)
-                        Text(distanceValue > 0 ? String(format: "%.1f L", distanceValue / 8.5) : "—")
-                            .font(.subheadline)
-                            .fontWeight(.bold)
+                        HStack(spacing: 4) {
+                            Text("FUEL CONSUMED")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.secondary)
+                            if trip.fuelConsumedFlagged {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 8))
+                                    .foregroundColor(.orange)
+                            }
+                        }
+                        if let consumed = trip.fuelConsumed {
+                            HStack(spacing: 4) {
+                                Text("\(consumed, specifier: "%.1f") L")
+                                    .font(.subheadline)
+                                    .fontWeight(.bold)
+                                if trip.fuelConsumedFlagged {
+                                    Text("Data may be incomplete")
+                                        .font(.system(size: 7))
+                                        .foregroundColor(.orange)
+                                }
+                            }
+                        } else {
+                            Text("—")
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                        }
                     }
                 }
 
                 Divider()
 
-                // Refill details if any
-                let refills = localStore.fuelRecords(for: trip.id.uuidString)
-                if !refills.isEmpty {
+                // Refill details from database
+                if !tripFuelLogs.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("ACTUAL FUEL REFILLS LOGGED")
+                        Text("FUEL LOGS (DATABASE)")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.secondary)
 
-                        ForEach(refills) { refill in
-                            HStack {
-                                Label(refill.fuelType.rawValue, systemImage: "fuelpump.fill")
-                                    .font(.footnote)
-                                    .foregroundColor(.primary)
-                                Spacer()
-                                if let volume = refill.volumeFilled {
-                                    Text("\(volume, specifier: "%.1f") \(refill.refillUnit)")
+                        ForEach(tripFuelLogs) { log in
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Label(log.fuelType, systemImage: "fuelpump.fill")
                                         .font(.footnote)
-                                        .fontWeight(.semibold)
-                                }
-                                if let cost = refill.cost {
-                                    Text("(₹\(cost, specifier: "%.2f"))")
-                                        .font(.caption)
+                                        .foregroundColor(.primary)
+                                    Text(log.date.formatted(date: .abbreviated, time: .shortened))
+                                        .font(.caption2)
                                         .foregroundColor(.secondary)
                                 }
+                                Spacer()
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    if let volume = log.volumeFilled {
+                                        Text("\(volume, specifier: "%.1f") L")
+                                            .font(.footnote)
+                                            .fontWeight(.semibold)
+                                    } else if let kwh = log.kWhAdded {
+                                        Text("\(kwh, specifier: "%.1f") kWh")
+                                            .font(.footnote)
+                                            .fontWeight(.semibold)
+                                    }
+                                    if let cost = log.cost {
+                                        Text("₹\(cost, specifier: "%.2f")")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
                             }
+                            .padding(.vertical, 6)
                         }
                     }
                 } else {
@@ -576,7 +794,7 @@ struct CompletedTripDetailView: View {
                         Image(systemName: "info.circle")
                             .foregroundColor(.secondary)
                             .font(.caption)
-                        Text("No active refuels logged during this transit.")
+                        Text("No fuel logs recorded for this trip.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -587,10 +805,7 @@ struct CompletedTripDetailView: View {
             .cornerRadius(20)
             .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
 
-            // 4. Vehicle Maintenance & Health Card
-            VehicleMaintenanceReportCard(vehicleNumber: vehicleNumber)
-
-            // 5. Notes & Incidents Card
+            // 4. Notes & Incidents Card
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Image(systemName: "exclamationmark.shield.fill")
@@ -700,112 +915,86 @@ struct CompletedTripDetailView: View {
 // MARK: - Redesigned Reusable Vehicle Maintenance & Health Card View
 struct VehicleMaintenanceReportCard: View {
     let vehicleNumber: String
+    var failureItems: [InspectionItemDB] = []
+    var vehicle: Vehicle? = nil
 
-    private var lastServiceDate: String {
-        let lastChar = vehicleNumber.last ?? "A"
-        let daysAgo = 10 + (lastChar.asciiValue ?? 65) % 15
-        return "1\(daysAgo % 10) Jun, 2026"
-    }
-
-    private var tireTread: String {
-        let lastChar = vehicleNumber.last ?? "A"
-        let tread = 5.8 + Double((lastChar.asciiValue ?? 65) % 20) / 10.0
-        return String(format: "%.1f mm", tread)
-    }
-
-    private var brakeLife: String {
-        let lastChar = vehicleNumber.last ?? "A"
-        let life = 80 + (lastChar.asciiValue ?? 65) % 18
-        return "\(life)%"
-    }
-
-    private var engineOilLife: String {
-        let lastChar = vehicleNumber.last ?? "A"
-        let life = 75 + (lastChar.asciiValue ?? 65) % 22
-        return "\(life)%"
-    }
+    private var hasFailures: Bool { !failureItems.isEmpty }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Image(systemName: "wrench.and.screwdriver.fill")
-                    .foregroundColor(.blue)
+                Image(systemName: hasFailures ? "exclamationmark.triangle.fill" : "wrench.and.screwdriver.fill")
+                    .foregroundColor(hasFailures ? .red : .blue)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Vehicle Maintenance & Health")
+                    Text(hasFailures ? "Vehicle Inspection Issues Found" : "Vehicle Status")
                         .font(.headline)
                         .fontWeight(.bold)
-                    Text("Last Service: \(lastServiceDate)")
+                    Text(hasFailures ? "One or more parts require attention" : "No active issues")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 Spacer()
-                Text("HEALTHY")
+                Text(hasFailures ? "ISSUES FOUND" : "HEALTHY")
                     .font(.system(size: 9, weight: .black))
-                    .foregroundColor(.green)
+                    .foregroundColor(hasFailures ? .red : .green)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.green.opacity(0.1))
+                    .background(hasFailures ? Color.red.opacity(0.1) : Color.green.opacity(0.1))
                     .cornerRadius(6)
             }
 
-            Divider()
+            if hasFailures {
+                Divider()
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("The following parts failed pre-trip inspection")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
 
-            VStack(spacing: 12) {
-                HStack(spacing: 20) {
-                    HealthMetricRow(title: "Brakes Wear", value: brakeLife, icon: "gauge.medium")
-                    HealthMetricRow(title: "Engine Oil", value: engineOilLife, icon: "drop.fill")
+                    ForEach(failureItems) { item in
+                        HStack(spacing: 10) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.red)
+                                .font(.title3)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.itemName)
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundColor(.primary)
+                                if let desc = item.failDescription, !desc.isEmpty {
+                                    Text(desc)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.red.opacity(0.04))
+                        .cornerRadius(8)
+                    }
                 }
-                HStack(spacing: 20) {
-                    HealthMetricRow(title: "Tire Tread", value: tireTread, icon: "circle.circle.fill")
-                    HealthMetricRow(title: "Coolant Level", value: "Optimal", icon: "thermometer.medium")
+            } else {
+                Divider()
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("All systems operational")
+                                .font(.subheadline.weight(.bold))
+                            if let v = vehicle {
+                                Text("Odometer: \(Int(v.odometer ?? 0)) km")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
                 }
-            }
-
-            Divider()
-
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.seal.fill")
-                    .foregroundColor(.green)
-                    .font(.caption)
-                Text("Fitness & Pollution Certificates valid and compliant.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
         }
         .padding(20)
         .background(Color(UIColor.systemBackground))
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
-    }
-}
-
-struct HealthMetricRow: View {
-    let title: String
-    let value: String
-    let icon: String
-
-    var body: some View {
-        HStack(spacing: 8) {
-            ZStack {
-                Circle()
-                    .fill(Color.blue.opacity(0.05))
-                    .frame(width: 28, height: 28)
-                Image(systemName: icon)
-                    .font(.caption)
-                    .foregroundColor(.blue)
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(.secondary)
-                Text(value)
-                    .font(.footnote)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

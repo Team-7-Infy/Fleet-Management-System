@@ -10,6 +10,8 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
     var vehicleType: String
     var driverId: UUID?
     var fuelType: String?
+    var fuelCapacityLiters: Double?
+    var batteryCapacityKwh: Double?
     var addedToFleetAt: Date?
     var odometer: Double?
     var maintenanceKmInterval: Int?
@@ -26,6 +28,8 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
         case vehicleType = "vehicletype"
         case driverId = "driverid"
         case fuelType = "fuel_type"
+        case fuelCapacityLiters = "fuel_capacity_liters"
+        case batteryCapacityKwh = "battery_capacity_kwh"
         case addedToFleetAt = "added_to_fleet_at"
         case odometer
         case maintenanceKmInterval = "maintenance_km_interval"

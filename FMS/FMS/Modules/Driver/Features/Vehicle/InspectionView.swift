@@ -66,12 +66,18 @@ struct InspectionView: View {
                             .foregroundColor(.white)
                         
                         HStack {
-                            Spacer()
                             Button(action: { dismiss() }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.white.opacity(0.85))
+                                HStack(spacing: 4) {
+                                    Image(systemName: "chevron.left")
+                                        .font(.title3)
+                                        .fontWeight(.bold)
+                                    Text("Back")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                }
+                                .foregroundColor(.white.opacity(0.85))
                             }
+                            Spacer()
                         }
                     }
                     .padding(.horizontal)
@@ -354,7 +360,6 @@ struct InspectionView: View {
                 .zIndex(100)
             }
         }
-        .toolbar(.hidden, for: .navigationBar)
         .alert(isPresented: $showingAlert) {
             Alert(
                 title: Text(alertTitle),
@@ -460,18 +465,23 @@ struct InspectionView: View {
                         vehicleModel.odometer = odoVal
                         _ = try await services.vehicleService.updateVehicle(vehicleModel)
                     }
+
+                    await MainActor.run {
+                        if !isPostTrip {
+                            localStore.markTripInspected(trip.tripId, vehicleId: vehicleId)
+                        }
+                        viewModel.isSubmitting = false
+                        dismiss()
+                        onComplete?()
+                    }
                 } catch {
                     print("Failed to persist inspection: \(error)")
+                    await MainActor.run {
+                        viewModel.isSubmitting = false
+                        dismiss()
+                        onComplete?()
+                    }
                 }
-            }
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                viewModel.isSubmitting = false
-                if !isPostTrip {
-                    localStore.markTripInspected(trip.tripId)
-                }
-                dismiss()
-                onComplete?()
             }
             return
         }
@@ -609,9 +619,8 @@ struct InspectionView: View {
                     
                     await MainActor.run {
                         viewModel.isSubmitting = false
-                        localStore.markTripInspected(trip.tripId)
                         self.replacementVehicle = replacement
-                        self.animationMessage = "Vehicle \(vehicle.licencePlate) has been sent to maintenance. \(failedItems.count) separate work order(s) created. Vehicle \(replacement.licencePlate) has been automatically assigned to your trip."
+                        self.animationMessage = "Vehicle \(vehicle.licencePlate) has been sent to maintenance. \(failedItems.count) separate work order(s) created. Vehicle \(replacement.licencePlate) has been automatically assigned to your trip. Please perform a pre-trip inspection on the new vehicle before starting."
                         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                             showingComplaintRaisedAnimation = true
                         }
@@ -760,7 +769,7 @@ struct InspectionRow: View {
                                     )
                                 }
                             }
-                            .sheet(isPresented: $showingCamera) {
+                            .fullScreenCover(isPresented: $showingCamera) {
                                 CameraPicker(selectedImage: Binding(
                                     get: { selectedImage },
                                     set: { newImage in

@@ -103,17 +103,14 @@ struct ManagerOverviewView: View {
     private var profileIcon: some View {
         if let user = currentUserId.flatMap({ usersViewModel.user(for: $0) }),
            let imageURL = user.avatarImageURL {
-            AsyncImage(url: imageURL) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 36, height: 36)
-                        .clipShape(Circle())
-                default:
-                    fallbackProfileIcon
-                }
+            CachedAsyncImage(url: imageURL) { image in
+                image
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 36, height: 36)
+                    .clipShape(Circle())
+            } placeholder: {
+                fallbackProfileIcon
             }
         } else {
             fallbackProfileIcon
