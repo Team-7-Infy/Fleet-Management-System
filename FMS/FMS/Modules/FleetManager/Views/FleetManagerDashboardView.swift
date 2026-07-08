@@ -363,6 +363,13 @@ struct FleetManagerDashboardView: View {
 
         // Stage 3: vehicle health scores depend on vehicles being loaded
         await vehiclesViewModel.loadVehicleHealthScores()
+
+        let vehiclesCopy = vehiclesViewModel.vehicles
+        Task {
+            for vehicle in vehiclesCopy {
+                await RoutineMaintenanceScheduler.checkAndSchedule(vehicle: vehicle, services: services)
+            }
+        }
     }
 
 }
@@ -387,7 +394,8 @@ struct ManagerAddSheetView: View {
                 ManagerTripFormSheet(
                     viewModel: tripsViewModel,
                     vehiclesViewModel: vehiclesViewModel,
-                    usersViewModel: usersViewModel
+                    usersViewModel: usersViewModel,
+                    maintenanceViewModel: maintenanceViewModel
                 )
             case .maintenanceRequest:
                 ManagerMaintenanceRequestSheet(

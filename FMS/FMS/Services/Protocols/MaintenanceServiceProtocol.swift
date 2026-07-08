@@ -29,4 +29,5 @@ protocol MaintenanceServiceProtocol: AnyObject, Sendable {
     func fetchAllTaskVehicles() async throws -> [TaskVehicle]
     func addTaskVehicle(_ taskVehicle: TaskVehicle) async throws
     func removeTaskVehicle(taskId: UUID, vin: UUID) async throws
+    func getNextLeastLoadedAssignee() async throws -> UUID?
 }

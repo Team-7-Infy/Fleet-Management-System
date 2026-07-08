@@ -298,9 +298,58 @@ final class TripManagementViewModel: ObservableObject {
         return (vehicle.id, driver.id)
     }
 
+    private func checkVehicleIdleViolation(vehicle: Vehicle, trips: [Trip], tasks: [MaintenanceTask], targetStartTime: Date) -> Bool {
+        let vehicleTrips = trips.filter { $0.vehicleId == vehicle.id && $0.status == .completed }
+        let sortedTrips = vehicleTrips.sorted(by: { $0.startTime < $1.startTime })
+        
+        let addedDate = vehicle.addedToFleetAt ?? targetStartTime.addingTimeInterval(-45 * 24 * 3600)
+        
+        struct Gap {
+            let start: Date
+            let end: Date
+        }
+        var gaps: [Gap] = []
+        
+        if sortedTrips.isEmpty {
+            gaps.append(Gap(start: addedDate, end: targetStartTime))
+        } else {
+            gaps.append(Gap(start: addedDate, end: sortedTrips[0].startTime))
+            for i in 0..<(sortedTrips.count - 1) {
+                let tripEnd = sortedTrips[i].endTime ?? sortedTrips[i].startTime.addingTimeInterval(7200)
+                let nextTripStart = sortedTrips[i+1].startTime
+                if nextTripStart > tripEnd {
+                    gaps.append(Gap(start: tripEnd, end: nextTripStart))
+                }
+            }
+            let lastTripEnd = sortedTrips.last!.endTime ?? sortedTrips.last!.startTime.addingTimeInterval(7200)
+            if targetStartTime > lastTripEnd {
+                gaps.append(Gap(start: lastTripEnd, end: targetStartTime))
+            }
+        }
+        
+        let oneMonth: TimeInterval = 30 * 24 * 3600
+        for gap in gaps {
+            let gapDuration = gap.end.timeIntervalSince(gap.start)
+            if gapDuration > oneMonth {
+                let hasMaintenance = tasks.contains { task in
+                    guard task.status == .completed, let compAt = task.completedAt else { return false }
+                    return compAt >= gap.start && compAt <= gap.end
+                }
+                if !hasMaintenance {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
     private func fetchEligibleVehicles(for vehicleType: String, tripStart: Date, tripEnd: Date) async throws -> [Vehicle] {
         let all = try await vehicleService.fetchVehicles()
         let allTrips = try await tripService.fetchTrips()
+        let completedTasks = (try? await vehicleService.fetchCompletedMaintenanceTasks()) ?? []
+        let taskVehicles = (try? await vehicleService.fetchTaskVehicles()) ?? []
+        
+        let taskIdsByVehicle = Dictionary(grouping: taskVehicles, by: \.vin)
         
         var eligible: [Vehicle] = []
         for vehicle in all {
@@ -317,6 +366,13 @@ final class TripManagementViewModel: ObservableObject {
                 if !hasInspection {
                     continue
                 }
+            }
+            
+            let vehicleTaskIds = Set((taskIdsByVehicle[vehicle.id] ?? []).map(\.taskId))
+            let vehicleTasks = completedTasks.filter { vehicleTaskIds.contains($0.id) }
+            
+            if checkVehicleIdleViolation(vehicle: vehicle, trips: allTrips, tasks: vehicleTasks, targetStartTime: tripStart) {
+                continue
             }
             
             eligible.append(vehicle)
