@@ -19,6 +19,12 @@ final class SupabaseAuthService: AuthServicing {
             .single()
             .execute()
             .value
+
+        if !user.isActive || user.deletedAt != nil {
+            try? await client.auth.signOut()
+            throw AppError.accountDisabled
+        }
+
         var profile = user.toUserProfile()
         // Look up the personnel ID if the user is maintenance personnel
         if user.role == .maintenancePersonnel {

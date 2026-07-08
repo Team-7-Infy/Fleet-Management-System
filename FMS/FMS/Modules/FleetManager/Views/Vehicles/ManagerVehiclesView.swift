@@ -46,7 +46,7 @@ struct ManagerVehiclesView: View {
     var openAddVehicle: () -> Void
     var openMaintenanceRequest: (UUID?) -> Void
 
-    private let availableStatusFilters = ["Available", "On Trip", "Scheduled", "Maintenance", "Out of Service"]
+    private let availableStatusFilters = ["Available", "On Trip", "Maintenance", "Out of Service"]
 
     private var filteredVehicles: [Vehicle] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -100,6 +100,7 @@ struct ManagerVehiclesView: View {
                             ManagerVehicleRow(
                                 vehicle: vehicle,
                                 driver: usersViewModel.driverUser(for: vehicle.driverId),
+                                mechanic: getMechanicUser(for: vehicle),
                                 tripsViewModel: tripsViewModel,
                                 maintenanceViewModel: maintenanceViewModel
                             )
@@ -175,11 +176,25 @@ struct ManagerVehiclesView: View {
             )
         }
     }
+
+    private func getMechanicUser(for vehicle: Vehicle) -> User? {
+        let tasks = maintenanceViewModel.tasks
+        let taskVehicles = maintenanceViewModel.taskVehicles
+        
+        let openTask = tasks.first { task in
+            task.status.isOpen &&
+            (taskVehicles[task.id]?.contains { $0.vin == vehicle.id } ?? false)
+        }
+        
+        guard let openTask, let mechanicId = openTask.executedBy else { return nil }
+        return usersViewModel.personnelUser(for: mechanicId)
+    }
 }
 
 private struct ManagerVehicleRow: View {
     var vehicle: Vehicle
     var driver: User?
+    var mechanic: User?
     @ObservedObject var tripsViewModel: TripManagementViewModel
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
 
@@ -203,10 +218,10 @@ private struct ManagerVehicleRow: View {
                 HStack(spacing: 5) {
                     Image(systemName: "person.fill")
                         .font(.caption)
-                    Text(driver.map { $0.displayName } ?? "Unassigned")
+                    Text(subtextValue)
                         .font(.caption.weight(.semibold))
                 }
-                .foregroundStyle(driver == nil ? FleetPalette.textTertiary : FleetPalette.accent)
+                .foregroundStyle(subtextColor)
                 .lineLimit(1)
             }
         }
@@ -217,6 +232,38 @@ private struct ManagerVehicleRow: View {
 
     private var modelName: String {
         "\(vehicle.make) \(vehicle.model)"
+    }
+
+    private var subtextValue: String {
+        let status = calculateVehicleStatus(
+            vehicle: vehicle,
+            trips: tripsViewModel.trips,
+            tasks: maintenanceViewModel.tasks,
+            taskVehicles: maintenanceViewModel.taskVehicles
+        ).text
+
+        if status == "Maintenance" {
+            return mechanic.map { "Mechanic: \($0.displayName)" } ?? "Under Maintenance"
+        } else {
+            return driver.map { $0.displayName } ?? "Unassigned"
+        }
+    }
+
+    private var subtextColor: Color {
+        let status = calculateVehicleStatus(
+            vehicle: vehicle,
+            trips: tripsViewModel.trips,
+            tasks: maintenanceViewModel.tasks,
+            taskVehicles: maintenanceViewModel.taskVehicles
+        ).text
+
+        if status == "Maintenance" {
+            return FleetPalette.warning
+        } else if status == "On Trip" {
+            return FleetPalette.accent
+        } else {
+            return FleetPalette.textTertiary
+        }
     }
 }
 
@@ -494,19 +541,6 @@ func calculateVehicleStatus(
         return ("Out of Service", FleetPalette.neutral)
     }
 
-    // Check if On Trip
-    let vehicleTrips = trips.filter { $0.vehicleId == vehicle.id }
-    let hasActiveTrip = vehicleTrips.contains { $0.status == .accepted || $0.status == .inProgress }
-    if hasActiveTrip {
-        return ("On Trip", FleetPalette.accent)
-    }
-
-    // Check if Scheduled
-    let hasScheduledTrip = vehicleTrips.contains { $0.status == .scheduled || $0.status == .pending || $0.status == .rejectionPending }
-    if hasScheduledTrip {
-        return ("Scheduled", FleetPalette.warning)
-    }
-
     // Check if Maintenance
     let isLinkedToOpenTask = tasks.contains { task in
         task.status.isOpen &&
@@ -514,6 +548,13 @@ func calculateVehicleStatus(
     }
     if vehicle.status == .inMaintenance || isLinkedToOpenTask {
         return ("Maintenance", FleetPalette.warning)
+    }
+
+    // Check if On Trip (only active live trip)
+    let vehicleTrips = trips.filter { $0.vehicleId == vehicle.id }
+    let hasActiveTrip = vehicleTrips.contains { $0.status == .accepted || $0.status == .inProgress }
+    if hasActiveTrip {
+        return ("On Trip", FleetPalette.accent)
     }
 
     return ("Available", FleetPalette.success)

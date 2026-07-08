@@ -6,6 +6,7 @@ enum AuthError: LocalizedError {
     case userNotCreated
     case functionError(String)
     case invalidUserID
+    case accountDisabled
 
     var errorDescription: String? {
         switch self {
@@ -17,6 +18,8 @@ enum AuthError: LocalizedError {
             return "Server error: \(detail)"
         case .invalidUserID:
             return "Invalid response from server."
+        case .accountDisabled:
+            return "Your account has been deactivated or deleted. Please contact your Fleet Manager."
         }
     }
 }
@@ -71,24 +74,30 @@ final actor AuthService: AuthServiceProtocol {
 
         try await supabase.client.auth.signIn(email: normalizedEmail, password: normalizedPassword)
 
+        let user: User
         if let authUser = supabase.client.auth.currentUser {
-            let user: User = try await supabase.client
+            user = try await supabase.client
                 .from("users")
                 .select()
                 .eq("userid", value: authUser.id.uuidString)
                 .single()
                 .execute()
                 .value
-            return user
+        } else {
+            user = try await supabase.client
+                .from("users")
+                .select()
+                .eq("email", value: normalizedEmail)
+                .single()
+                .execute()
+                .value
         }
 
-        let user: User = try await supabase.client
-            .from("users")
-            .select()
-            .eq("email", value: normalizedEmail)
-            .single()
-            .execute()
-            .value
+        if !user.isActive || user.deletedAt != nil {
+            try? await supabase.client.auth.signOut()
+            throw AuthError.accountDisabled
+        }
+
         return user
     }
 
@@ -105,6 +114,11 @@ final actor AuthService: AuthServiceProtocol {
             .single()
             .execute()
             .value
+
+        if !user.isActive || user.deletedAt != nil {
+            try? await supabase.client.auth.signOut()
+            return nil
+        }
         return user
     }
 

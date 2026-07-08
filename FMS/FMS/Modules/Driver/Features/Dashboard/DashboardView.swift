@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+internal import _LocationEssentials
 
 struct DashboardView: View {
     @Binding var showingProfile: Bool
