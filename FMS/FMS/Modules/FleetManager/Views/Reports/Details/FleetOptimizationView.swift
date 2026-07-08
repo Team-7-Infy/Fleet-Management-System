@@ -68,7 +68,7 @@ struct FleetOptimizationView: View {
                         .font(.system(size: 20, weight: .black, design: .rounded).monospacedDigit())
                         .foregroundStyle(color)
                 }
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text("Fleet Health Score:")
@@ -82,7 +82,7 @@ struct FleetOptimizationView: View {
                             .background(color.opacity(0.12))
                             .clipShape(Capsule())
                     }
-                    
+
                     Text("\(reportsViewModel.vehiclesNeedingMaintenance.count) vehicles need attention")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(FleetPalette.textPrimary)
@@ -150,7 +150,7 @@ struct FleetOptimizationView: View {
                         .foregroundStyle(FleetPalette.warning)
                         .frame(width: 36, height: 36)
                         .background(FleetPalette.warning.opacity(0.08), in: Circle())
-                    
+
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.vehicle.licencePlate)
                             .font(.subheadline.weight(.semibold))
@@ -159,9 +159,9 @@ struct FleetOptimizationView: View {
                             .font(.caption)
                             .foregroundStyle(FleetPalette.textSecondary)
                     }
-                    
+
                     Spacer()
-                    
+
                     Text("\(item.overdueDays)d overdue")
                         .font(.system(size: 11, weight: .bold, design: .rounded))
                         .foregroundStyle(item.overdueDays > 14 ? FleetPalette.danger : FleetPalette.warning)
@@ -172,7 +172,7 @@ struct FleetOptimizationView: View {
                 }
             }
             .buttonStyle(.plain)
-            
+
             Button {
                 vehicleToSchedule = item.vehicle
             } label: {
@@ -259,7 +259,7 @@ struct FleetOptimizationView: View {
             } else {
                 driverRowLabel(for: item)
             }
-            
+
             Button {
                 driverToCall = (item.driver, item.user)
             } label: {
@@ -288,7 +288,7 @@ struct FleetOptimizationView: View {
                 .stroke(FleetPalette.tertiary.opacity(0.08), lineWidth: 1)
         }
     }
-    
+
     private func driverRowLabel(for item: (driver: Driver, user: User?, totalTrips: Int, onTimeRate: Double)) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "person.crop.circle.badge.exclamationmark.fill")
@@ -296,7 +296,7 @@ struct FleetOptimizationView: View {
                 .foregroundStyle(FleetPalette.danger)
                 .frame(width: 36, height: 36)
                 .background(FleetPalette.danger.opacity(0.08), in: Circle())
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.user?.displayName ?? "Unknown Driver")
                     .font(.subheadline.weight(.semibold))
@@ -305,9 +305,9 @@ struct FleetOptimizationView: View {
                     .font(.caption)
                     .foregroundStyle(FleetPalette.textSecondary)
             }
-            
+
             Spacer()
-            
+
             Text("\(Int(item.onTimeRate.rounded()))% on-time")
                 .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(item.onTimeRate < 40 ? FleetPalette.danger : FleetPalette.warning)
@@ -320,7 +320,7 @@ struct FleetOptimizationView: View {
 
     private func scheduleMaintenance(for vehicle: Vehicle) async {
         let leastLoadedId = await maintenanceViewModel.getNextLeastLoadedAssigneeId()
-        
+
         var form = FleetManagerMaintenanceTaskForm()
         form.title = "Scheduled from Optimization"
         form.description = "Auto-scheduled maintenance from Fleet Optimization"
@@ -344,4 +344,3 @@ struct FleetOptimizationView: View {
         UIApplication.shared.open(url)
     }
 }
-

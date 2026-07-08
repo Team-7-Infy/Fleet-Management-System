@@ -175,6 +175,8 @@ struct FleetManagerVehicleForm {
     var status: VehicleStatus = .available
     var vehicleType = "van"
     var fuelType = ""
+    var fuelCapacityLiters = ""
+    var batteryCapacityKwh = ""
     var maintenanceKmInterval = ""
     var maintenanceMonthInterval = ""
     var age = ""
@@ -298,6 +300,8 @@ struct FleetManagerVehicleForm {
             vehicleType: vehicleType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
             driverId: nil,
             fuelType: fuelType.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : fuelType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+            fuelCapacityLiters: Double(fuelCapacityLiters.trimmingCharacters(in: .whitespacesAndNewlines)),
+            batteryCapacityKwh: Double(batteryCapacityKwh.trimmingCharacters(in: .whitespacesAndNewlines)),
             addedToFleetAt: Date(),
             maintenanceKmInterval: Int(maintenanceKmInterval.trimmingCharacters(in: .whitespacesAndNewlines)),
             maintenanceMonthInterval: Int(maintenanceMonthInterval.trimmingCharacters(in: .whitespacesAndNewlines)),
@@ -316,6 +320,8 @@ struct FleetManagerVehicleForm {
             status: vehicle.status,
             vehicleType: vehicle.vehicleType,
             fuelType: vehicle.fuelType ?? "",
+            fuelCapacityLiters: vehicle.fuelCapacityLiters.map { String($0) } ?? "",
+            batteryCapacityKwh: vehicle.batteryCapacityKwh.map { String($0) } ?? "",
             maintenanceKmInterval: vehicle.maintenanceKmInterval.map(String.init) ?? "",
             maintenanceMonthInterval: vehicle.maintenanceMonthInterval.map(String.init) ?? "",
             age: vehicle.baseAge.map(String.init) ?? ""

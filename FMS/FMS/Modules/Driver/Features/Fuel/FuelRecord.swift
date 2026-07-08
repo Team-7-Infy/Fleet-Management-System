@@ -11,11 +11,15 @@ struct FuelRecord: Identifiable, Codable {
     var volumeFilled: Double?
     var pricePerLiter: Double?
     var currentFuelLevel: Double
-    var status: RequestStatus
     var receiptCode: String?
     var receiptImageURL: String?
 
-    init(id: UUID = UUID(), date: Date, vehicleId: String, tripId: String? = nil, fuelType: FuelType, amountRequested: Double? = nil, cost: Double? = nil, volumeFilled: Double? = nil, pricePerLiter: Double? = nil, currentFuelLevel: Double, status: RequestStatus, receiptCode: String? = nil, receiptImageURL: String? = nil) {
+    // EV-specific fields
+    var kWhAdded: Double?
+    var chargePercentBefore: Double?
+    var chargePercentAfter: Double?
+
+    init(id: UUID = UUID(), date: Date, vehicleId: String, tripId: String? = nil, fuelType: FuelType, amountRequested: Double? = nil, cost: Double? = nil, volumeFilled: Double? = nil, pricePerLiter: Double? = nil, currentFuelLevel: Double, receiptCode: String? = nil, receiptImageURL: String? = nil, kWhAdded: Double? = nil, chargePercentBefore: Double? = nil, chargePercentAfter: Double? = nil) {
         self.id = id
         self.date = date
         self.vehicleId = vehicleId
@@ -26,29 +30,25 @@ struct FuelRecord: Identifiable, Codable {
         self.volumeFilled = volumeFilled
         self.pricePerLiter = pricePerLiter
         self.currentFuelLevel = currentFuelLevel
-        self.status = status
         self.receiptCode = receiptCode
         self.receiptImageURL = receiptImageURL
+        self.kWhAdded = kWhAdded
+        self.chargePercentBefore = chargePercentBefore
+        self.chargePercentAfter = chargePercentAfter
     }
 
     enum FuelType: String, Codable, CaseIterable {
         case diesel = "Diesel"
         case petrol = "Petrol"
         case cng = "CNG"
-    }
-
-    enum RequestStatus: String, Codable {
-        case pending = "Pending Approval"
-        case approved = "Approved"
-        case rejected = "Rejected"
-        case completed = "Completed"
+        case electric = "Electric (EV)"
     }
 
     var refillUnit: String {
-        fuelType == .cng ? "kg" : "L"
+        fuelType == .cng ? "kg" : fuelType == .electric ? "kWh" : "L"
     }
 
     var priceUnit: String {
-        fuelType == .cng ? "kg" : "L"
+        fuelType == .cng ? "kg" : fuelType == .electric ? "kWh" : "L"
     }
 }

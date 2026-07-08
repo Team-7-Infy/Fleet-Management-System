@@ -287,10 +287,10 @@ final actor VehicleService: VehicleServiceProtocol {
                     let ratio = min(efficiency / expectedEfficiency, 2.0)
                     fuelEfficiencyScore = min(100, ratio * 50)
                 } else {
-                    fuelEfficiencyScore = 75
+                    fuelEfficiencyScore = 100
                 }
             } else {
-                fuelEfficiencyScore = 75
+                fuelEfficiencyScore = 100
             }
 
             // Factor 3: Maintenance Adherence
@@ -301,7 +301,7 @@ final actor VehicleService: VehicleServiceProtocol {
                 let completed = completedTasks.count
                 adherenceScore = Double(completed) / Double(totalNeeded) * 100
             } else {
-                adherenceScore = 75
+                adherenceScore = 100
             }
 
             // Factor 4: Defect / Inspection History
@@ -311,7 +311,7 @@ final actor VehicleService: VehicleServiceProtocol {
                 let passed = vehicleInspections.filter { $0.status == .passed }.count
                 inspectionScore = Double(passed) / Double(vehicleInspections.count) * 100
             } else {
-                inspectionScore = 75
+                inspectionScore = 100
             }
 
             // Factor 5: Critical Repairs / Maintenance Burden

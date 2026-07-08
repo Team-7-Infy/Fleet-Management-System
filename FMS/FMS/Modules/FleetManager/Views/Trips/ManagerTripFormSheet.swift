@@ -138,15 +138,15 @@ struct ManagerTripFormSheet: View {
     private func checkVehicleIdleViolation(vehicle: Vehicle, trips: [Trip], tasks: [MaintenanceTask], targetStartTime: Date) -> Bool {
         let vehicleTrips = trips.filter { $0.vehicleId == vehicle.id && $0.status == .completed }
         let sortedTrips = vehicleTrips.sorted(by: { $0.startTime < $1.startTime })
-        
+
         let addedDate = vehicle.addedToFleetAt ?? targetStartTime.addingTimeInterval(-45 * 24 * 3600)
-        
+
         struct Gap {
             let start: Date
             let end: Date
         }
         var gaps: [Gap] = []
-        
+
         if sortedTrips.isEmpty {
             gaps.append(Gap(start: addedDate, end: targetStartTime))
         } else {
@@ -163,7 +163,7 @@ struct ManagerTripFormSheet: View {
                 gaps.append(Gap(start: lastTripEnd, end: targetStartTime))
             }
         }
-        
+
         let oneMonth: TimeInterval = 30 * 24 * 3600
         for gap in gaps {
             let gapDuration = gap.end.timeIntervalSince(gap.start)
@@ -190,20 +190,20 @@ struct ManagerTripFormSheet: View {
         let tripEnd = form.endTime ?? form.startTime.addingTimeInterval(7200)
         let completedTasks = maintenanceViewModel.tasks.filter { $0.status == .completed }
         let taskVehicles = maintenanceViewModel.taskVehicles
-        
+
         return all.filter { vehicle in
             let vehicleTrips = viewModel.trips.filter { $0.vehicleId == vehicle.id }
             guard viewModel.hasNoOverlap(vehicleTrips, tripStart: form.startTime, tripEnd: tripEnd) else { return false }
-            
+
             let vehicleTaskIds = Set(taskVehicles.flatMap { (taskId, list) in
                 list.contains { $0.vin == vehicle.id } ? [taskId] : []
             })
             let vehicleTasks = completedTasks.filter { vehicleTaskIds.contains($0.id) }
-            
+
             if checkVehicleIdleViolation(vehicle: vehicle, trips: viewModel.trips, tasks: vehicleTasks, targetStartTime: form.startTime) {
                 return false
             }
-            
+
             return true
         }
     }
@@ -216,18 +216,18 @@ struct ManagerTripFormSheet: View {
         } else {
             typeToFilter = form.vehicleTypeRequested
         }
-        
+
         guard typeToFilter.isEmpty == false else { return [] }
         let activeUserIds = Set(usersViewModel.users.filter { $0.isActive && $0.deletedAt == nil }.map(\.id))
-        
+
         let matchingDrivers = usersViewModel.drivers.filter { driver in
             driver.status != .unavailable && driver.status != .inactive &&
             driver.vehicleType.lowercased() == typeToFilter.lowercased() &&
             activeUserIds.contains(driver.userId)
         }
-        
+
         let tripEnd = form.endTime ?? form.startTime.addingTimeInterval(7200)
-        
+
         return matchingDrivers.filter { driver in
             let driverTrips = viewModel.trips.filter { $0.driverId == driver.id }
             return viewModel.hasNoOverlap(driverTrips, tripStart: form.startTime, tripEnd: tripEnd)

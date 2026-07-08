@@ -64,7 +64,7 @@ struct FleetUtilizationDetailView: View {
                 .foregroundStyle(color)
                 .frame(width: 36, height: 36)
                 .background(color.opacity(0.08), in: Circle())
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
                     .font(.system(size: 16, weight: .bold, design: .rounded))
@@ -152,7 +152,7 @@ struct FleetUtilizationDetailView: View {
                     .foregroundStyle(FleetPalette.accent)
                     .frame(width: 36, height: 36)
                     .background(FleetPalette.accent.opacity(0.08), in: Circle())
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.vehicle.licencePlate)
                         .font(.subheadline.weight(.semibold))
@@ -161,9 +161,9 @@ struct FleetUtilizationDetailView: View {
                         .font(.caption)
                         .foregroundStyle(FleetPalette.textSecondary)
                 }
-                
+
                 Spacer(minLength: 8)
-                
+
                 HStack(spacing: 4) {
                     Text("\(item.tripCount) trips")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -184,4 +184,3 @@ struct FleetUtilizationDetailView: View {
         .buttonStyle(.plain)
     }
 }
-

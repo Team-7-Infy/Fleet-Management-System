@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import UIKit
 
+@MainActor
 class InspectionViewModel: ObservableObject {
     @Published var items: [InspectionItem] = [
         InspectionItem(name: "Tires & Pressure", icon: "tire"),
