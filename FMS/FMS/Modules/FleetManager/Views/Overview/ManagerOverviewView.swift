@@ -40,24 +40,23 @@ struct ManagerOverviewView: View {
     }
 
     private var availableDrivers: [Driver] {
-        usersViewModel.drivers
-            .filter { $0.status == .active && busyDriverIDs.contains($0.id) == false }
+        usersViewModel.drivers.filter { $0.status == .available }
     }
 
     private var enrouteDrivers: [Driver] {
-        usersViewModel.drivers.filter { busyDriverIDs.contains($0.id) }
+        usersViewModel.drivers.filter { $0.status == .onTrip || $0.status == .scheduled }
     }
 
     private var offDutyDrivers: [Driver] {
-        usersViewModel.drivers.filter { $0.status != .active }
+        usersViewModel.drivers.filter { $0.status != .available && $0.status != .onTrip && $0.status != .scheduled }
     }
 
     private var availableVehicles: [Vehicle] {
-        vehiclesViewModel.vehicles.filter { $0.status == .available && $0.driverId == nil }
+        vehiclesViewModel.vehicles.filter { $0.status == .available }
     }
 
     private var enrouteVehicles: [Vehicle] {
-        vehiclesViewModel.vehicles.filter { $0.status == .available && $0.driverId != nil }
+        vehiclesViewModel.vehicles.filter { $0.status == .assigned }
     }
 
     private var maintenanceVehicles: [Vehicle] {
@@ -820,10 +819,10 @@ private struct DriverStatusRow: View {
 
             Text(driver.status.title.uppercased())
                 .font(.system(size: 10, weight: .black))
-                .foregroundColor(color)
+                .foregroundColor(FleetPalette.personnelStatus(driver.status))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(color.opacity(0.12))
+                .background(FleetPalette.personnelStatus(driver.status).opacity(0.12))
                 .clipShape(Capsule())
         }
     }

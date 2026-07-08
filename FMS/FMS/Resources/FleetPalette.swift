@@ -94,6 +94,10 @@ enum FleetPalette {
             return warning
         case .completed:
             return success
+        case .verified:
+            return success
+        case .closed:
+            return success
         case .fake:
             return danger
         }

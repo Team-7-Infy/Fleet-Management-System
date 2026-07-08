@@ -50,7 +50,7 @@ struct ManagerUsersView: View {
         case .drivers:
             return ["Available", "On Trip", "Scheduled", "Unavailable"]
         case .mechanics:
-            return ["Available", "In Service", "Unavailable"]
+            return ["Available", "In Progress", "Unavailable"]
         }
     }
 
@@ -293,6 +293,7 @@ struct ManagerUserDetailView: View {
         guard let maintenanceProfile else { return [] }
         return maintenanceViewModel.tasks.filter { $0.executedBy == maintenanceProfile.id }
     }
+
 
     var body: some View {
         ScrollView {
@@ -846,10 +847,10 @@ func calculateUserStatus(
             return (user.isActive ? "Active" : "Inactive", user.isActive ? FleetPalette.success : FleetPalette.neutral)
         }
         
-        // Check if they are In Service
+        // Check if they are In Progress
         let hasActiveWork = tasks.contains { $0.executedBy == personnel.id && $0.status == .inProgress }
         if hasActiveWork {
-            return ("In Service", FleetPalette.warning)
+            return ("In Progress", FleetPalette.warning)
         }
         
         return ("Available", FleetPalette.success)

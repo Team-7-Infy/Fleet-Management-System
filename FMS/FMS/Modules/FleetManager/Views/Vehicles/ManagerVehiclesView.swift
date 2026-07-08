@@ -327,6 +327,8 @@ struct ManagerVehicleDetailView: View {
                     Divider()
                     InfoRow(title: "Year", value: String(currentVehicle.year))
                     Divider()
+                    InfoRow(title: "Vehicle Age", value: currentVehicle.currentAgeString)
+                    Divider()
                     InfoRow(title: "Type", value: currentVehicle.vehicleType.capitalized)
                     Divider()
                     InfoRow(title: "Fuel Type", value: currentVehicle.fuelType?.capitalized ?? "N/A")

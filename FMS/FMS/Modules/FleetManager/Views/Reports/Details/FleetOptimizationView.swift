@@ -320,13 +320,16 @@ struct FleetOptimizationView: View {
     }
 
     private func scheduleMaintenance(for vehicle: Vehicle) async {
+        let leastLoadedId = await maintenanceViewModel.getNextLeastLoadedAssigneeId()
+        
         var form = FleetManagerMaintenanceTaskForm()
         form.title = "Scheduled from Optimization"
         form.description = "Auto-scheduled maintenance from Fleet Optimization"
         form.scheduledDate = Date()
         form.vehicleId = vehicle.id
         form.isUrgent = true
-        form.status = .scheduled
+        form.executedBy = leastLoadedId
+        form.status = leastLoadedId != nil ? .assigned : .scheduled
 
         let success = await maintenanceViewModel.createTask(form: form)
         if success {

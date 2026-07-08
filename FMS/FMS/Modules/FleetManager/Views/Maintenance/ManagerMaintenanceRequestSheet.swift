@@ -33,8 +33,7 @@ struct ManagerMaintenanceRequestSheet: View {
 
     private var availablePersonnel: [MaintenancePersonnel] {
         usersViewModel.maintenancePersonnel.filter { person in
-            person.status == .available &&
-            !viewModel.openTasks.contains { $0.executedBy == person.id }
+            person.status == .available
         }
     }
 
@@ -71,15 +70,20 @@ struct ManagerMaintenanceRequestSheet: View {
                     Toggle("Urgent", isOn: $form.isUrgent)
                         .fleetField()
 
-                    Picker("Assign To", selection: $form.executedBy) {
-                        Text("Unassigned").tag(Optional<UUID>.none)
-                        ForEach(availablePersonnel) { person in
-                            let user = usersViewModel.user(for: person.userId)
-                            Text(user?.displayName ?? person.id.uuidString)
-                                .tag(Optional(person.id))
+                    Toggle("Auto Assign", isOn: $form.isAutoAssign)
+                        .fleetField()
+
+                    if !form.isAutoAssign {
+                        Picker("Assign To", selection: $form.executedBy) {
+                            Text("Unassigned").tag(Optional<UUID>.none)
+                            ForEach(availablePersonnel) { person in
+                                let user = usersViewModel.user(for: person.userId)
+                                Text(user?.displayName ?? person.id.uuidString)
+                                    .tag(Optional(person.id))
+                            }
                         }
+                        .fleetField()
                     }
-                    .fleetField()
 
                     TextField("Photo URL (optional)", text: $form.photoUrl)
                         .keyboardType(.URL)
@@ -115,10 +119,15 @@ struct ManagerMaintenanceRequestSheet: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             form.vehicleId = form.vehicleId ?? initialVehicleId ?? availableVehicles.first?.id
-            form.executedBy = form.executedBy ?? usersViewModel.maintenancePersonnel.first(where: { $0.status == .active })?.id
             form.title = form.title.isEmpty ? "Engine oil and filter change" : form.title
             form.description = form.description.isEmpty ? "Replace engine oil, oil filter, and inspect for leakage before the next trip." : form.description
             form.scheduledBy = form.scheduledBy ?? currentUserId.flatMap(usersViewModel.managerId(for:))
+            
+            Task {
+                if let leastLoadedId = await viewModel.getNextLeastLoadedAssigneeId() {
+                    form.executedBy = form.executedBy ?? leastLoadedId
+                }
+            }
         }
     }
 }
