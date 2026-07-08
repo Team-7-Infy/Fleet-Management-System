@@ -297,17 +297,16 @@ struct CompletedTripDetailView: View {
     }
 
     private var estimatedFuelLiters: Double {
-        distanceValue / 8.5
+        distanceValue > 0 ? distanceValue / 8.5 : 0
     }
 
-    private var startOdometer: Int {
-        let seed = trip.id.uuidString.filter { "0123456789".contains($0) }
-        let number = (Int(seed) ?? 84) % 10000
-        return 124000 + (number * 120)
+    private var startOdometerDisplay: String {
+        "—"
     }
 
-    private var endOdometer: Int {
-        startOdometer + Int(distanceValue)
+    private var endOdometerDisplay: String {
+        guard let odo = trip.finalOdometer else { return "—" }
+        return "\(Int(odo)) km"
     }
 
     var body: some View {
@@ -445,7 +444,7 @@ struct CompletedTripDetailView: View {
                             Text("Start Odometer")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            Text("\(startOdometer) km")
+                            Text(startOdometerDisplay)
                                 .font(.subheadline)
                                 .fontWeight(.bold)
                         }
@@ -457,7 +456,7 @@ struct CompletedTripDetailView: View {
                             Text("End Odometer")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            Text("\(endOdometer) km")
+                            Text(endOdometerDisplay)
                                 .font(.subheadline)
                                 .fontWeight(.bold)
                         }
@@ -537,7 +536,7 @@ struct CompletedTripDetailView: View {
                         Text("FUEL CONSUMED (EST)")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.secondary)
-                        Text(distanceValue > 0 ? String(format: "%.1f L", estimatedFuelLiters) : "—")
+                        Text(distanceValue > 0 ? String(format: "%.1f L", distanceValue / 8.5) : "—")
                             .font(.subheadline)
                             .fontWeight(.bold)
                     }

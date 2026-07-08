@@ -58,6 +58,7 @@ struct DashboardView: View {
     @State private var successDistance: Double = 0.0
     @State private var successDuration: Int = 0
     @State private var completedTripForSuccess: Trip? = nil
+    @State private var dashboardNow = Date()
 
     var body: some View {
         // 1. Live Trip (if available)
@@ -71,14 +72,14 @@ struct DashboardView: View {
         // The nearest accepted or inspection-eligible Scheduled Trip (top card if no Live Trip exists)
         let nearestScheduledTrip = liveTrip == nil ? allScheduled.first(where: {
             $0.status == .accepted ||
-            (($0.status == .scheduled || $0.status == .pending) && Date() >= $0.startTime.addingTimeInterval(-TripTimingPolicy.preTripInspectionWindow))
+            (($0.status == .scheduled || $0.status == .pending) && dashboardNow >= $0.startTime.addingTimeInterval(-TripTimingPolicy.preTripInspectionWindow))
         }) : nil
 
         // Is Pre-Trip Inspection enabled for the nearest Scheduled Trip?
         let isInspectionEnabled: Bool = {
             if let nearest = nearestScheduledTrip {
                 let windowBefore = nearest.startTime.addingTimeInterval(-TripTimingPolicy.preTripInspectionWindow)
-                return Date() >= windowBefore
+                return dashboardNow >= windowBefore
             }
             return false
         }()
@@ -86,7 +87,7 @@ struct DashboardView: View {
         // Is Start Trip enabled for the nearest Scheduled Trip? (1 hour before departure)
         let isStartTripEnabled: Bool = {
             guard let nearest = nearestScheduledTrip else { return false }
-            return Date() >= nearest.startTime.addingTimeInterval(-TripTimingPolicy.startTripWindow)
+            return dashboardNow >= nearest.startTime.addingTimeInterval(-TripTimingPolicy.startTripWindow)
         }()
 
         // Remaining scheduled trips for the section list below
@@ -138,6 +139,7 @@ struct DashboardView: View {
                                     PostTripInspectionCard(
                                         trip: matchingTrip,
                                         vehicles: vehicles,
+                                        services: services,
                                         onPerformInspection: {
                                             selectedTripForPostInspection = matchingTrip
                                         }
@@ -375,6 +377,9 @@ struct DashboardView: View {
                     await onRefreshData?()
                 }
             }
+            .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { newNow in
+                dashboardNow = newNow
+            }
             .onDisappear {
                 notificationViewModel.unsubscribeRealtime()
             }
@@ -470,16 +475,15 @@ struct DashboardView: View {
                 EndTripView(
                     trip: tripToInspect,
                     services: services,
-                    onComplete: { finalOdometer, notes in
+                    onComplete: { finalOdometer, notes, distanceKm in
                         localStore.pendingPostTripInspection = nil
                         
                         Task {
                             await onRefreshData?()
                         }
                         
-                        // Calculate metrics from real data
                         let tripStart = tripToInspect.actualStartTime ?? tripToInspect.startTime
-                        self.successDistance = tripToInspect.distanceKm ?? max(1.2, (Double(finalOdometer) ?? 0) - (tripToInspect.finalOdometer ?? 0))
+                        self.successDistance = distanceKm
                         self.successDuration = max(15, Int(Date().timeIntervalSince(tripStart)) / 60)
                         self.completedTripForSuccess = tripToInspect
                         
@@ -2211,9 +2215,11 @@ struct PostTripInspectionCard: View {
     @EnvironmentObject var localStore: LocalDataStore
     let trip: Trip
     let vehicles: [Vehicle]
+    let services: AppServices
     let onPerformInspection: () -> Void
 
     @State private var now = Date()
+    @State private var didNotifyOverdue = false
 
     private var deadline: Date? {
         localStore.pendingPostTripInspection?.deadline
@@ -2311,6 +2317,26 @@ struct PostTripInspectionCard: View {
         .shadow(color: Color.black.opacity(0.04), radius: 10, y: 5)
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { newNow in
             now = newNow
+            if isOverdue && !didNotifyOverdue {
+                didNotifyOverdue = true
+                let plate = vehicles.first(where: { $0.id == trip.vehicleId })?.licencePlate ?? "Unknown"
+                Task {
+                    let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
+                    for fmUser in fmUsers {
+                        let notification = AppNotification(
+                            id: UUID(),
+                            title: "Overdue Post-Trip Inspection",
+                            message: "Post-trip inspection for \(plate) (Trip \(trip.id.shortIdentifier)) is overdue. Driver has not completed the inspection within the 2-hour window.",
+                            type: "overdue_post_trip",
+                            isRead: false,
+                            referenceId: trip.id,
+                            recipientId: fmUser.id,
+                            createdAt: Date()
+                        )
+                        _ = try? await services.notificationService.createNotification(notification)
+                    }
+                }
+            }
         }
     }
 }

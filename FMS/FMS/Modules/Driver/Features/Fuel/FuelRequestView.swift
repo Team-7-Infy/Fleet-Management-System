@@ -39,12 +39,22 @@ struct FuelRequestView: View {
             Form {
                 if !hasActiveTrip {
                     Section {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
-                            Text("Fuel requests should be made during an active trip.")
+                        VStack(spacing: 8) {
+                            HStack {
+                                Spacer()
+                                Image(systemName: "lock.fill")
+                                Text("Fuel Request Locked")
+                                    .fontWeight(.bold)
+                                Spacer()
+                            }
+                            .padding(.vertical, 12)
+                            .background(Color.orange.opacity(0.15))
+                            .foregroundColor(.orange)
+                            .cornerRadius(10)
+                            Text("Fuel can only be requested during an active trip.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .center)
                         }
                     }
                 }
@@ -169,6 +179,7 @@ struct FuelRequestView: View {
     }
 
     private var isFormValid: Bool {
+        guard hasActiveTrip else { return false }
         if isLiquidFuel {
             return !requestedAmount.isEmpty
         } else {

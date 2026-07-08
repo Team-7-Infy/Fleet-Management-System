@@ -28,20 +28,8 @@ struct InspectionView: View {
     @State private var fuelInput: String = ""
     @State private var generalComments: String = ""
 
-    private var currentOdometer: Int {
-        let seed = trip.tripId.filter { "0123456789".contains($0) }
-        let number = (Int(seed) ?? 84) % 10000
-        return 124000 + (number * 120)
-    }
-
     private var previousOdometer: Double {
-        vehicle?.odometer ?? Double(currentOdometer)
-    }
-
-    private var currentFuelLevel: Int {
-        let seed = trip.tripId.filter { "0123456789".contains($0) }
-        let number = (Int(seed) ?? 75) % 25
-        return 75 + number
+        vehicle?.odometer ?? 0
     }
 
     private var isSubmitEnabled: Bool {
@@ -156,7 +144,7 @@ struct InspectionView: View {
                                 }
                                 
                                 HStack(spacing: 8) {
-                                    TextField("e.g. \(currentFuelLevel)", text: $fuelInput)
+                                    TextField("e.g. 75", text: $fuelInput)
                                         .keyboardType(.numberPad)
                                         .font(.subheadline)
                                         .padding(.horizontal, 12)

@@ -31,6 +31,8 @@ struct AppNotification: Identifiable, Codable, Hashable, Sendable {
             return "exclamationmark.triangle.fill"
         case "maintenance_due":
             return "wrench.and.screwdriver.fill"
+        case "overdue_post_trip":
+            return "clock.badge.exclamationmark.fill"
         case "work_order_assigned", "work_order_assigned_urgent":
             let lowerTitle = title.lowercased()
             if lowerTitle.contains("oil") || lowerTitle.contains("flush") {

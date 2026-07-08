@@ -8,7 +8,7 @@ struct EndTripView: View {
 
     let trip: Trip
     let services: AppServices
-    var onComplete: ((_ finalOdometer: String, _ notes: String) -> Void)? = nil
+    var onComplete: ((_ finalOdometer: String, _ notes: String, _ distanceKm: Double) -> Void)? = nil
 
     @State private var endOdometer: String = ""
     @State private var endFuel: String = ""
@@ -410,7 +410,7 @@ struct EndTripView: View {
                     isSubmitting = false
                     locationService.stopTracking()
                     dismiss()
-                    onComplete?(endOdometer, failedItems.isEmpty ? "Post-trip check completed normally." : "Post-trip inspection failed.")
+                    onComplete?(endOdometer, failedItems.isEmpty ? "Post-trip check completed normally." : "Post-trip inspection failed.", distanceDelta)
                 }
             } catch {
                 print("Failed to complete post-trip inspection: \(error)")
