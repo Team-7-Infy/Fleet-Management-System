@@ -18,12 +18,15 @@ struct ProfileHubView: View {
                 ProfileHeaderCard(viewModel: viewModel)
 
                 // 1. Performance Summary Card
-                ProfilePerformanceSummary(
-                    safetyScore: viewModel.safetyScore,
-                    totalTrips: "\(viewModel.completedTrips)",
-                    onTimeRate: viewModel.onTimeRate,
-                    lastTripDate: viewModel.lastTripDate
-                )
+                NavigationLink(destination: PerformanceView(driverId: viewModel.driverId ?? UUID(), services: viewModel.services)) {
+                    ProfilePerformanceSummary(
+                        safetyScore: viewModel.safetyScore,
+                        totalTrips: "\(viewModel.completedTrips)",
+                        onTimeRate: viewModel.onTimeRate,
+                        lastTripDate: viewModel.lastTripDate
+                    )
+                }
+                .buttonStyle(.plain)
 
                 // 2. Contact & Personal Info Cards
                 ProfileInfoSection(title: "Contact Details", rows: viewModel.contactDetails)
@@ -102,19 +105,16 @@ private struct ProfileHeaderCard: View {
                             .clipShape(Circle())
                             .shadow(radius: 4, x: 0, y: 2)
                     } else if let imageURL = viewModel.profileImageURL {
-                        AsyncImage(url: imageURL) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            default:
-                                avatarPlaceholder
-                            }
+                        CachedAsyncImage(url: imageURL) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 76, height: 76)
+                                .clipShape(Circle())
+                                .shadow(radius: 4, x: 0, y: 2)
+                        } placeholder: {
+                            avatarPlaceholder
                         }
-                        .frame(width: 76, height: 76)
-                        .clipShape(Circle())
-                        .shadow(radius: 4, x: 0, y: 2)
                     } else {
                         avatarPlaceholder
                     }
@@ -255,11 +255,11 @@ private struct ProfilePerformanceSummary: View {
                                 .stroke(Color.blue.opacity(0.12), lineWidth: 4)
                                 .frame(width: 44, height: 44)
                             Circle()
-                                .trim(from: 0.0, to: CGFloat(safetyScore) / 100.0)
+                                .trim(from: 0.0, to: totalTrips == "0" ? 0.0 : CGFloat(safetyScore) / 100.0)
                                 .stroke(Color.blue, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                                 .frame(width: 44, height: 44)
                                 .rotationEffect(.degrees(-90))
-                            Text("\(safetyScore)")
+                            Text(totalTrips == "0" ? "--" : "\(safetyScore)")
                                 .font(.subheadline.weight(.bold))
                                 .foregroundStyle(.blue)
                         }
@@ -269,9 +269,11 @@ private struct ProfilePerformanceSummary: View {
                         Text("Safety Score")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.primary)
-                        Text("Based on telematics")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                        if totalTrips == "0" {
+                            Text("No trip history")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
                 .padding(12)
@@ -536,18 +538,15 @@ struct EditProfileView: View {
                                         .frame(width: 96, height: 96)
                                         .clipShape(Circle())
                                 } else if let imageURL = savedProfileImageURL {
-                                    AsyncImage(url: imageURL) { phase in
-                                        switch phase {
-                                        case .success(let image):
-                                            image
-                                                .resizable()
-                                                .aspectRatio(contentMode: .fill)
-                                        default:
-                                            editAvatarPlaceholder
-                                        }
+                                    CachedAsyncImage(url: imageURL) { image in
+                                        image
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                            .frame(width: 96, height: 96)
+                                            .clipShape(Circle())
+                                    } placeholder: {
+                                        editAvatarPlaceholder
                                     }
-                                    .frame(width: 96, height: 96)
-                                    .clipShape(Circle())
                                 } else {
                                     editAvatarPlaceholder
                                 }
@@ -609,6 +608,7 @@ struct EditProfileView: View {
                                 title: "Full Name",
                                 placeholder: "Alex Johnson",
                                 text: $name,
+                                isDisabled: viewModel.isSavingProfile,
                                 focusField: .name,
                                 activeFocus: $focusedField
                             )
@@ -619,6 +619,7 @@ struct EditProfileView: View {
                                 placeholder: "+91 XXXXX XXXXX",
                                 text: $phone,
                                 keyboardType: .phonePad,
+                                isDisabled: viewModel.isSavingProfile,
                                 focusField: .phone,
                                 activeFocus: $focusedField
                             )
@@ -630,6 +631,7 @@ struct EditProfileView: View {
                                 text: $email,
                                 keyboardType: .emailAddress,
                                 autocapitalize: false,
+                                isDisabled: viewModel.isSavingProfile,
                                 focusField: .email,
                                 activeFocus: $focusedField
                             )
@@ -640,6 +642,7 @@ struct EditProfileView: View {
                                 placeholder: "Flat 402, Highrise Apartments",
                                 text: $address,
                                 isMultiline: true,
+                                isDisabled: viewModel.isSavingProfile,
                                 focusField: .address,
                                 activeFocus: $focusedField
                             )
@@ -666,7 +669,7 @@ struct EditProfileView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundStyle(.secondary) // Secondary visual weight
+                    .foregroundStyle(.primary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
@@ -724,6 +727,7 @@ private struct EditProfileRow: View {
     var keyboardType: UIKeyboardType = .default
     var autocapitalize = true
     var isMultiline = false
+    var isDisabled = false
 
     let focusField: EditProfileField
     var activeFocus: FocusState<EditProfileField?>.Binding
@@ -752,6 +756,7 @@ private struct EditProfileRow: View {
                                 .foregroundStyle(.primary)
                                 .lineLimit(3)
                                 .focused(activeFocus, equals: focusField)
+                                .disabled(isDisabled)
                         } else {
                             TextField(placeholder, text: $text)
                                 .font(.subheadline.weight(.medium))
@@ -759,6 +764,7 @@ private struct EditProfileRow: View {
                                 .keyboardType(keyboardType)
                                 .textInputAutocapitalization(autocapitalize ? .words : .never)
                                 .focused(activeFocus, equals: focusField)
+                                .disabled(isDisabled)
                         }
 
                         Spacer(minLength: 0)

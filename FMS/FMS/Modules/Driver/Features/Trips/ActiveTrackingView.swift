@@ -169,7 +169,7 @@ struct ActiveTrackingView: View {
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $selectedTrip) { trip in
                 NavigationStack {
-                    TripDetailView(trip: trip)
+                    TripDetailView(trip: trip, services: services)
                         .environmentObject(localStore)
                 }
             }
@@ -193,35 +193,52 @@ struct ActiveTrackingView: View {
                     title: Text("EMERGENCY SOS"),
                     message: Text("Are you sure you want to trigger an SOS? This will instantly cancel your active trip and alert the fleet manager."),
                     primaryButton: .destructive(Text("Trigger SOS")) {
-                        if let services = services, let activeTrip = trips.first(where: { $0.status == .inProgress }) {
-                            Task {
-                                do {
-                                    try await services.tripService.updateTripStatus(
-                                        id: activeTrip.id,
-                                        status: .cancelled,
-                                        rejectionReason: "SOS Emergency: Cancelled via emergency SOS alert."
-                                    )
-                                    
-                                    let fmUserId = try? await services.userManagementService.fetchUsers()
-                                        .first(where: { $0.role == .fleetManager })?.id
+                        guard let services, let activeTrip = trips.first(where: { $0.status == .inProgress }), let currentUser = user else { return }
+                        let driverId: UUID = driver?.id ?? currentUser.id
+                        Task {
+                            do {
+                                try await services.tripService.updateTripStatus(
+                                    id: activeTrip.id,
+                                    status: .cancelled,
+                                    rejectionReason: "SOS Emergency: Cancelled via emergency SOS alert."
+                                )
+
+                                let event = SOSEvent(
+                                    id: UUID(),
+                                    tripId: activeTrip.id,
+                                    driverId: driverId,
+                                    vehicleId: activeTrip.vehicleId?.uuidString,
+                                    type: "critical",
+                                    status: .pending,
+                                    latitude: locationService.location?.coordinate.latitude ?? 0,
+                                    longitude: locationService.location?.coordinate.longitude ?? 0,
+                                    resolvedBy: nil,
+                                    resolvedAt: nil,
+                                    notes: nil,
+                                    createdAt: Date()
+                                )
+                                _ = try? await services.sosService.createEvent(event)
+
+                                let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
+                                for fmUser in fmUsers {
                                     let notification = AppNotification(
                                         id: UUID(),
                                         title: "CRITICAL: Driver SOS Emergency",
                                         message: "Driver has triggered emergency SOS alert for Trip from \(activeTrip.startLocation) to \(activeTrip.endLocation).",
-                                        type: "geofence_exit",
+                                        type: "sos_emergency",
                                         isRead: false,
                                         referenceId: activeTrip.id,
-                                        recipientId: fmUserId,
+                                        recipientId: fmUser.id,
                                         createdAt: Date()
                                     )
                                     _ = try? await services.notificationService.createNotification(notification)
-                                    
-                                    await MainActor.run {
-                                        showingActiveNavigation = false
-                                    }
-                                } catch {
-                                    print("Failed to cancel trip on SOS: \(error)")
                                 }
+
+                                await MainActor.run {
+                                    showingActiveNavigation = false
+                                }
+                            } catch {
+                                print("Failed to cancel trip on SOS: \(error)")
                             }
                         }
                     },
@@ -233,6 +250,8 @@ struct ActiveTrackingView: View {
                     TripFuelHistoryView(
                         isReadOnly: false,
                         activeTripId: activeTripId,
+                        tripStatus: trips.first(where: { $0.status == .inProgress })?.status,
+                        tripEndTime: trips.first(where: { $0.status == .inProgress })?.endTime,
                         vehicleNumber: "",
                         expenseService: services?.expenseService,
                         driverId: driver?.id,

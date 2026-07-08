@@ -26,21 +26,10 @@ struct InspectionView: View {
 
     @State private var odometerInput: String = ""
     @State private var fuelInput: String = ""
-
-    private var currentOdometer: Int {
-        let seed = trip.tripId.filter { "0123456789".contains($0) }
-        let number = (Int(seed) ?? 84) % 10000
-        return 124000 + (number * 120)
-    }
+    @State private var generalComments: String = ""
 
     private var previousOdometer: Double {
-        vehicle?.odometer ?? Double(currentOdometer)
-    }
-
-    private var currentFuelLevel: Int {
-        let seed = trip.tripId.filter { "0123456789".contains($0) }
-        let number = (Int(seed) ?? 75) % 25
-        return 75 + number
+        vehicle?.odometer ?? 0
     }
 
     private var isSubmitEnabled: Bool {
@@ -77,12 +66,18 @@ struct InspectionView: View {
                             .foregroundColor(.white)
                         
                         HStack {
-                            Spacer()
                             Button(action: { dismiss() }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.white.opacity(0.85))
+                                HStack(spacing: 4) {
+                                    Image(systemName: "chevron.left")
+                                        .font(.title3)
+                                        .fontWeight(.bold)
+                                    Text("Back")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                }
+                                .foregroundColor(.white.opacity(0.85))
                             }
+                            Spacer()
                         }
                     }
                     .padding(.horizontal)
@@ -155,7 +150,7 @@ struct InspectionView: View {
                                 }
                                 
                                 HStack(spacing: 8) {
-                                    TextField("e.g. \(currentFuelLevel)", text: $fuelInput)
+                                    TextField("e.g. 75", text: $fuelInput)
                                         .keyboardType(.numberPad)
                                         .font(.subheadline)
                                         .padding(.horizontal, 12)
@@ -195,6 +190,33 @@ struct InspectionView: View {
                                 viewModel.updateDetails(for: item.id, description: desc, image: img)
                             }
                         }
+
+                        // General Comments / Other Defects
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("OTHER COMMENTS / DEFECTS")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.secondary)
+
+                            TextEditor(text: $generalComments)
+                                .font(.subheadline)
+                                .frame(minHeight: 80)
+                                .padding(8)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color(.separator).opacity(0.3), lineWidth: 1)
+                                )
+
+                            Text("Optional: Add any additional notes about vehicle condition.")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .background(Color(UIColor.secondarySystemGroupedBackground))
+                        .cornerRadius(16)
+                        .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
                     }
                     .padding()
                 }
@@ -338,7 +360,6 @@ struct InspectionView: View {
                 .zIndex(100)
             }
         }
-        .toolbar(.hidden, for: .navigationBar)
         .alert(isPresented: $showingAlert) {
             Alert(
                 title: Text(alertTitle),
@@ -372,7 +393,7 @@ struct InspectionView: View {
             status: inspectionStatus,
             odometerReading: Double(odometerInput),
             fuelLevel: Double(fuelInput),
-            notes: nil,
+            notes: generalComments.isEmpty ? nil : generalComments,
             createdAt: Date()
         )
         let saved = try await services.inspectionService.createInspection(inspection)
@@ -444,18 +465,23 @@ struct InspectionView: View {
                         vehicleModel.odometer = odoVal
                         _ = try await services.vehicleService.updateVehicle(vehicleModel)
                     }
+
+                    await MainActor.run {
+                        if !isPostTrip {
+                            localStore.markTripInspected(trip.tripId, vehicleId: vehicleId)
+                        }
+                        viewModel.isSubmitting = false
+                        dismiss()
+                        onComplete?()
+                    }
                 } catch {
                     print("Failed to persist inspection: \(error)")
+                    await MainActor.run {
+                        viewModel.isSubmitting = false
+                        dismiss()
+                        onComplete?()
+                    }
                 }
-            }
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                viewModel.isSubmitting = false
-                if !isPostTrip {
-                    localStore.markTripInspected(trip.tripId)
-                }
-                dismiss()
-                onComplete?()
             }
             return
         }
@@ -598,9 +624,8 @@ struct InspectionView: View {
                     
                     await MainActor.run {
                         viewModel.isSubmitting = false
-                        localStore.markTripInspected(trip.tripId)
                         self.replacementVehicle = replacement
-                        self.animationMessage = "Vehicle \(vehicle.licencePlate) has been sent to maintenance. \(failedItems.count) separate work order(s) created. Vehicle \(replacement.licencePlate) has been automatically assigned to your trip."
+                        self.animationMessage = "Vehicle \(vehicle.licencePlate) has been sent to maintenance. \(failedItems.count) separate work order(s) created. Vehicle \(replacement.licencePlate) has been automatically assigned to your trip. Please perform a pre-trip inspection on the new vehicle before starting."
                         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                             showingComplaintRaisedAnimation = true
                         }
@@ -749,7 +774,7 @@ struct InspectionRow: View {
                                     )
                                 }
                             }
-                            .sheet(isPresented: $showingCamera) {
+                            .fullScreenCover(isPresented: $showingCamera) {
                                 CameraPicker(selectedImage: Binding(
                                     get: { selectedImage },
                                     set: { newImage in

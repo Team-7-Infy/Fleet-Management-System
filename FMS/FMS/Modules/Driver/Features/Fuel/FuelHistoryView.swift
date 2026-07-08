@@ -1,72 +1,14 @@
 import SwiftUI
 import PhotosUI
 
-struct FuelHistoryView: View {
-    @StateObject private var viewModel = FuelViewModel()
-    @State private var showingRequestSheet = false
-
-    var body: some View {
-        NavigationStack {
-            List(viewModel.fuelHistory) { record in
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(record.date, style: .date)
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                        Spacer()
-                        StatusBadge(status: record.status)
-                    }
-
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(record.fuelType.rawValue)
-                                .font(.headline)
-                            if let volume = record.volumeFilled {
-                                Text("\(volume, specifier: "%.1f") \(record.refillUnit)")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
-                            }
-                        }
-
-                        Spacer()
-
-                        if let cost = record.cost {
-                            Text("₹\(cost, specifier: "%.2f")")
-                                .font(.title3)
-                                .fontWeight(.bold)
-                        } else if let requested = record.amountRequested {
-                            Text("Req: $\(requested, specifier: "%.2f")")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                        }
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-            .navigationTitle("Fuel Logs")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        showingRequestSheet = true
-                    }) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
-                    }
-                }
-            }
-            .sheet(isPresented: $showingRequestSheet) {
-                FuelRequestView()
-            }
-        }
-    }
-}
-
 struct TripFuelHistoryView: View {
     @EnvironmentObject var localStore: LocalDataStore
     @Environment(\.dismiss) var dismiss
 
     let isReadOnly: Bool
     let activeTripId: String?
+    let tripStatus: TripStatus?
+    let tripEndTime: Date?
     let vehicleNumber: String
     let expenseService: ExpenseServiceProtocol?
     let driverId: UUID?
@@ -87,17 +29,33 @@ struct TripFuelHistoryView: View {
     @State private var ocrNumber: String?
     @State private var showOCRReview = false
     @State private var receiptImageData: Data?
+    @State private var showingSaveError = false
+    @State private var saveErrorMessage = ""
+    private var fuelLogs: [FuelLog]? = nil
 
-    init(isReadOnly: Bool = false, activeTripId: String? = nil, vehicleNumber: String = "",
+    init(isReadOnly: Bool = false, activeTripId: String? = nil, tripStatus: TripStatus? = nil,
+         tripEndTime: Date? = nil, vehicleNumber: String = "",
          expenseService: ExpenseServiceProtocol? = nil, driverId: UUID? = nil,
-         vehicleId: UUID? = nil, vehicleFuelType: String? = nil) {
+         vehicleId: UUID? = nil, vehicleFuelType: String? = nil, fuelLogs: [FuelLog]? = nil) {
         self.isReadOnly = isReadOnly
         self.activeTripId = activeTripId
+        self.tripStatus = tripStatus
+        self.tripEndTime = tripEndTime
         self.vehicleNumber = vehicleNumber
         self.expenseService = expenseService
         self.driverId = driverId
         self.vehicleId = vehicleId
         self.vehicleFuelType = vehicleFuelType
+        self.fuelLogs = fuelLogs
+    }
+
+    private var canLogFuel: Bool {
+        if tripStatus == .inProgress { return true }
+        if tripStatus == .completed, let end = tripEndTime,
+           Date().timeIntervalSince(end) < TripTimingPolicy.postTripInspectionDeadline {
+            return true
+        }
+        return false
     }
 
     private var quantityUnit: String {
@@ -121,9 +79,31 @@ struct TripFuelHistoryView: View {
     }
 
     private var tripFuelHistory: [FuelRecord] {
-        localStore.fuelHistory
-            .filter { $0.tripId == activeTripId && $0.status == .completed }
+        if let logs = fuelLogs {
+            logs.map { log in
+                FuelRecord(
+                    id: log.id,
+                    date: log.date,
+                    vehicleId: log.vehicleId.uuidString,
+                    tripId: log.tripId?.uuidString,
+                    fuelType: FuelRecord.FuelType(rawValue: log.fuelType) ?? .diesel,
+                    cost: log.cost,
+                    volumeFilled: log.volumeFilled,
+                    pricePerLiter: log.pricePerLiter,
+                    currentFuelLevel: log.currentFuelLevel ?? 0,
+                    receiptCode: log.receiptCode,
+                    receiptImageURL: log.receiptImageUrl,
+                    kWhAdded: log.kWhAdded,
+                    chargePercentBefore: log.chargePercentBefore,
+                    chargePercentAfter: log.chargePercentAfter
+                )
+            }
             .sorted { $0.date > $1.date }
+        } else {
+            localStore.fuelHistory
+                .filter { $0.tripId == activeTripId }
+                .sorted { $0.date > $1.date }
+        }
     }
 
     private var quantityValue: Double {
@@ -153,11 +133,12 @@ struct TripFuelHistoryView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                if isReadOnly {
-                    historySection
+                if !canLogFuel && !isReadOnly {
+                    lockedState
                 } else {
                     fuelRangeCard
                     refillForm
+                    historySection
                 }
             }
             .padding()
@@ -194,6 +175,13 @@ struct TripFuelHistoryView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
+        .alert(isPresented: $showingSaveError) {
+            Alert(
+                title: Text("Save Failed"),
+                message: Text(saveErrorMessage),
+                dismissButton: .default(Text("OK"))
+            )
+        }
         .sheet(isPresented: $showOCRReview) {
             OCRReviewView(
                 amount: $ocrAmount,
@@ -201,6 +189,26 @@ struct TripFuelHistoryView: View {
                 vendor: $ocrVendor,
                 receiptNumber: $ocrNumber
             )
+        }
+    }
+
+    private var lockedState: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "lock.fill")
+                .font(.system(size: 48))
+                .foregroundColor(.orange)
+            Text("Fuel Logging Locked")
+                .font(.title2.weight(.bold))
+            Text("Fuel can only be logged during an active trip or within 2 hours of its completion.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            Spacer()
+            Button("Close") { dismiss() }
+                .buttonStyle(.borderedProminent)
+                .padding(.bottom, 32)
         }
     }
 
@@ -355,28 +363,38 @@ struct TripFuelHistoryView: View {
     }
 
     private func saveRefill() {
-        localStore.saveFuelEntry(
-            vehicleId: vehicleNumber,
-            tripId: activeTripId ?? "",
-            fuelType: selectedFuelType,
-            liters: quantityValue,
-            price: quantityValue * priceValue,
-            receiptCode: receiptCode.trimmingCharacters(in: .whitespacesAndNewlines),
-            date: refillDate
-        )
+        localStore.lastFuelSaveError = nil
 
-        if let expenseService, let driverId, let vehicleId {
-            var ocrData: String?
-            if ocrAmount != nil || ocrDate != nil || ocrVendor != nil || ocrNumber != nil {
-                let dict: [String: String?] = [
-                    "amount": ocrAmount, "date": ocrDate,
-                    "vendor": ocrVendor, "receiptNumber": ocrNumber
-                ]
-                ocrData = (try? JSONSerialization.data(withJSONObject: dict.compactMapValues { $0 }))
-                    .flatMap { String(data: $0, encoding: .utf8) }
+        Task {
+            await localStore.saveFuelEntry(
+                vehicleId: vehicleId ?? UUID(),
+                tripId: activeTripId ?? "",
+                fuelType: selectedFuelType,
+                liters: quantityValue,
+                price: quantityValue * priceValue,
+                receiptCode: receiptCode.trimmingCharacters(in: .whitespacesAndNewlines),
+                date: refillDate
+            )
+
+            if let error = await localStore.lastFuelSaveError {
+                await MainActor.run {
+                    saveErrorMessage = error
+                    showingSaveError = true
+                }
+                return
             }
 
-            Task {
+            if let expenseService, let driverId, let vehicleId {
+                var ocrData: String?
+                if ocrAmount != nil || ocrDate != nil || ocrVendor != nil || ocrNumber != nil {
+                    let dict: [String: String?] = [
+                        "amount": ocrAmount, "date": ocrDate,
+                        "vendor": ocrVendor, "receiptNumber": ocrNumber
+                    ]
+                    ocrData = (try? JSONSerialization.data(withJSONObject: dict.compactMapValues { $0 }))
+                        .flatMap { String(data: $0, encoding: .utf8) }
+                }
+
                 let entry = ExpenseEntry(
                     id: UUID(),
                     tripId: activeTripId.flatMap { UUID(uuidString: $0) },
@@ -397,22 +415,23 @@ struct TripFuelHistoryView: View {
                 )
                 _ = try? await expenseService.createExpense(entry)
             }
-        }
 
-        liters = ""
-        pricePerLiter = ""
-        receiptCode = ""
-        refillDate = Date()
-        selectedReceiptImage = nil
-        ocrAmount = nil
-        ocrDate = nil
-        ocrVendor = nil
-        ocrNumber = nil
-        receiptImageData = nil
-        showingSavedAlert = true
+            await MainActor.run {
+                liters = ""
+                pricePerLiter = ""
+                receiptCode = ""
+                refillDate = Date()
+                selectedReceiptImage = nil
+                ocrAmount = nil
+                ocrDate = nil
+                ocrVendor = nil
+                ocrNumber = nil
+                receiptImageData = nil
+                showingSavedAlert = true
+            }
+        }
     }
 }
-
 struct OCRReviewView: View {
     @Environment(\.dismiss) var dismiss
 
@@ -536,31 +555,4 @@ struct TripFuelHistoryRow: View {
         }
         .padding(.vertical, 12)
     }
-}
-
-struct StatusBadge: View {
-    let status: FuelRecord.RequestStatus
-
-    var body: some View {
-        Text(status.rawValue)
-            .font(.caption)
-            .fontWeight(.bold)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(backgroundColor.opacity(0.2))
-            .foregroundColor(backgroundColor)
-            .cornerRadius(12)
-    }
-
-    private var backgroundColor: Color {
-        switch status {
-        case .approved, .completed: return .green
-        case .pending: return .orange
-        case .rejected: return .red
-        }
-    }
-}
-
-#Preview {
-    FuelHistoryView()
 }

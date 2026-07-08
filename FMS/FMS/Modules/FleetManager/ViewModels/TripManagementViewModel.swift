@@ -96,7 +96,7 @@ final class TripManagementViewModel: ObservableObject {
                         clearSuccessMessage()
                         return false
                     }
-                    
+
                     let isVehAvail = try await isVehicleAvailable(vehicleId: vehicleId, startTime: form.startTime, endTime: tripEnd, excludingTripId: nil)
                     if !isVehAvail {
                         errorMessage = "The selected vehicle is already assigned to an overlapping active trip."
@@ -104,7 +104,7 @@ final class TripManagementViewModel: ObservableObject {
                         return false
                     }
                 }
-                
+
                 let initialTrip = form.makeTrip()
                 let trip = try await tripService.createTrip(initialTrip)
                 if let vehicleId = trip.vehicleId, let driverId = trip.driverId {
@@ -301,15 +301,15 @@ final class TripManagementViewModel: ObservableObject {
     private func checkVehicleIdleViolation(vehicle: Vehicle, trips: [Trip], tasks: [MaintenanceTask], targetStartTime: Date) -> Bool {
         let vehicleTrips = trips.filter { $0.vehicleId == vehicle.id && $0.status == .completed }
         let sortedTrips = vehicleTrips.sorted(by: { $0.startTime < $1.startTime })
-        
+
         let addedDate = vehicle.addedToFleetAt ?? targetStartTime.addingTimeInterval(-45 * 24 * 3600)
-        
+
         struct Gap {
             let start: Date
             let end: Date
         }
         var gaps: [Gap] = []
-        
+
         if sortedTrips.isEmpty {
             gaps.append(Gap(start: addedDate, end: targetStartTime))
         } else {
@@ -326,7 +326,7 @@ final class TripManagementViewModel: ObservableObject {
                 gaps.append(Gap(start: lastTripEnd, end: targetStartTime))
             }
         }
-        
+
         let oneMonth: TimeInterval = 30 * 24 * 3600
         for gap in gaps {
             let gapDuration = gap.end.timeIntervalSince(gap.start)
@@ -348,18 +348,18 @@ final class TripManagementViewModel: ObservableObject {
         let allTrips = try await tripService.fetchTrips()
         let completedTasks = (try? await vehicleService.fetchCompletedMaintenanceTasks()) ?? []
         let taskVehicles = (try? await vehicleService.fetchTaskVehicles()) ?? []
-        
+
         let taskIdsByVehicle = Dictionary(grouping: taskVehicles, by: \.vin)
-        
+
         var eligible: [Vehicle] = []
         for vehicle in all {
             guard (vehicle.status == .available || vehicle.status == .assigned),
                   vehicle.vehicleType.lowercased() == vehicleType.lowercased()
             else { continue }
-            
+
             let vehicleTrips = allTrips.filter { $0.vehicleId == vehicle.id }
             guard hasNoOverlap(vehicleTrips, tripStart: tripStart, tripEnd: tripEnd) else { continue }
-            
+
             let completedTrips = vehicleTrips.filter { $0.status == .completed }
             if let mostRecentCompleted = completedTrips.sorted(by: { $0.startTime > $1.startTime }).first {
                 let hasInspection = try await tripService.hasPostTripInspection(tripId: mostRecentCompleted.id)
@@ -367,14 +367,14 @@ final class TripManagementViewModel: ObservableObject {
                     continue
                 }
             }
-            
+
             let vehicleTaskIds = Set((taskIdsByVehicle[vehicle.id] ?? []).map(\.taskId))
             let vehicleTasks = completedTasks.filter { vehicleTaskIds.contains($0.id) }
-            
+
             if checkVehicleIdleViolation(vehicle: vehicle, trips: allTrips, tasks: vehicleTasks, targetStartTime: tripStart) {
                 continue
             }
-            
+
             eligible.append(vehicle)
         }
         return eligible
@@ -384,7 +384,7 @@ final class TripManagementViewModel: ObservableObject {
         let allDrivers = try await userManagementService.fetchDrivers()
         let allUsers = try await userManagementService.fetchUsers()
         let allActiveTrips = try await tripService.fetchTrips()
-        
+
         // Fetch ONLY schedules overlapping this trip window
         let activeSchedules = try await userManagementService.fetchDriverSchedules(
             overlappingStart: tripStart,
@@ -392,7 +392,7 @@ final class TripManagementViewModel: ObservableObject {
         )
 
         let activeUserIds = Set(allUsers.filter { $0.isActive && $0.deletedAt == nil }.map(\.id))
-        
+
         // O(1) Pre-grouping lookup optimization
         let schedulesByDriver = Dictionary(grouping: activeSchedules, by: \.driverId)
 
@@ -424,7 +424,7 @@ final class TripManagementViewModel: ObservableObject {
                 }
             } else if t.status == .completed {
                 let tEnd = t.endTime ?? t.startTime.addingTimeInterval(7200)
-                
+
                 if tripStart >= t.startTime {
                     let bufferEnd = tEnd.addingTimeInterval(5 * 3600)
                     if tripStart < bufferEnd {
@@ -464,7 +464,7 @@ final class TripManagementViewModel: ObservableObject {
 
             let normalizedScore = driverScore / 100.0
             let workloadScore = 1.0 / Double(activeCount + 1)
-            
+
             let composite = normalizedScore * 0.60 + workloadScore * 0.40
 
             candidates.append(Candidate(driver: driver, score: composite))
@@ -476,20 +476,20 @@ final class TripManagementViewModel: ObservableObject {
     func isDriverAvailable(driverId: UUID, startTime: Date, endTime: Date?, excludingTripId: UUID?) async throws -> Bool {
         let allActiveTrips = try await tripService.fetchTrips()
         let tripEnd = endTime ?? startTime.addingTimeInterval(7200)
-        
+
         // Check if the driver has an overlapping active trip
         let hasTripOverlap = allActiveTrips.contains { trip in
             guard trip.driverId == driverId,
                   trip.id != excludingTripId,
                   activeWorkStatuses.contains(trip.status)
             else { return false }
-            
+
             let tEnd = trip.endTime ?? trip.startTime.addingTimeInterval(7200)
             return trip.startTime < tripEnd && tEnd > startTime
         }
-        
+
         if hasTripOverlap { return false }
-        
+
         // Check if they are blocked out by their schedule
         let activeSchedules = try await userManagementService.fetchDriverSchedules(
             overlappingStart: startTime,
@@ -498,25 +498,25 @@ final class TripManagementViewModel: ObservableObject {
         let hasBlockedSchedule = activeSchedules.contains { s in
             s.driverId == driverId && !s.isAvailable && s.startTime < tripEnd && s.endTime > startTime
         }
-        
+
         return !hasBlockedSchedule
     }
 
     func isVehicleAvailable(vehicleId: UUID, startTime: Date, endTime: Date?, excludingTripId: UUID?) async throws -> Bool {
         let allActiveTrips = try await tripService.fetchTrips()
         let tripEnd = endTime ?? startTime.addingTimeInterval(7200)
-        
+
         // Check if the vehicle has an overlapping active trip
         let hasTripOverlap = allActiveTrips.contains { trip in
             guard trip.vehicleId == vehicleId,
                   trip.id != excludingTripId,
                   activeWorkStatuses.contains(trip.status)
             else { return false }
-            
+
             let tEnd = trip.endTime ?? trip.startTime.addingTimeInterval(7200)
             return trip.startTime < tripEnd && tEnd > startTime
         }
-        
+
         return !hasTripOverlap
     }
 

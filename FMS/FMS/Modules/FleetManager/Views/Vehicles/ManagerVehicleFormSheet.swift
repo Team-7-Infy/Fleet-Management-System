@@ -144,7 +144,7 @@ struct ManagerVehicleFormSheet: View {
             FleetFormFieldLabel("Fuel Type")
             Picker(selection: $form.fuelType) {
                 Text("None").tag("")
-                ForEach(["petrol", "diesel", "cng"], id: \.self) { type in
+                ForEach(["petrol", "diesel", "cng", "electric"], id: \.self) { type in
                     Text(type.capitalized).tag(type)
                 }
             } label: {
@@ -159,6 +159,16 @@ struct ManagerVehicleFormSheet: View {
             .pickerStyle(.menu)
             .tint(FleetPalette.accent)
             .fleetField()
+
+            if form.fuelType == "electric" {
+                FleetFormFieldLabel("Battery Capacity (kWh)")
+                TextField("e.g. 40", text: $form.batteryCapacityKwh)
+                    .keyboardType(.decimalPad).fleetField()
+            } else if !form.fuelType.isEmpty {
+                FleetFormFieldLabel("Fuel Capacity (Liters)")
+                TextField("e.g. 50", text: $form.fuelCapacityLiters)
+                    .keyboardType(.decimalPad).fleetField()
+            }
         }
     }
 

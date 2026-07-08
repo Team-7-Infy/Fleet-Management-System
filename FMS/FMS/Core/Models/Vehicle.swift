@@ -10,6 +10,8 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
     var vehicleType: String
     var driverId: UUID?
     var fuelType: String?
+    var fuelCapacityLiters: Double?
+    var batteryCapacityKwh: Double?
     var addedToFleetAt: Date?
     var odometer: Double?
     var maintenanceKmInterval: Int?
@@ -27,6 +29,8 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
         case vehicleType = "vehicletype"
         case driverId = "driverid"
         case fuelType = "fuel_type"
+        case fuelCapacityLiters = "fuel_capacity_liters"
+        case batteryCapacityKwh = "battery_capacity_kwh"
         case addedToFleetAt = "added_to_fleet_at"
         case odometer
         case maintenanceKmInterval = "maintenance_km_interval"
@@ -34,9 +38,9 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
         case deletedAt = "deleted_at"
         case baseAge = "age"
     }
-    
+
     var formattedLicencePlate: String { licencePlate }
-    
+
     var currentAge: Int {
         let base = baseAge ?? 0
         guard let addedDate = addedToFleetAt else { return base }
@@ -49,17 +53,17 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
         guard let addedDate = addedToFleetAt else {
             return "\(baseYears) years 0 months"
         }
-        
+
         let components = Calendar.current.dateComponents([.year, .month], from: addedDate, to: Date())
         let yearsPassed = components.year ?? 0
         let monthsPassed = components.month ?? 0
-        
+
         let totalYears = baseYears + yearsPassed
         let totalMonths = monthsPassed
-        
+
         let yearUnit = totalYears == 1 ? "year" : "years"
         let monthUnit = totalMonths == 1 ? "month" : "months"
-        
+
         return "\(totalYears) \(yearUnit) \(totalMonths) \(monthUnit)"
     }
 
@@ -73,6 +77,8 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
         vehicleType: String,
         driverId: UUID? = nil,
         fuelType: String? = nil,
+        fuelCapacityLiters: Double? = nil,
+        batteryCapacityKwh: Double? = nil,
         addedToFleetAt: Date? = nil,
         odometer: Double? = nil,
         maintenanceKmInterval: Int? = nil,
@@ -89,6 +95,8 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
         self.vehicleType = vehicleType
         self.driverId = driverId
         self.fuelType = fuelType
+        self.fuelCapacityLiters = fuelCapacityLiters
+        self.batteryCapacityKwh = batteryCapacityKwh
         self.addedToFleetAt = addedToFleetAt
         self.odometer = odometer
         self.maintenanceKmInterval = maintenanceKmInterval
@@ -101,7 +109,7 @@ struct Vehicle: Identifiable, Codable, Hashable, Sendable {
 @propertyWrapper
 struct FormattedLicencePlate: Codable, Hashable, Sendable {
     private var value: String
-    
+
     var wrappedValue: String {
         get {
             let raw = value.replacingOccurrences(of: " ", with: "").uppercased()
@@ -121,20 +129,18 @@ struct FormattedLicencePlate: Codable, Hashable, Sendable {
         }
         set { value = newValue }
     }
-    
+
     init(wrappedValue: String) {
         self.value = wrappedValue
     }
-    
+
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         self.value = try container.decode(String.self)
     }
-    
+
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(value)
     }
 }
-
-

@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct DashboardView: View {
     @Binding var showingProfile: Bool
@@ -48,8 +49,11 @@ struct DashboardView: View {
     @State private var showingNotifications = false
 
     @State private var tripToReject: Trip?
-    @State private var selectedScheduledTrip: Trip?
-    
+    @State private var tripToCancel: Trip?
+    @State private var cancelReason = ""
+    @State private var cancelComments = ""
+    @State private var isCancelConfirmed = false
+
     // Post-Trip Inspection & Success States
     @State private var showingPostTripInspection = false
     @State private var selectedTripForPostInspection: Trip? = nil
@@ -57,6 +61,7 @@ struct DashboardView: View {
     @State private var successDistance: Double = 0.0
     @State private var successDuration: Int = 0
     @State private var completedTripForSuccess: Trip? = nil
+    @State private var dashboardNow = Date()
 
     var body: some View {
         // 1. Live Trip (if available)
@@ -67,19 +72,26 @@ struct DashboardView: View {
             $0.status == .accepted || $0.status == .pending || $0.status == .scheduled
         }.sorted { $0.startTime < $1.startTime }
 
-        // The nearest accepted or inspection-eligible Scheduled Trip (top card if no Live Trip exists)
+        // The nearest accepted Scheduled Trip (top card if no Live Trip exists).
+        // Unaccepted trips (scheduled/pending) never appear as the hero card —
+        // they must be accepted first via Trip Detail.
         let nearestScheduledTrip = liveTrip == nil ? allScheduled.first(where: {
-            $0.status == .accepted ||
-            (($0.status == .scheduled || $0.status == .pending) && Date() >= $0.startTime.addingTimeInterval(-3 * 3600))
+            $0.status == .accepted
         }) : nil
 
         // Is Pre-Trip Inspection enabled for the nearest Scheduled Trip?
         let isInspectionEnabled: Bool = {
             if let nearest = nearestScheduledTrip {
-                let threeHoursBefore = nearest.startTime.addingTimeInterval(-3 * 3600)
-                return Date() >= threeHoursBefore
+                let windowBefore = nearest.startTime.addingTimeInterval(-TripTimingPolicy.preTripInspectionWindow)
+                return dashboardNow >= windowBefore
             }
             return false
+        }()
+
+        // Is Start Trip enabled for the nearest Scheduled Trip? (1 hour before departure)
+        let isStartTripEnabled: Bool = {
+            guard let nearest = nearestScheduledTrip else { return false }
+            return dashboardNow >= nearest.startTime.addingTimeInterval(-TripTimingPolicy.startTripWindow)
         }()
 
         // Remaining scheduled trips for the section list below
@@ -93,9 +105,9 @@ struct DashboardView: View {
         // Top 3 remaining scheduled trips for the main dashboard list
         let displayedScheduled = Array(remainingScheduled.prefix(3))
 
-        // History trips (Completed, Rejected, Cancelled) sorted by completion time (latest first)
+        // History trips (Completed, Rejected, Cancelled, RejectionPending) sorted by completion time (latest first)
         let historyTrips = trips.filter {
-            $0.status == .completed || $0.status == .rejected || $0.status == .cancelled
+            $0.status == .completed || $0.status == .rejected || $0.status == .cancelled || $0.status == .rejectionPending
         }.sorted { t1, t2 in
             let end1 = t1.endTime ?? t1.startTime
             let end2 = t2.endTime ?? t2.startTime
@@ -124,13 +136,14 @@ struct DashboardView: View {
 
                         // --- 1. Active/Post-Trip Section (Highest Priority) ---
                         ZStack {
-                            if let pendingPostTripId = localStore.pendingPostTripInspectionTripId,
-                               let matchingTrip = trips.first(where: { $0.id.uuidString == pendingPostTripId }) {
+                            if let pendingPostTrip = localStore.pendingPostTripInspection,
+                               let matchingTrip = trips.first(where: { $0.id.uuidString == pendingPostTrip.tripId }) {
                                 VStack(alignment: .leading, spacing: 10) {
                                     SectionHeader(title: "Post-Trip Inspection Required")
                                     PostTripInspectionCard(
                                         trip: matchingTrip,
                                         vehicles: vehicles,
+                                        services: services,
                                         onPerformInspection: {
                                             selectedTripForPostInspection = matchingTrip
                                         }
@@ -147,11 +160,11 @@ struct DashboardView: View {
                                         tripId: active.id.uuidString,
                                         startLocation: active.startLocation,
                                         endLocation: active.endLocation,
-                                        distanceCovered: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? "120 km" : "0 km",
-                                        distanceRemaining: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? "45 km" : formattedDistance(for: active),
+                                        distanceCovered: "—",
+                                        distanceRemaining: formattedDistance(for: active),
                                         eta: formattedEta(for: active),
-                                        remainingTime: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? "2h 15m" : "Calculating...",
-                                        progress: active.id.uuidString == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" ? 0.65 : 0.0,
+                                        remainingTime: "Calculating...",
+                                        progress: 0.0,
                                         onCardTap: { showingTripDetailsSheet = true },
                                         onNavigationTap: {
                                             localStore.isNavigationActive = true
@@ -172,9 +185,10 @@ struct DashboardView: View {
                                     UpcomingLiveTripCard(
                                         trip: nearest,
                                         vehicles: vehicles,
-                                        isInspected: localStore.inspectedVehicles.contains(nearest.id.uuidString),
+                                        isInspected: localStore.isTripInspected(nearest.id.uuidString, vehicleId: nearest.vehicleId),
                                         activeTripExists: false,
                                         isInspectionEnabled: isInspectionEnabled,
+                                        canStartTrip: isStartTripEnabled,
                                         onPerformInspection: {
                                             selectedTripToStart = nearest.id.uuidString
                                             showingInspectionSheet = true
@@ -182,10 +196,13 @@ struct DashboardView: View {
                                         onStartTrip: {
                                             Task {
                                                 do {
-                                                    try await services.tripService.updateTripStatus(id: nearest.id, status: .inProgress)
+                                                    var updatedTrip = nearest
+                                                    updatedTrip.actualStartTime = Date()
+                                                    updatedTrip.status = .inProgress
+                                                    try await services.tripService.updateTrip(updatedTrip)
                                                     await onRefreshData?()
                                                     await MainActor.run {
-                                                        activeTripForNavigation = nearest
+                                                        activeTripForNavigation = updatedTrip
                                                         showingActiveNavigation = true
                                                     }
                                                 } catch {
@@ -231,7 +248,7 @@ struct DashboardView: View {
                                 SectionHeader(title: "Scheduled Trips")
                                 Spacer()
                                 if remainingScheduled.count > 3 {
-                                    NavigationLink(destination: ScheduledTripsListView(trips: remainingScheduled, vehicles: vehicles)) {
+                                    NavigationLink(destination: ScheduledTripsListView(trips: remainingScheduled, vehicles: vehicles, services: services)) {
                                         Image(systemName: "chevron.right")
                                             .font(.system(size: 14, weight: .bold))
                                             .foregroundColor(.white)
@@ -250,26 +267,21 @@ struct DashboardView: View {
                             } else {
                                 VStack(spacing: 16) {
                                     ForEach(displayedScheduled) { trip in
-                                        if (trip.status == .pending || trip.status == .scheduled) && Date() < trip.startTime.addingTimeInterval(-3 * 3600) {
+                                        NavigationLink(destination: TripDetailView(
+                                            trip: trip,
+                                            services: services,
+                                            onAccept: { await acceptTrip(trip) },
+                                            onReject: { reason in await rejectTrip(trip, reason: reason) }
+                                        ).environmentObject(localStore)) {
                                             PendingRequestCard(
                                                 trip: trip,
                                                 vehicles: vehicles,
-                                                showActions: true,
-                                                onCardTap: { selectedScheduledTrip = trip },
-                                                onAcceptTap: { Task { await acceptTrip(trip) } },
-                                                onRejectTap: { tripToReject = trip }
+                                                onAcceptTap: nil,
+                                                onRejectTap: nil,
+                                                onCancelTap: nil
                                             )
-                                        } else {
-                                            NavigationLink(destination: TripDetailView(trip: trip).environmentObject(localStore)) {
-                                                PendingRequestCard(
-                                                    trip: trip,
-                                                    vehicles: vehicles,
-                                                    showActions: false,
-                                                    onCardTap: nil
-                                                )
-                                            }
-                                            .buttonStyle(PlainButtonStyle())
                                         }
+                                        .buttonStyle(PlainButtonStyle())
                                     }
                                 }
                             }
@@ -282,7 +294,7 @@ struct DashboardView: View {
                                 SectionHeader(title: "History Trips")
                                 Spacer()
                                 if historyTrips.count > 3 {
-                                    NavigationLink(destination: HistoryTripsListView(trips: historyTrips, vehicles: vehicles)) {
+                                    NavigationLink(destination: HistoryTripsListView(trips: historyTrips, vehicles: vehicles, services: services)) {
                                         Image(systemName: "chevron.right")
                                             .font(.system(size: 14, weight: .bold))
                                             .foregroundColor(.white)
@@ -301,12 +313,10 @@ struct DashboardView: View {
                             } else {
                                 VStack(spacing: 16) {
                                     ForEach(displayedHistory) { trip in
-                                        NavigationLink(destination: TripDetailView(trip: trip).environmentObject(localStore)) {
+                                        NavigationLink(destination: TripDetailView(trip: trip, services: services).environmentObject(localStore)) {
                                             PendingRequestCard(
                                                 trip: trip,
-                                                vehicles: vehicles,
-                                                showActions: false,
-                                                onCardTap: nil
+                                                vehicles: vehicles
                                             )
                                         }
                                         .buttonStyle(PlainButtonStyle())
@@ -351,8 +361,11 @@ struct DashboardView: View {
                 }
             }
             .onChange(of: trips) { _, newTrips in
-                if let live = newTrips.first(where: { $0.status == .inProgress }), activeTripForNavigation == nil {
-                    activeTripForNavigation = live
+                if activeTripForNavigation == nil {
+                    for t in newTrips where t.status == .inProgress {
+                        activeTripForNavigation = t
+                        break
+                    }
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ReloadTrips"))) { _ in
@@ -360,6 +373,9 @@ struct DashboardView: View {
                     await viewModel.fetchDashboardData()
                     await onRefreshData?()
                 }
+            }
+            .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { newNow in
+                dashboardNow = newNow
             }
             .onDisappear {
                 notificationViewModel.unsubscribeRealtime()
@@ -396,37 +412,7 @@ struct DashboardView: View {
                 Alert(
                     title: Text("EMERGENCY SOS"),
                     message: Text("Are you sure you want to trigger an SOS? This will instantly cancel your active trip and alert the fleet manager."),
-                    primaryButton: .destructive(Text("Trigger SOS")) {
-                        let tripToCancel = trips.first(where: { $0.status == .inProgress }) ?? trips.first(where: { $0.status == .accepted }) ?? trips.first(where: { $0.status == .scheduled })
-                        if let trip = tripToCancel {
-                            Task {
-                                do {
-                                    try await services.tripService.updateTripStatus(
-                                        id: trip.id,
-                                        status: .cancelled,
-                                        rejectionReason: "SOS Emergency: Cancelled via emergency SOS alert."
-                                    )
-                                    
-                                    let notification = AppNotification(
-                                        id: UUID(),
-                                        title: "CRITICAL: Driver SOS Emergency",
-                                        message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation).",
-                                        type: "geofence_exit",
-                                        isRead: false,
-                                        referenceId: trip.id,
-                                        recipientId: nil,
-                                        createdAt: Date()
-                                    )
-                                    _ = try? await services.notificationService.createNotification(notification)
-                                    
-                                    await viewModel.fetchDashboardData()
-                                    await onRefreshData?()
-                                } catch {
-                                    print("Failed to cancel trip on SOS: \(error)")
-                                }
-                            }
-                        }
-                    },
+                    primaryButton: .destructive(Text("Trigger SOS"), action: triggerSOS),
                     secondaryButton: .cancel()
                 )
             }
@@ -435,6 +421,8 @@ struct DashboardView: View {
                     TripFuelHistoryView(
                         isReadOnly: false,
                         activeTripId: viewModel.activeTripId,
+                        tripStatus: liveTrip?.status,
+                        tripEndTime: liveTrip?.endTime,
                         vehicleNumber: "",
                         expenseService: services.expenseService,
                         driverId: driver?.id,
@@ -470,7 +458,7 @@ struct DashboardView: View {
                     )
                 }
             }
-            .sheet(isPresented: $showingInspectionSheet) {
+            .fullScreenCover(isPresented: $showingInspectionSheet) {
                 NavigationStack {
                     InspectionFlowView(
                         services: services,
@@ -482,24 +470,20 @@ struct DashboardView: View {
                     )
                 }
             }
-            .sheet(item: $selectedTripForPostInspection) { tripToInspect in
+            .fullScreenCover(item: $selectedTripForPostInspection) { tripToInspect in
                 EndTripView(
                     trip: tripToInspect,
                     services: services,
-                    onComplete: { finalOdometer, notes in
-                        localStore.pendingPostTripInspectionTripId = nil
+                    onComplete: { finalOdometer, notes, distanceKm in
+                        localStore.pendingPostTripInspection = nil
                         
                         Task {
                             await onRefreshData?()
                         }
                         
-                        // Calculate metrics
-                        let startOdo = Double(UserDefaults.standard.integer(forKey: "trip_\(tripToInspect.id.uuidString)_pre_odo"))
-                        let finalOdo = Double(finalOdometer) ?? (startOdo > 0 ? startOdo + 12.4 : 124000.0)
-                        let startOdoVal = startOdo > 0 ? startOdo : (finalOdo - 12.4)
-                        
-                        self.successDistance = max(1.2, finalOdo - startOdoVal)
-                        self.successDuration = max(15, Int(Date().timeIntervalSince(tripToInspect.startTime)) / 60)
+                        let tripStart = tripToInspect.actualStartTime ?? tripToInspect.startTime
+                        self.successDistance = distanceKm
+                        self.successDuration = max(15, Int(Date().timeIntervalSince(tripStart)) / 60)
                         self.completedTripForSuccess = tripToInspect
                         
                         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
@@ -548,10 +532,21 @@ struct DashboardView: View {
                     Task { await rejectTrip(trip, reason: reason) }
                 }
             }
-            .sheet(item: $selectedScheduledTrip) { trip in
+            .sheet(item: $tripToCancel) { trip in
                 NavigationStack {
-                    TripDetailView(trip: trip)
-                        .environmentObject(localStore)
+                    TripCancellationView(
+                        isConfirmed: $isCancelConfirmed,
+                        selectedReason: $cancelReason,
+                        comments: $cancelComments
+                    )
+                }
+                .onDisappear {
+                    if isCancelConfirmed {
+                        Task { await cancelTrip(trip, reason: cancelReason) }
+                    }
+                    isCancelConfirmed = false
+                    cancelReason = ""
+                    cancelComments = ""
                 }
             }
 
@@ -560,8 +555,10 @@ struct DashboardView: View {
     }
 
     private func formattedDistance(for trip: Trip) -> String {
-        let hash = abs(trip.id.uuidString.hashValue)
-        return "\(50 + (hash % 450)) km"
+        guard let km = trip.distanceKm, km > 0 else { return "—" }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return (formatter.string(from: NSNumber(value: km)) ?? "\(km)") + " km"
     }
 
     private func formattedEta(for trip: Trip) -> String {
@@ -599,6 +596,66 @@ struct DashboardView: View {
             await onRefreshData?()
         } catch {
             print("Failed to reject trip: \(error)")
+        }
+    }
+
+    private func cancelTrip(_ trip: Trip, reason: String) async {
+        do {
+            try await services.tripService.updateTripStatus(id: trip.id, status: .cancelled, rejectionReason: reason)
+            await onRefreshData?()
+        } catch {
+            print("Failed to cancel trip: \(error)")
+        }
+    }
+
+    private func triggerSOS() {
+        let tripToCancel = trips.first(where: { $0.status == .inProgress }) ?? trips.first(where: { $0.status == .accepted }) ?? trips.first(where: { $0.status == .scheduled })
+        Task {
+            do {
+                if let trip = tripToCancel {
+                    try await services.tripService.updateTripStatus(
+                        id: trip.id,
+                        status: .cancelled,
+                        rejectionReason: "SOS Emergency: Cancelled via emergency SOS alert."
+                    )
+                }
+
+                let event = SOSEvent(
+                    id: UUID(),
+                    tripId: tripToCancel?.id,
+                    driverId: driver?.id ?? user.id,
+                    vehicleId: tripToCancel?.vehicleId?.uuidString,
+                    type: "critical",
+                    status: .pending,
+                    latitude: locationService.location?.coordinate.latitude ?? 0,
+                    longitude: locationService.location?.coordinate.longitude ?? 0,
+                    resolvedBy: nil,
+                    resolvedAt: nil,
+                    notes: nil,
+                    createdAt: Date()
+                )
+                _ = try? await services.sosService.createEvent(event)
+
+                let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
+                for fmUser in fmUsers {
+                    let notification = AppNotification(
+                        id: UUID(),
+                        title: "CRITICAL: Driver SOS Emergency",
+                        message: "Driver has triggered emergency SOS alert for Trip from \(tripToCancel?.startLocation ?? "N/A") to \(tripToCancel?.endLocation ?? "N/A").",
+                        type: "sos_emergency",
+                        isRead: false,
+                        referenceId: tripToCancel?.id,
+                        recipientId: fmUser.id,
+                        createdAt: Date()
+                    )
+                    _ = try? await services.notificationService.createNotification(notification)
+                }
+
+                await viewModel.fetchDashboardData()
+                await onRefreshData?()
+            } catch {
+                print("Failed to cancel trip on SOS: \(error)")
+            }
         }
     }
 }
@@ -649,19 +706,16 @@ struct HomeHeaderView: View {
                         .shadow(color: Color.blue.opacity(0.2), radius: 4, x: 0, y: 2)
 
                     if let avatarImageURL {
-                        AsyncImage(url: avatarImageURL) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: 36, height: 36)
-                                    .clipShape(Circle())
-                            default:
-                                Text(initials)
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundColor(.white)
-                            }
+                        CachedAsyncImage(url: avatarImageURL) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 36, height: 36)
+                                .clipShape(Circle())
+                        } placeholder: {
+                            Text(initials)
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
                         }
                     } else {
                         Text(initials)
@@ -963,20 +1017,26 @@ struct ActionTile: View {
 }
 
 struct PendingRequestCard: View {
+    @EnvironmentObject var localStore: LocalDataStore
     let trip: Trip
     let vehicles: [Vehicle]
-    var showActions: Bool = true
-    var onCardTap: (() -> Void)? = nil
     var onAcceptTap: (() -> Void)? = nil
     var onRejectTap: (() -> Void)? = nil
+    var onCancelTap: (() -> Void)? = nil
+
+    private var hasPreTripInspection: Bool {
+        localStore.isTripInspected(trip.id.uuidString, vehicleId: trip.vehicleId)
+    }
 
     private var vehicleNumber: String {
         vehicles.first(where: { $0.id == trip.vehicleId })?.licencePlate ?? ""
     }
 
     private var displayDistance: String {
-        let hash = abs(trip.id.uuidString.hashValue)
-        return "\(50 + (hash % 450)) km"
+        guard let km = trip.distanceKm, km > 0 else { return "—" }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return (formatter.string(from: NSNumber(value: km)) ?? "\(km)") + " km"
     }
 
     private var displayEta: String {
@@ -1003,132 +1063,140 @@ struct PendingRequestCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 14) {
-                    // Header: ID and Vehicle
-                    HStack {
-                        Text(trip.id.shortIdentifier)
-                            .font(.system(size: 16, weight: .black, design: .rounded))
-                            .foregroundColor(.blue)
-                        Spacer()
+            cardContent
+            cardActions
+        }
+        .padding(20)
+        .background(Color(UIColor.systemBackground))
+        .cornerRadius(20)
+        .shadow(color: Color.black.opacity(0.03), radius: 15, x: 0, y: 5)
+    }
 
-                        // Vehicle Capsule
-                        HStack(spacing: 6) {
-                            Image(systemName: "truck.box.fill")
-                                .font(.system(size: 13))
-                                .foregroundColor(.blue)
-                            Text(vehicleNumber)
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.blue)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.blue.opacity(0.08))
-                        .clipShape(Capsule())
-                    }
+    @ViewBuilder
+    private var cardContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            // Header: ID and Vehicle
+            HStack {
+                Text(trip.id.shortIdentifier)
+                    .font(.system(size: 16, weight: .black, design: .rounded))
+                    .foregroundColor(.blue)
+                Spacer()
 
-                    // Route Info (Start to End Locations)
-                    VStack(alignment: .leading, spacing: 0) {
-                        // Origin header
-                        Text("ORIGIN")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.secondary)
-                            .padding(.leading, 24)
-                            .padding(.bottom, 4)
-                        
-                        // Origin Address Row
-                        HStack(alignment: .top, spacing: 12) {
-                            Circle()
-                                .fill(Color.green)
-                                .frame(width: 8, height: 8)
-                                .padding(.top, 5)
-                                .frame(width: 12)
-                            
-                            Text(trip.startLocation)
-                                .font(.subheadline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.primary)
-                                .multilineTextAlignment(.leading)
-                        }
-                        
-                        // Connector line & distance
-                        HStack(alignment: .top, spacing: 12) {
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(width: 2)
-                                .frame(width: 12)
-                            
-                            HStack(spacing: 4) {
-                                Image(systemName: "road.lanes")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(.purple)
-                                Text(displayDistance)
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(.purple)
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        .frame(height: 24)
-                        
-                        // Destination header
-                        Text("DESTINATION")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.secondary)
-                            .padding(.leading, 24)
-                            .padding(.bottom, 4)
-                        
-                        // Destination Address Row
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: "flag.fill")
-                                .foregroundColor(.red)
-                                .font(.system(size: 8))
-                                .padding(.top, 5)
-                                .frame(width: 12)
-                            
-                            Text(trip.endLocation)
-                                .font(.subheadline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.primary)
-                                .multilineTextAlignment(.leading)
-                        }
-                    }
+                // Vehicle Capsule
+                HStack(spacing: 6) {
+                    Image(systemName: "truck.box.fill")
+                        .font(.system(size: 13))
+                        .foregroundColor(.blue)
+                    Text(vehicleNumber)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.blue)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.blue.opacity(0.08))
+                .clipShape(Capsule())
+            }
 
-                    // Schedule (Start/End Date & Time)
-                    HStack(spacing: 20) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("START DATE & TIME")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.secondary)
-                            Text(formattedStartTime)
-                                .font(.subheadline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.primary)
-                        }
+            // Route Info (Start to End Locations)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("ORIGIN")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 24)
+                    .padding(.bottom, 4)
 
-                        Spacer()
+                HStack(alignment: .top, spacing: 12) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 8, height: 8)
+                        .padding(.top, 5)
+                        .frame(width: 12)
 
-                        VStack(alignment: .trailing, spacing: 4) {
-                            Text("END DATE & TIME")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.secondary)
-                            Text(formattedEndTime)
-                                .font(.subheadline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.primary)
-                        }
+                    Text(trip.startLocation)
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                        .multilineTextAlignment(.leading)
+                }
+
+                HStack(alignment: .top, spacing: 12) {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: 2)
+                        .frame(width: 12)
+
+                    HStack(spacing: 4) {
+                        Image(systemName: "road.lanes")
+                            .font(.system(size: 9))
+                            .foregroundColor(.purple)
+                        Text(displayDistance)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.purple)
                     }
                     .padding(.vertical, 4)
-
                 }
-                .onTapGestureIf(enabled: !showActions && onCardTap != nil) {
-                    onCardTap?()
+                .frame(height: 24)
+
+                Text("DESTINATION")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 24)
+                    .padding(.bottom, 4)
+
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "flag.fill")
+                        .foregroundColor(.red)
+                        .font(.system(size: 8))
+                        .padding(.top, 5)
+                        .frame(width: 12)
+
+                    Text(trip.endLocation)
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                        .multilineTextAlignment(.leading)
                 }
+            }
 
-            if showActions {
-                Divider()
+            // Schedule (hidden for rejectionPending)
+            if trip.status != .rejectionPending {
+                HStack(spacing: 20) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("START DATE & TIME")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.secondary)
+                        Text(formattedStartTime)
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+                    }
 
-                // Accept & Reject Buttons
-                HStack(spacing: 12) {
-                    Button(action: { onRejectTap?() }) {
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("END DATE & TIME")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.secondary)
+                        Text(formattedEndTime)
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var cardActions: some View {
+        let hasActions = onAcceptTap != nil || onRejectTap != nil || onCancelTap != nil
+        if hasActions && (trip.status == .pending || trip.status == .scheduled) {
+            // Accept/Reject buttons for scheduled/pending trips
+            Divider()
+            HStack(spacing: 12) {
+                if let onRejectTap {
+                    Button(action: onRejectTap) {
                         HStack {
                             Image(systemName: "xmark.circle.fill")
                             Text("Reject")
@@ -1141,8 +1209,10 @@ struct PendingRequestCard: View {
                         .cornerRadius(12)
                     }
                     .buttonStyle(PlainButtonStyle())
+                }
 
-                    Button(action: { onAcceptTap?() }) {
+                if let onAcceptTap {
+                    Button(action: onAcceptTap) {
                         HStack {
                             Image(systemName: "checkmark.circle.fill")
                             Text("Accept")
@@ -1157,14 +1227,76 @@ struct PendingRequestCard: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
+
+                if onAcceptTap == nil && onRejectTap == nil {
+                    Text("No actions available")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+        } else if hasActions && trip.status == .accepted {
+            // Cancel button (or locked text if within 24h of start)
+            if let onCancelTap {
+                Divider()
+                let cancellationLocked = Date() >= trip.startTime.addingTimeInterval(-TripTimingPolicy.cancellationLockWindow)
+                if cancellationLocked {
+                    HStack {
+                        Spacer()
+                        Image(systemName: "lock.fill")
+                        Text("Cannot cancel trip now")
+                            .fontWeight(.bold)
+                        Spacer()
+                    }
+                    .font(.subheadline)
+                    .padding(.vertical, 12)
+                    .background(Color.red.opacity(0.1))
+                    .foregroundColor(.red.opacity(0.6))
+                    .cornerRadius(12)
+                } else {
+                    Button(action: onCancelTap) {
+                        HStack {
+                            Image(systemName: "xmark.circle.fill")
+                            Text("Cancel Trip")
+                        }
+                        .font(.subheadline).fontWeight(.bold)
+                        .foregroundColor(.red)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.red.opacity(0.08))
+                        .cornerRadius(12)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+        } else {
+            // Status badge for history/completed/cancelled/rejectionPending trips
+            Divider()
+            HStack(spacing: 8) {
+                    Image(systemName: trip.status == .cancelled ? "xmark.circle.fill" : trip.status == .completed ? "checkmark.circle.fill" : trip.status == .rejectionPending ? "exclamationmark.triangle.fill" : "clock.fill")
+                        .font(.caption)
+                        .foregroundColor(trip.status == .cancelled ? .red : trip.status == .completed ? .green : trip.status == .rejectionPending ? .red : .orange)
+                    if trip.status == .cancelled && trip.cancellationReason == "no_show_pretrip" {
+                        Text("Cancelled — Pre-Trip Inspection Missed")
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(.red)
+                    } else if trip.status == .cancelled && hasPreTripInspection {
+                        Text("Cancelled (Pre-Trip Inspection Completed)")
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(.red)
+                    } else if trip.status == .rejectionPending {
+                        Text("Couldn't Start — Pre-Trip Inspection Failed")
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(.red)
+                    } else {
+                        Text(trip.status.rawValue.capitalized)
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
         }
-        .padding(20)
-        .background(Color(UIColor.systemBackground))
-        .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.03), radius: 15, x: 0, y: 5)
     }
-}
 struct ManifestRow: View {
     let id: String
     let destination: String
@@ -1222,7 +1354,9 @@ struct FuelLogView: View {
 
                 Button("Save Fuel Entry") {
                     let fuelType: FuelRecord.FuelType = selectedType == "Petrol" ? .petrol : selectedType == "CNG" ? .cng : .diesel
-                    localStore.submitFuelRequest(vehicleId: "", fuelType: fuelType, amount: Double(fuelAmount) ?? 0, currentLevel: 0)
+                    Task {
+                        await localStore.submitFuelRequest(vehicleId: "", fuelType: fuelType, amount: Double(fuelAmount) ?? 0, currentLevel: 0)
+                    }
                     dismiss()
                 }
                 .frame(maxWidth: .infinity)
@@ -1826,6 +1960,7 @@ struct UpcomingLiveTripCard: View {
     let isInspected: Bool
     let activeTripExists: Bool
     let isInspectionEnabled: Bool
+    let canStartTrip: Bool
     let onPerformInspection: () -> Void
     let onStartTrip: () -> Void
 
@@ -1834,8 +1969,7 @@ struct UpcomingLiveTripCard: View {
     }
 
     private var displayDistance: String {
-        let hash = abs(trip.id.uuidString.hashValue)
-        let km = 1000 + (hash % 500)
+        guard let km = trip.distanceKm, km > 0 else { return "—" }
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         return (formatter.string(from: NSNumber(value: km)) ?? "\(km)") + " km"
@@ -1857,9 +1991,17 @@ struct UpcomingLiveTripCard: View {
 
                 Spacer()
 
-                Text("Starts soon")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.7))
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(trip.startTime, style: .date)
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.7))
+                    Text(trip.startTime, style: .time)
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.7))
+                    Text(trip.startTime, style: .timer)
+                        .font(.caption2)
+                        .foregroundColor(.orange.opacity(0.9))
+                }
             }
 
             // Route Detail
@@ -1992,7 +2134,7 @@ struct UpcomingLiveTripCard: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
-            } else {
+            } else if canStartTrip {
                 Button(action: {
                     HapticManager.shared.triggerImpact(style: .medium)
                     onStartTrip()
@@ -2017,6 +2159,25 @@ struct UpcomingLiveTripCard: View {
                     .cornerRadius(14)
                     .shadow(color: Color.blue.opacity(0.35), radius: 8, x: 0, y: 4)
                 }
+            } else {
+                VStack(spacing: 8) {
+                    HStack {
+                        Spacer()
+                        Image(systemName: "lock.fill")
+                        Text("Start Trip Locked")
+                            .fontWeight(.bold)
+                        Spacer()
+                    }
+                    .padding(.vertical, 16)
+                    .background(Color.white.opacity(0.15))
+                    .foregroundColor(.white.opacity(0.6))
+                    .cornerRadius(14)
+
+                    Text("You can start this trip 1 hour before the scheduled departure.")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
             }
         }
         .padding(24)
@@ -2029,6 +2190,7 @@ struct UpcomingLiveTripCard: View {
 struct ScheduledTripsListView: View {
     let trips: [Trip]
     let vehicles: [Vehicle]
+    var services: AppServices? = nil
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var localStore: LocalDataStore
 
@@ -2038,12 +2200,13 @@ struct ScheduledTripsListView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
                     ForEach(trips) { trip in
-                        NavigationLink(destination: TripDetailView(trip: trip).environmentObject(localStore)) {
+                        NavigationLink(destination: TripDetailView(trip: trip, services: services).environmentObject(localStore)) {
                             PendingRequestCard(
                                 trip: trip,
                                 vehicles: vehicles,
-                                showActions: false,
-                                onCardTap: nil
+                                onAcceptTap: nil,
+                                onRejectTap: nil,
+                                onCancelTap: nil
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -2071,6 +2234,7 @@ struct ScheduledTripsListView: View {
 struct HistoryTripsListView: View {
     let trips: [Trip]
     let vehicles: [Vehicle]
+    var services: AppServices? = nil
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var localStore: LocalDataStore
 
@@ -2080,12 +2244,10 @@ struct HistoryTripsListView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
                     ForEach(trips) { trip in
-                        NavigationLink(destination: TripDetailView(trip: trip).environmentObject(localStore)) {
+                        NavigationLink(destination: TripDetailView(trip: trip, services: services).environmentObject(localStore)) {
                             PendingRequestCard(
                                 trip: trip,
-                                vehicles: vehicles,
-                                showActions: false,
-                                onCardTap: nil
+                                vehicles: vehicles
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -2122,19 +2284,55 @@ extension View {
 }
 
 struct PostTripInspectionCard: View {
+    @EnvironmentObject var localStore: LocalDataStore
     let trip: Trip
     let vehicles: [Vehicle]
+    let services: AppServices
     let onPerformInspection: () -> Void
-    
+
+    @State private var now = Date()
+    @State private var didNotifyOverdue = false
+
+    private var deadline: Date? {
+        localStore.pendingPostTripInspection?.deadline
+    }
+
+    private var timeRemaining: TimeInterval {
+        guard let deadline else { return 0 }
+        return deadline.timeIntervalSince(now)
+    }
+
+    private var isOverdue: Bool {
+        timeRemaining <= 0
+    }
+
+    private var countdownText: String {
+        guard let deadline else { return "" }
+        if isOverdue { return "Overdue" }
+        let remaining = Int(timeRemaining)
+        let hours = remaining / 3600
+        let minutes = (remaining % 3600) / 60
+        if hours > 0 {
+            return "\(hours)h \(minutes)m remaining"
+        }
+        return "\(minutes)m remaining"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("PENDING POST-TRIP INSPECTION")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.orange)
-                        .tracking(1.0)
-                    
+                    HStack {
+                        Text(isOverdue ? "OVERDUE POST-TRIP INSPECTION" : "PENDING POST-TRIP INSPECTION")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(isOverdue ? .red : .orange)
+                            .tracking(1.0)
+
+                        Text("Complete within 2 hours of trip completion")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+
                     let plate = vehicles.first(where: { $0.id == trip.vehicleId })?.licencePlate ?? "Unknown"
                     Text("Vehicle: \(plate)")
                         .font(.title3)
@@ -2142,11 +2340,11 @@ struct PostTripInspectionCard: View {
                         .foregroundColor(.primary)
                 }
                 Spacer()
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.orange)
+                Image(systemName: isOverdue ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+                    .foregroundColor(isOverdue ? .red : .orange)
                     .font(.title2)
             }
-            
+
             HStack(spacing: 8) {
                 Image(systemName: "number")
                     .foregroundColor(.secondary)
@@ -2154,7 +2352,20 @@ struct PostTripInspectionCard: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
-            
+
+            if let deadline {
+                HStack(spacing: 6) {
+                    Image(systemName: isOverdue ? "clock.badge.exclamationmark" : "clock")
+                        .foregroundColor(isOverdue ? .red : .orange)
+                    Text(countdownText)
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(isOverdue ? .red : .orange)
+                    Text("- Due \(deadline.formatted(date: .omitted, time: .shortened))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+
             Button(action: onPerformInspection) {
                 HStack {
                     Text("Perform Post-Trip Inspection")
@@ -2167,7 +2378,7 @@ struct PostTripInspectionCard: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
                 .foregroundColor(.white)
-                .background(Color.orange)
+                .background(isOverdue ? Color.red : Color.orange)
                 .cornerRadius(12)
             }
             .buttonStyle(PlainButtonStyle())
@@ -2176,5 +2387,28 @@ struct PostTripInspectionCard: View {
         .background(Color(UIColor.secondarySystemGroupedBackground))
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.04), radius: 10, y: 5)
+        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { newNow in
+            now = newNow
+            if isOverdue && !didNotifyOverdue {
+                didNotifyOverdue = true
+                let plate = vehicles.first(where: { $0.id == trip.vehicleId })?.licencePlate ?? "Unknown"
+                Task {
+                    let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
+                    for fmUser in fmUsers {
+                        let notification = AppNotification(
+                            id: UUID(),
+                            title: "Overdue Post-Trip Inspection",
+                            message: "Post-trip inspection for \(plate) (Trip \(trip.id.shortIdentifier)) is overdue. Driver has not completed the inspection within the 2-hour window.",
+                            type: "overdue_post_trip",
+                            isRead: false,
+                            referenceId: trip.id,
+                            recipientId: fmUser.id,
+                            createdAt: Date()
+                        )
+                        _ = try? await services.notificationService.createNotification(notification)
+                    }
+                }
+            }
+        }
     }
 }

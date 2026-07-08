@@ -326,11 +326,37 @@ final actor UserManagementService: UserManagementServiceProtocol {
             .execute()
     }
 
+    func bulkUpdateDriverStatuses(updates: [(driverId: UUID, status: String)]) async throws {
+        guard !updates.isEmpty else { return }
+        let grouped = Dictionary(grouping: updates) { $0.status }
+        for (status, items) in grouped {
+            let ids = items.map { $0.driverId.uuidString }
+            try await supabase.client
+                .from("drivers")
+                .update(["status": AnyJSON.string(status)])
+                .in("driverid", values: ids)
+                .execute()
+        }
+    }
+
     func updateMaintenancePersonnelStatus(personnelId: UUID, status: String) async throws {
         try await supabase.client
             .from("maintenance_personnel")
             .update(["status": AnyJSON.string(status)])
             .eq("personnelid", value: personnelId.uuidString)
             .execute()
+    }
+
+    func bulkUpdateMaintenancePersonnelStatuses(updates: [(personnelId: UUID, status: String)]) async throws {
+        guard !updates.isEmpty else { return }
+        let grouped = Dictionary(grouping: updates) { $0.status }
+        for (status, items) in grouped {
+            let ids = items.map { $0.personnelId.uuidString }
+            try await supabase.client
+                .from("maintenance_personnel")
+                .update(["status": AnyJSON.string(status)])
+                .in("personnelid", values: ids)
+                .execute()
+        }
     }
 }

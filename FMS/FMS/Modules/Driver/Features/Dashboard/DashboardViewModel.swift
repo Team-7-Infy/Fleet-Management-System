@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+@MainActor
 class DashboardViewModel: ObservableObject {
     private let services: AppServices
     private let driver: Driver?

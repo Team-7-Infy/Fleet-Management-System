@@ -50,28 +50,16 @@ final class MaintenanceViewModel: ObservableObject {
         do {
             let fetchedTasks = try await maintenanceService.fetchTasks()
                 .sorted { $0.scheduledDate.date < $1.scheduledDate.date }
-            var fetchedTaskVehicles: [UUID: [TaskVehicle]] = [:]
-            var fetchedTaskParts: [UUID: [MaintenanceTaskPart]] = [:]
 
-            for task in fetchedTasks {
-                do {
-                    fetchedTaskVehicles[task.id] = try await maintenanceService.fetchTaskVehicles(taskId: task.id)
-                } catch {
-                    print("Error fetching task vehicles for task \(task.id): \(error)")
-                    fetchedTaskVehicles[task.id] = []
-                }
-                
-                do {
-                    fetchedTaskParts[task.id] = try await maintenanceService.fetchTaskParts(taskId: task.id)
-                } catch {
-                    print("Error fetching task parts for task \(task.id): \(error)")
-                    fetchedTaskParts[task.id] = []
-                }
-            }
+            async let allTaskVehicles = maintenanceService.fetchAllTaskVehicles()
+            async let allTaskParts = maintenanceService.fetchAllTaskParts()
+
+            let taskVehiclesByTask = Dictionary(grouping: try await allTaskVehicles) { $0.taskId }
+            let taskPartsByTask = Dictionary(grouping: try await allTaskParts) { $0.taskId }
 
             tasks = fetchedTasks
-            taskVehicles = fetchedTaskVehicles
-            taskParts = fetchedTaskParts
+            taskVehicles = taskVehiclesByTask
+            taskParts = taskPartsByTask
             errorMessage = nil
         } catch is CancellationError {
             errorMessage = nil

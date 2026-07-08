@@ -122,7 +122,7 @@ struct ManagerMaintenanceRequestSheet: View {
             form.title = form.title.isEmpty ? "Engine oil and filter change" : form.title
             form.description = form.description.isEmpty ? "Replace engine oil, oil filter, and inspect for leakage before the next trip." : form.description
             form.scheduledBy = form.scheduledBy ?? currentUserId.flatMap(usersViewModel.managerId(for:))
-            
+
             Task {
                 if let leastLoadedId = await viewModel.getNextLeastLoadedAssigneeId() {
                     form.executedBy = form.executedBy ?? leastLoadedId

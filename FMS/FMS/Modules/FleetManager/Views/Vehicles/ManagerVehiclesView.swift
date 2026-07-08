@@ -333,6 +333,13 @@ struct ManagerVehicleDetailView: View {
                     Divider()
                     InfoRow(title: "Fuel Type", value: currentVehicle.fuelType?.capitalized ?? "N/A")
                     Divider()
+                    if let liters = currentVehicle.fuelCapacityLiters {
+                        InfoRow(title: "Fuel Capacity", value: "\(Int(liters)) L")
+                        Divider()
+                    } else if let kwh = currentVehicle.batteryCapacityKwh {
+                        InfoRow(title: "Battery Capacity", value: "\(Int(kwh)) kWh")
+                        Divider()
+                    }
                     InfoRow(title: "Status", value: currentVehicle.status.title)
                     if let kmInterval = currentVehicle.maintenanceKmInterval {
                         Divider()

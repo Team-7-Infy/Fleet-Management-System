@@ -18,6 +18,7 @@ struct DriverDashboardView: View {
     @State private var driver: Driver?
     @State private var isLoading = true
     @State private var realtimeTask: Task<Void, Never>? = nil
+    @State private var refreshTimer: Timer? = nil
 
     var body: some View {
         Group {
@@ -39,11 +40,14 @@ struct DriverDashboardView: View {
                 .environmentObject(LocalDataStore.shared)
                 .onAppear {
                     if let driverId = driver?.id {
+                        Task { await reloadTripsAndVehicles(for: driverId) }
                         startRealtimeTrips(for: driverId)
+                        startRefreshTimer(for: driverId)
                     }
                 }
                 .onDisappear {
                     realtimeTask?.cancel()
+                    refreshTimer?.invalidate()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ReloadTrips"))) { _ in
                     if let driverId = driver?.id {
@@ -61,6 +65,13 @@ struct DriverDashboardView: View {
         }
     }
 
+    private func startRefreshTimer(for driverId: UUID) {
+        refreshTimer?.invalidate()
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
+            Task { await reloadTripsAndVehicles(for: driverId) }
+        }
+    }
+
     private func startRealtimeTrips(for driverId: UUID) {
         realtimeTask?.cancel()
         realtimeTask = Task {
@@ -71,10 +82,29 @@ struct DriverDashboardView: View {
         }
     }
 
+    private func syncInspectionsFromDatabase(for trips: [Trip]) async {
+        for trip in trips {
+            do {
+                let inspections = try await services.inspectionService.fetchInspections(tripId: trip.id)
+                let hasPreTrip = inspections.contains { $0.type == "pre_trip" && $0.status == .passed }
+                await MainActor.run {
+                    if hasPreTrip {
+                        LocalDataStore.shared.markTripInspected(trip.id.uuidString, vehicleId: trip.vehicleId)
+                    } else {
+                        LocalDataStore.shared.unmarkTripInspected(trip.id.uuidString)
+                    }
+                }
+            } catch {
+                print("Failed to sync inspections for trip \(trip.id): \(error)")
+            }
+        }
+    }
+
     private func reloadTripsAndVehicles(for driverId: UUID) async {
         do {
             let fetchedTrips = try await services.tripService.fetchTrips(forDriverId: driverId)
             let fetchedVehicles = try await services.vehicleService.fetchVehicles()
+            await syncInspectionsFromDatabase(for: fetchedTrips)
             await MainActor.run {
                 self.trips = fetchedTrips
                 self.vehicles = fetchedVehicles
@@ -106,6 +136,10 @@ struct DriverDashboardView: View {
             async let fetchedVehicles = services.vehicleService.fetchVehicles()
 
             let (t, v) = try await (fetchedTrips, fetchedVehicles)
+
+            LocalDataStore.shared.currentDriverId = matchedDriver.id
+            Task { await LocalDataStore.shared.loadFuelHistoryFromDatabase(driverId: matchedDriver.id) }
+            await syncInspectionsFromDatabase(for: t)
 
             await MainActor.run {
                 trips = t

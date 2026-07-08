@@ -472,6 +472,39 @@ final class ReportsViewModel: ObservableObject {
     var topUnderperformingDrivers: [(driver: Driver, user: User?, totalTrips: Int, onTimeRate: Double)] {
         underperformingDrivers.filter { $0.onTimeRate < 70 }
     }
+
+    // MARK: - Fuel Efficiency Analytics
+
+    var filteredFuelEfficiencyTrips: [Trip] {
+        filteredCompletedTrips.filter { $0.fuelConsumed != nil && $0.distanceKm != nil && $0.distanceKm! > 0 }
+    }
+
+    var averageFuelEfficiency: Double {
+        let trips = filteredFuelEfficiencyTrips
+        let totalKm = trips.compactMap(\.distanceKm).reduce(0, +)
+        let totalFuel = trips.compactMap(\.fuelConsumed).reduce(0, +)
+        guard totalFuel > 0 else { return 0 }
+        return totalKm / totalFuel
+    }
+
+    var fuelEfficiencyLabel: String {
+        let val = averageFuelEfficiency
+        guard val > 0 else { return "—" }
+        return String(format: "%.1f km/L", val)
+    }
+
+    var fuelEfficiencyByVehicle: [(vehicle: Vehicle, kmPerLiter: Double)] {
+        let allTrips = filteredFuelEfficiencyTrips
+        let vehicleIds = Set(allTrips.compactMap(\.vehicleId))
+        return vehicleIds.compactMap { vId in
+            guard let vehicle = vehiclesViewModel.vehicle(for: vId) else { return nil }
+            let vTrips = allTrips.filter { $0.vehicleId == vId }
+            let totalKm = vTrips.compactMap(\.distanceKm).reduce(0, +)
+            let totalFuel = vTrips.compactMap(\.fuelConsumed).reduce(0, +)
+            guard totalFuel > 0 else { return nil }
+            return (vehicle, totalKm / totalFuel)
+        }.sorted { $0.kmPerLiter > $1.kmPerLiter }
+    }
 }
 
 func shortDateStr(_ date: Date) -> String {

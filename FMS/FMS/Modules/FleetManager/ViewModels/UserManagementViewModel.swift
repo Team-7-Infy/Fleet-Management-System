@@ -60,7 +60,8 @@ final class UserManagementViewModel: ObservableObject {
             var loadedDrivers = try await fetchedDrivers
             var loadedMaintenance = try await fetchedMaintenance
 
-            // Sync status column in database for drivers
+            // Sync status column in database for drivers — collect then bulk
+            var driverUpdates: [(driverId: UUID, status: String)] = []
             for i in 0..<loadedDrivers.count {
                 let driver = loadedDrivers[i]
                 guard let user = loadedUsers.first(where: { $0.id == driver.userId }) else { continue }
@@ -84,14 +85,19 @@ final class UserManagementViewModel: ObservableObject {
                 }
                 
                 if driver.status.rawValue != calculatedTag {
-                    try? await service.updateDriverStatus(driverId: driver.id, status: calculatedTag)
+                    driverUpdates.append((driverId: driver.id, status: calculatedTag))
                     if let personnelStatus = PersonnelStatus(rawValue: calculatedTag) {
                         loadedDrivers[i].status = personnelStatus
                     }
                 }
             }
 
-            // Sync status column in database for maintenance personnel
+            if !driverUpdates.isEmpty {
+                try? await service.bulkUpdateDriverStatuses(updates: driverUpdates)
+            }
+
+            // Sync status column in database for maintenance personnel — collect then bulk
+            var personnelUpdates: [(personnelId: UUID, status: String)] = []
             for i in 0..<loadedMaintenance.count {
                 let personnel = loadedMaintenance[i]
                 guard let user = loadedUsers.first(where: { $0.id == personnel.userId }) else { continue }
@@ -109,11 +115,15 @@ final class UserManagementViewModel: ObservableObject {
                 }
                 
                 if personnel.status.rawValue != calculatedTag {
-                    try? await service.updateMaintenancePersonnelStatus(personnelId: personnel.id, status: calculatedTag)
+                    personnelUpdates.append((personnelId: personnel.id, status: calculatedTag))
                     if let personnelStatus = PersonnelStatus(rawValue: calculatedTag) {
                         loadedMaintenance[i].status = personnelStatus
                     }
                 }
+            }
+
+            if !personnelUpdates.isEmpty {
+                try? await service.bulkUpdateMaintenancePersonnelStatuses(updates: personnelUpdates)
             }
 
             users = loadedUsers
