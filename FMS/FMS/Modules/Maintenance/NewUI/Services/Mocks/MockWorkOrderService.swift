@@ -45,4 +45,8 @@ class MockWorkOrderService: WorkOrderServicing {
     func fetchInventory() async throws -> [Part] {
         PreviewData.parts
     }
+    
+    func fetchPersonnelHourlyRate(id: UUID) async throws -> Double {
+        450.00
+    }
 }

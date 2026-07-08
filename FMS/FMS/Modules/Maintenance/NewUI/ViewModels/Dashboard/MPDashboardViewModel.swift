@@ -61,7 +61,7 @@ final class MPDashboardViewModel: ObservableObject {
             // Map my completed and inProgress workOrders to activities
             let relevantOrders = workOrders.filter { $0.status == .completed || $0.status == .inProgress }
             activities = relevantOrders.map { order in
-                let vehicle = vehicles.first(where: { $0.id.uuidString == order.vehicleID })
+                let vehicle = vehicles.first(where: { $0.id.uuidString.caseInsensitiveCompare(order.vehicleID) == .orderedSame })
                 let subtitle = vehicle?.registrationNumber ?? order.vehicleName
                 return Activity(
                     id: order.id.uuidString,
@@ -109,7 +109,7 @@ final class MPDashboardViewModel: ObservableObject {
     private var activeDashboardOrders: [DashboardWorkOrder] {
         let activeOrders = workOrders.filter { $0.status.isStartable || $0.status == .inProgress }
         return activeOrders.map { order in
-            let vehicle = vehicles.first(where: { $0.id.uuidString == order.vehicleID })
+            let vehicle = vehicles.first(where: { $0.id.uuidString.caseInsensitiveCompare(order.vehicleID) == .orderedSame })
             return DashboardWorkOrder(workOrder: order, vehicle: vehicle)
         }
     }
@@ -128,7 +128,7 @@ final class MPDashboardViewModel: ObservableObject {
     var completedWorkOrders: [DashboardWorkOrder] {
         let completedOrders = workOrders.filter { $0.status == .completed || $0.status == .fake }
         return completedOrders.map { order in
-            let vehicle = vehicles.first(where: { $0.id.uuidString == order.vehicleID })
+            let vehicle = vehicles.first(where: { $0.id.uuidString.caseInsensitiveCompare(order.vehicleID) == .orderedSame })
             return DashboardWorkOrder(workOrder: order, vehicle: vehicle)
         }.sorted { 
             $0.workOrder.dueDate > $1.workOrder.dueDate

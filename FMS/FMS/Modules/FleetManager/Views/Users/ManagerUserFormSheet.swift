@@ -64,6 +64,12 @@ struct ManagerUserFormSheet: View {
                     .fleetField()
                 }
 
+                if form.role == .maintenancePersonnel {
+                    TextField("Hourly Rate (₹/hr)", text: $form.hourlyRate)
+                        .keyboardType(.decimalPad)
+                        .fleetField()
+                }
+
                 FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
 
                 Button {

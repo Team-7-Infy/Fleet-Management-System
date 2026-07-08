@@ -213,4 +213,22 @@ final class SupabaseWorkOrderService: WorkOrderServicing {
                 .execute()
         }
     }
+    
+    func fetchPersonnelHourlyRate(id: UUID) async throws -> Double {
+        struct RateResponse: Codable {
+            let hourlyRate: Double
+            
+            enum CodingKeys: String, CodingKey {
+                case hourlyRate = "hourly_rate"
+            }
+        }
+        let rate: RateResponse = try await client
+            .from("maintenance_personnel")
+            .select("hourly_rate")
+            .eq("personnelid", value: id.uuidString)
+            .single()
+            .execute()
+            .value
+        return rate.hourlyRate
+    }
 }
