@@ -178,10 +178,12 @@ final class UserManagementViewModel: ObservableObject {
                 _ = try await service.createDriver(driver)
 
             case .maintenancePersonnel:
+                let rate = Double(form.hourlyRate) ?? 500.0
                 let personnel = MaintenancePersonnel(
                     id: UUID(),
                     status: .active,
-                    userId: createdUser.id
+                    userId: createdUser.id,
+                    hourlyRate: rate
                 )
                 _ = try await service.createMaintenancePersonnel(personnel)
 

@@ -179,25 +179,33 @@ struct CompleteWorkOrderView: View {
                             
                             HStack {
                                 Text("₹")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.system(size: 20, weight: .bold))
                                     .foregroundStyle(Color.gray)
-                                TextField("0", text: $viewModel.laborCost)
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                                    .keyboardType(.decimalPad)
                                 
-                                if !viewModel.laborCost.isEmpty {
-                                    Button(action: { viewModel.laborCost = "" }) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundStyle(Color.gray.opacity(0.5))
-                                    }
-                                }
+                                Text(viewModel.laborCost.isEmpty ? "0.00" : viewModel.laborCost)
+                                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.black)
+                                
+                                Spacer()
+                                
+                                Text(formatTime(viewModel.elapsedTime))
+                                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(Color.gray)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color(hex: 0xE8EAED))
+                                    .clipShape(Capsule())
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 16)
-                            .background(Color(hex: 0xE8EAED))
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color(hex: 0xE8EAED), lineWidth: 1)
+                            )
                             
-                            Text("Enter the total labour/service cost incurred.")
+                            Text("Calculated: hourly rate of ₹\(Int(viewModel.hourlyRate))/hr × \(String(format: "%.3f", viewModel.elapsedTime / 3600.0)) hrs.")
                                 .font(.system(size: 12, weight: .medium, design: .rounded))
                                 .foregroundStyle(Color.gray)
                         }

@@ -19,6 +19,7 @@ struct FleetManagerUserForm {
     var role: UserRole = .driver
     var licenceNumber = ""
     var vehicleType = "van"
+    var hourlyRate = "500"
 
     var normalizedEmail: String {
         UserProfileValidation.normalizedEmail(email)
