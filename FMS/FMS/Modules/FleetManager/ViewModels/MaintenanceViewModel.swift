@@ -185,7 +185,7 @@ final class MaintenanceViewModel: ObservableObject {
         do {
             try await maintenanceService.deleteTask(id: task.id)
             tasks.removeAll { $0.id == task.id }
-            successMessage = "Task deleted."
+            successMessage = nil
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription

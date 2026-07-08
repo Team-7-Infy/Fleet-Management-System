@@ -52,41 +52,54 @@ struct ManagerMaintenanceView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
+        VStack(spacing: 0) {
+            FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
+                .padding(.horizontal)
+                .padding(.top, 8)
 
-                if viewModel.tasks.isEmpty {
-                    ContentUnavailableView(
-                        "No work orders",
-                        systemImage: "doc.text.magnifyingglass",
-                        description: Text("Request maintenance and assign registered personnel.")
-                    )
-                } else if filteredTasks.isEmpty {
-                    ContentUnavailableView.search
-                } else {
-                    LazyVStack(spacing: 14) {
-                        ForEach(filteredTasks) { task in
-                            NavigationLink {
-                                ManagerServiceDetailView(
-                                    task: task,
-                                    viewModel: viewModel,
-                                    vehiclesViewModel: vehiclesViewModel,
-                                    usersViewModel: usersViewModel
-                                )
-                            } label: {
-                                ManagerWorkOrderCard(
-                                    task: task,
-                                    viewModel: viewModel,
-                                    vehiclesViewModel: vehiclesViewModel
-                                )
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if viewModel.tasks.isEmpty {
+                        ContentUnavailableView(
+                            "No work orders",
+                            systemImage: "doc.text.magnifyingglass",
+                            description: Text("Request maintenance and assign registered personnel.")
+                        )
+                    } else if filteredTasks.isEmpty {
+                        ContentUnavailableView.search
+                    } else {
+                        LazyVStack(spacing: 12) {
+                            ForEach(filteredTasks) { task in
+                                NavigationLink {
+                                    ManagerServiceDetailView(
+                                        task: task,
+                                        viewModel: viewModel,
+                                        vehiclesViewModel: vehiclesViewModel,
+                                        usersViewModel: usersViewModel
+                                    )
+                                } label: {
+                                    ManagerWorkOrderCard(
+                                        task: task,
+                                        viewModel: viewModel,
+                                        vehiclesViewModel: vehiclesViewModel
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        Task { await viewModel.delete(task) }
+                                    } label: {
+                                        Label("Delete Task", systemImage: "trash")
+                                    }
+                                }
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
+                .padding(.horizontal)
+                .padding(.bottom)
+                .padding(.top, 4)
             }
-            .padding()
         }
         .fleetScreenBackground()
         .navigationTitle("Workshop")
@@ -254,6 +267,15 @@ private struct ManagerInventoryView: View {
                     LazyVStack(spacing: 12) {
                         ForEach(parts) { part in
                             InventoryPartRow(part: part)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        Task {
+                                            await deletePart(part)
+                                        }
+                                    } label: {
+                                        Label("Delete Part", systemImage: "trash")
+                                    }
+                                }
                         }
                     }
                 }
@@ -385,6 +407,15 @@ private struct ManagerInventoryView: View {
                 ])
                 isImporting = false
             }
+        }
+    }
+
+    private func deletePart(_ part: InventoryPart) async {
+        do {
+            try await inventoryService.deletePart(id: part.id)
+            parts.removeAll { $0.id == part.id }
+        } catch {
+            errorMessage = "Failed to delete part: \(error.localizedDescription)"
         }
     }
 }

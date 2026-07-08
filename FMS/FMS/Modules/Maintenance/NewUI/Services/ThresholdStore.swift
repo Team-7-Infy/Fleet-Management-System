@@ -33,6 +33,10 @@ final class ThresholdStore: ObservableObject {
         self.supabase = supabase
     }
 
+    var supabaseClient: SupabaseClient? {
+        supabase?.client
+    }
+
     // MARK: - Read
 
     func threshold(for id: UUID) -> Int {
