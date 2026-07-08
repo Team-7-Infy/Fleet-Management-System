@@ -5,6 +5,7 @@ enum AppError: LocalizedError, Equatable {
     case unauthorized
     case notFound(String)
     case storageFailure
+    case accountDisabled
     case unknown(String)
 
     var errorDescription: String? {
@@ -17,6 +18,8 @@ enum AppError: LocalizedError, Equatable {
             "\(resource) could not be found."
         case .storageFailure:
             "Local storage is unavailable."
+        case .accountDisabled:
+            "Your account has been deactivated or deleted. Please contact your Fleet Manager."
         case .unknown(let message):
             message
         }

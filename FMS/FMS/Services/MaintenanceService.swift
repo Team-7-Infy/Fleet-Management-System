@@ -71,17 +71,24 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
     }
 
     func createTask(_ task: MaintenanceTask) async throws -> MaintenanceTask {
-        try await supabase.client
+        let result: MaintenanceTask = try await supabase.client
             .from("maintenance_task")
             .insert(task, returning: .representation)
             .select()
             .single()
             .execute()
             .value
+            
+        if let personnelId = result.executedBy {
+            try? await syncPersonnelStatus(personnelId: personnelId)
+        }
+        return result
     }
 
     func updateTask(_ task: MaintenanceTask) async throws -> MaintenanceTask {
-        try await supabase.client
+        let oldTask: MaintenanceTask? = try? await fetchTask(id: task.id)
+        
+        let result: MaintenanceTask = try await supabase.client
             .from("maintenance_task")
             .update(task, returning: .representation)
             .eq("taskid", value: task.id.uuidString)
@@ -89,22 +96,42 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
             .single()
             .execute()
             .value
+            
+        if let oldId = oldTask?.executedBy {
+            try? await syncPersonnelStatus(personnelId: oldId)
+        }
+        if let newId = result.executedBy, newId != oldTask?.executedBy {
+            try? await syncPersonnelStatus(personnelId: newId)
+        }
+        return result
     }
 
     func deleteTask(id: UUID) async throws {
+        let task: MaintenanceTask? = try? await fetchTask(id: id)
+        
         try await supabase.client
             .from("maintenance_task")
             .delete()
             .eq("taskid", value: id.uuidString)
             .execute()
+            
+        if let personnelId = task?.executedBy {
+            try? await syncPersonnelStatus(personnelId: personnelId)
+        }
     }
 
     func updateTaskStatus(id: UUID, status: MaintenanceTaskStatus) async throws {
+        let task: MaintenanceTask = try await fetchTask(id: id)
+        
         try await supabase.client
             .from("maintenance_task")
             .update(["status": status.rawValue])
             .eq("taskid", value: id.uuidString)
             .execute()
+            
+        if let personnelId = task.executedBy {
+            try? await syncPersonnelStatus(personnelId: personnelId)
+        }
     }
 
     func holdTask(id: UUID, reason: String) async throws {
@@ -135,11 +162,18 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
     }
 
     func assignPersonnel(taskId: UUID, personnelId: UUID) async throws {
+        let task: MaintenanceTask? = try? await fetchTask(id: taskId)
+        
         try await supabase.client
             .from("maintenance_task")
             .update(["executedby": personnelId.uuidString, "status": MaintenanceTaskStatus.assigned.rawValue])
             .eq("taskid", value: taskId.uuidString)
             .execute()
+            
+        if let oldId = task?.executedBy {
+            try? await syncPersonnelStatus(personnelId: oldId)
+        }
+        try? await syncPersonnelStatus(personnelId: personnelId)
     }
 
     func fetchTaskParts(taskId: UUID) async throws -> [MaintenanceTaskPart] {
@@ -212,7 +246,8 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
         let activePersonnel: [MaintenancePersonnel] = try await supabase.client
             .from("maintenance_personnel")
             .select()
-            .eq("status", value: "active")
+            .neq("status", value: "unavailable")
+            .neq("status", value: "inactive")
             .execute()
             .value
 
@@ -265,5 +300,33 @@ final actor MaintenanceService: MaintenanceServiceProtocol {
         }
 
         return sortedCandidates.first?.id
+    }
+
+    private func syncPersonnelStatus(personnelId: UUID) async throws {
+        let allTasks = try await fetchTasks()
+        let openTasks = allTasks.filter { task in
+            task.executedBy == personnelId &&
+            task.status != .completed &&
+            task.status != .verified &&
+            task.status != .closed &&
+            task.status != .fake
+        }
+        
+        let newStatus = openTasks.isEmpty ? PersonnelStatus.available.rawValue : PersonnelStatus.inService.rawValue
+        
+        let personnel: [MaintenancePersonnel] = try await supabase.client
+            .from("maintenance_personnel")
+            .select()
+            .eq("personnelid", value: personnelId.uuidString)
+            .execute()
+            .value
+            
+        if let current = personnel.first, current.status.rawValue != newStatus, current.status != .unavailable {
+            try await supabase.client
+                .from("maintenance_personnel")
+                .update(["status": newStatus])
+                .eq("personnelid", value: personnelId.uuidString)
+                .execute()
+        }
     }
 }
