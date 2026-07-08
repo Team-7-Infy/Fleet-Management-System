@@ -38,8 +38,7 @@ final class AppServices {
 }
 
 private enum AppScreen {
-    case splash
-    case login
+    case login(assets: LoginAssets?)
     case firstTimeSetup(user: User)
     case fleetManager
     case maintenancePersonnel
@@ -48,26 +47,56 @@ private enum AppScreen {
 
 struct AppRouter: View {
     @State private var services = AppServices()
-    @State private var screen: AppScreen = .splash
+
+    // The real destination — defaults to login so it's ready behind the splash
+    @State private var screen: AppScreen = .login(assets: nil)
+
+    // Splash overlay state
+    @State private var splashVisible = true
+    @State private var splashOpacity: Double = 1.0
 
     var body: some View {
-        switch screen {
-        case .splash:
-            SplashView(authService: services.authService) { user in
-                if let user {
-                    screen = route(for: user)
-                } else {
-                    screen = .login
-                }
-            }
+        ZStack {
+            // ── Real content (always rendered, visible once splash fades) ──
+            contentView
 
-        case .login:
-            NavigationStack {
-                LoginView(authService: services.authService) { user in
+            // ── Splash overlay on top ─────────────────────────────────────
+            if splashVisible {
+                SplashView(authService: services.authService) { user, assets in
+                    // Set real destination before fading so it's ready underneath
                     if let user {
                         screen = route(for: user)
                     } else {
-                        screen = .login
+                        screen = .login(assets: assets)
+                    }
+
+                    // Fade the splash out over the already-rendered content
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        splashOpacity = 0
+                    }
+                    Task {
+                        try? await Task.sleep(for: .seconds(0.45))
+                        splashVisible = false
+                    }
+                }
+                .opacity(splashOpacity)
+                .ignoresSafeArea()
+            }
+        }
+    }
+
+    // MARK: - Content beneath the splash
+
+    @ViewBuilder
+    private var contentView: some View {
+        switch screen {
+        case .login(let assets):
+            NavigationStack {
+                LoginView(authService: services.authService, preloadedAssets: assets) { user in
+                    if let user {
+                        screen = route(for: user)
+                    } else {
+                        screen = .login(assets: nil)
                     }
                 }
             }
@@ -89,6 +118,8 @@ struct AppRouter: View {
             DriverDashboardView(services: services, user: user, onLogout: logout)
         }
     }
+
+    // MARK: - Helpers
 
     private func route(for user: User) -> AppScreen {
         if user.firstTimeLogin {
@@ -112,10 +143,10 @@ struct AppRouter: View {
                 print("Logout failed: \(error.localizedDescription)")
             }
         }
-        screen = .login
+        screen = .login(assets: nil)
     }
 }
 
-#Preview{
+#Preview {
     AppRouter()
 }
