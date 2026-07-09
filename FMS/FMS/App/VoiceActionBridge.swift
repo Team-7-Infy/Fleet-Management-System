@@ -9,6 +9,11 @@ final class VoiceActionBridge: ObservableObject {
     @Published var openWorkOrderID: WorkOrder.ID? = nil
     @Published var currentVehicleType: String? = nil
 
+    /// Set by ActiveNavigationDetailView onAppear, called by Siri intents after confirmation.
+    /// Cleared onDisappear.
+    var onConfirmedSOS: (() -> Void)? = nil
+    var onConfirmedReroute: (() -> Void)? = nil
+
     private init() {}
 }
 
