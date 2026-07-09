@@ -135,6 +135,8 @@ struct ManagerUsersView: View {
                 .listStyle(.insetGrouped)
                 .scrollContentBackground(.hidden)
                 .background(FleetPalette.background)
+                .listRowSeparatorTint(Color.gray)
+                .tint(FleetPalette.textPrimary)
             }
         }
         .fleetScreenBackground()
@@ -171,6 +173,7 @@ struct ManagerUsersView: View {
                     Image(systemName: "line.3.horizontal.decrease")
                 }
                 .accessibilityLabel("Filter by status")
+                .tint(FleetPalette.textPrimary)
             }
             ToolbarItem(placement: .principal) {
                 Picker("User Type", selection: $selectedSegment) {
@@ -183,6 +186,7 @@ struct ManagerUsersView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Add User", systemImage: "plus", action: openAddUser)
+                    .tint(FleetPalette.textPrimary)
             }
         }
         .onChange(of: selectedSegment) { _, _ in

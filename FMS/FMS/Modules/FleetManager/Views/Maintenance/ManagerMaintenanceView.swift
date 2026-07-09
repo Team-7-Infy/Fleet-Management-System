@@ -114,14 +114,15 @@ struct ManagerMaintenanceView: View {
                         }
                     }
                 }
-            }
-            ToolbarItemGroup(placement: .topBarTrailing) {
+                .tint(FleetPalette.textPrimary)
                 NavigationLink {
                     ManagerInventoryView(inventoryService: inventoryService, onNotification: onNotification)
                 } label: {
                     Image(systemName: "shippingbox")
                 }
+                .tint(FleetPalette.textPrimary)
                 Button("Request Workshop", systemImage: "plus", action: openMaintenanceRequest)
+                    .tint(FleetPalette.textPrimary)
             }
         }
         .task {
@@ -189,7 +190,7 @@ private struct ManagerWorkOrderCard: View {
             }
 
             Divider()
-                .background(FleetPalette.tertiary.opacity(0.5))
+                .overlay(Color.gray)
 
             HStack {
                 HStack(spacing: 5) {
@@ -215,6 +216,10 @@ private struct ManagerWorkOrderCard: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(FleetPalette.surface)
                 .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 6)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.gray, lineWidth: 1)
         )
     }
 }

@@ -219,6 +219,7 @@ struct ManagerOverviewView: View {
                     .buttonStyle(.plain)
 
                     Divider()
+                        .overlay(Color.gray)
                         .padding(.vertical, 4)
 
                     NavigationLink {
@@ -245,6 +246,10 @@ struct ManagerOverviewView: View {
                     .buttonStyle(.plain)
                 }
             }
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Color.gray, lineWidth: 1)
+            )
         }
     }
 
@@ -283,12 +288,17 @@ struct ManagerOverviewView: View {
                             )
                             if index < min(maintenanceViewModel.openTasks.count, 3) - 1 {
                                 Divider()
+                                    .overlay(Color.gray)
                                     .padding(.vertical, 12)
                             }
                         }
                     }
                 }
             }
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Color.gray, lineWidth: 1)
+            )
         }
     }
 }
@@ -352,16 +362,21 @@ struct FleetStatusOverviewGradientCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
-                colors: [Color(hex: 0x007AFF), Color(hex: 0x004CE5)],
+                colors: [Color(hex: 0x113B70), Color(hex: 0x0B2347)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         )
         .cornerRadius(24)
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(Color.gray, lineWidth: 1)
+        )
     }
 }
 
 struct ActiveTripGradientCard: View {
+    @Environment(\.colorScheme) var colorScheme
     let trip: Trip
     @ObservedObject var tripsViewModel: TripManagementViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
@@ -490,12 +505,18 @@ struct ActiveTripGradientCard: View {
         .padding(20)
         .background(
             LinearGradient(
-                colors: [Color(hex: 0x007AFF), Color(hex: 0x004CE5)],
+                colors: colorScheme == .dark
+                    ? [Color(hex: 0x113B70), Color(hex: 0x0B2347)]
+                    : [Color(red: 0.0, green: 0.5, blue: 1.0), Color(red: 0.05, green: 0.3, blue: 0.95)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         )
         .cornerRadius(24)
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(Color.gray, lineWidth: 1)
+        )
     }
 
     private func getTripProgress(for trip: Trip) -> Double {

@@ -19,32 +19,166 @@ struct ManagerVehicleFormSheet: View {
         _editMode = State(initialValue: existingVehicle != nil)
     }
 
-    private var coreFields: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            plateField
-            vinField
-            makeModelRow
-            yearTypeRow
-            ageField
-            FleetFieldValidationMessage(message: visibleYearValidationMessage)
-        }
-    }
-
-    private var settingsFields: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            fuelPicker
-            statusPicker
-            maintenanceFields
-        }
-    }
-
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                coreFields
-                settingsFields
+            VStack(spacing: 24) {
+                
+                FleetFormSection(title: "Identification") {
+                    FleetFormRow(icon: "lanyardcard.fill", title: "Plate Number") {
+                        TextField("e.g. DL 01 AB 1234", text: $form.licencePlate)
+                            .textInputAutocapitalization(.characters)
+                            .keyboardType(.asciiCapable)
+                            .multilineTextAlignment(.trailing)
+                            .onChange(of: form.licencePlate) { _, newValue in
+                                form.licencePlate = FleetManagerVehicleForm.sanitizedLicencePlateInput(newValue)
+                            }
+                    }
+                    if let msg = visiblePlateValidationMessage {
+                        FleetFormValidationRow(message: msg)
+                    }
+                    Divider().padding(.leading, 44)
+                    
+                    FleetFormRow(icon: "barcode.viewfinder", title: "VIN UUID") {
+                        TextField("Optional", text: $form.vin)
+                            .textInputAutocapitalization(.never)
+                            .multilineTextAlignment(.trailing)
+                            .disabled(editMode)
+                    }
+                    if let msg = form.vinValidationMessage {
+                        FleetFormValidationRow(message: msg)
+                    }
+                }
+                
+                FleetFormSection(title: "Make & Model") {
+                    FleetFormRow(icon: "car.fill", title: "Make") {
+                        TextField("e.g. Tata", text: $form.make)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    Divider().padding(.leading, 44)
+                    
+                    FleetFormRow(icon: "car.side.fill", title: "Model") {
+                        TextField("e.g. Ace", text: $form.model)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    Divider().padding(.leading, 44)
+                    
+                    FleetFormRow(icon: "calendar", title: "Year") {
+                        TextField("e.g. 2022", text: $form.year)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .onChange(of: form.year) { _, newValue in
+                                form.year = String(newValue.filter(\.isNumber).prefix(4))
+                            }
+                    }
+                    if let msg = visibleYearValidationMessage {
+                        FleetFormValidationRow(message: msg)
+                    }
+                    Divider().padding(.leading, 44)
+                    
+                    FleetFormRow(icon: "tag.fill", title: "Vehicle Type") {
+                        Picker("Type", selection: $form.vehicleType) {
+                            ForEach(["car", "van", "bus", "truck"], id: \.self) { type in
+                                Text(type.capitalized).tag(type)
+                            }
+                        }
+                        .tint(FleetPalette.accent)
+                        .labelsHidden()
+                    }
+                    Divider().padding(.leading, 44)
+                    
+                    FleetFormRow(icon: "clock.fill", title: "Age (Years)") {
+                        TextField("e.g. 2", text: $form.age)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .onChange(of: form.age) { _, newValue in
+                                form.age = String(newValue.filter(\.isNumber).prefix(2))
+                            }
+                    }
+                }
+                
+                FleetFormSection(title: "Configuration & Status") {
+                    FleetFormRow(icon: "fuelpump.fill", title: "Fuel Type") {
+                        Picker("Fuel", selection: $form.fuelType) {
+                            Text("None").tag("")
+                            ForEach(["petrol", "diesel", "cng", "electric"], id: \.self) { type in
+                                Text(type.capitalized).tag(type)
+                            }
+                        }
+                        .tint(FleetPalette.accent)
+                        .labelsHidden()
+                    }
+                    
+                    if form.fuelType == "electric" {
+                        Divider().padding(.leading, 44)
+                        FleetFormRow(icon: "bolt.batteryblock.fill", title: "Battery (kWh)") {
+                            TextField("e.g. 40", text: $form.batteryCapacityKwh)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    } else if !form.fuelType.isEmpty {
+                        Divider().padding(.leading, 44)
+                        FleetFormRow(icon: "drop.fill", title: "Capacity (L)") {
+                            TextField("e.g. 50", text: $form.fuelCapacityLiters)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+                    Divider().padding(.leading, 44)
+                    
+                    FleetFormRow(icon: "shield.checkered", title: "Status") {
+                        Picker("Status", selection: $form.status) {
+                            ForEach(editMode ? VehicleStatus.allCases : [.available, .outOfService]) { status in
+                                Text(status.title).tag(status)
+                            }
+                        }
+                        .tint(FleetPalette.accent)
+                        .labelsHidden()
+                    }
+                }
+                .animation(.easeInOut, value: form.fuelType)
+                
+                FleetFormSection(title: "Maintenance Intervals") {
+                    FleetFormRow(icon: "gauge.with.dots.needle.bottom.100percent", title: "KM Interval") {
+                        TextField("e.g. 10000", text: $form.maintenanceKmInterval)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .onChange(of: form.maintenanceKmInterval) { _, newValue in
+                                form.maintenanceKmInterval = String(newValue.filter(\.isNumber).prefix(7))
+                            }
+                    }
+                    Divider().padding(.leading, 44)
+                    
+                    FleetFormRow(icon: "calendar.badge.clock", title: "Month Interval") {
+                        TextField("e.g. 6", text: $form.maintenanceMonthInterval)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .onChange(of: form.maintenanceMonthInterval) { _, newValue in
+                                form.maintenanceMonthInterval = String(newValue.filter(\.isNumber).prefix(3))
+                            }
+                    }
+                }
+
                 FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
-                submitButton
+                
+                Button {
+                    Task {
+                        if editMode, let vehicle = existingVehicle {
+                            if await viewModel.updateVehicle(vehicle, form: form) { dismiss() }
+                        } else {
+                            if await viewModel.createVehicle(form: form) { dismiss() }
+                        }
+                    }
+                } label: {
+                    Label(editMode ? "Save Changes" : "Add Vehicle", systemImage: editMode ? "checkmark.circle" : "plus.circle")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(FleetPalette.accent)
+                .disabled(form.isValid == false)
+                .padding(.top, 8)
+                .padding(.bottom, 24)
             }
             .padding()
         }
@@ -60,179 +194,9 @@ struct ManagerVehicleFormSheet: View {
                 Button("Cancel") {
                     dismiss()
                 }
+                .tint(FleetPalette.textPrimary)
             }
         }
-    }
-
-    private var plateField: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            TextField("Plate number", text: $form.licencePlate)
-                .textInputAutocapitalization(.characters)
-                .keyboardType(.asciiCapable)
-                .fleetField()
-                .onChange(of: form.licencePlate) { _, newValue in
-                    form.licencePlate = FleetManagerVehicleForm.sanitizedLicencePlateInput(newValue)
-                }
-            FleetFieldValidationMessage(message: visiblePlateValidationMessage)
-        }
-    }
-
-    private var vinField: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            TextField("VIN UUID (optional)", text: $form.vin)
-                .textInputAutocapitalization(.never)
-                .fleetField()
-                .disabled(editMode)
-            if let vinMsg = form.vinValidationMessage {
-                FleetFieldValidationMessage(message: vinMsg)
-            }
-        }
-    }
-
-    private var makeModelRow: some View {
-        HStack {
-            TextField("Make", text: $form.make).fleetField()
-            TextField("Model", text: $form.model).fleetField()
-        }
-    }
-
-    private var yearTypeRow: some View {
-        HStack(alignment: .bottom) {
-            TextField("Year", text: $form.year)
-                .keyboardType(.numberPad)
-                .fleetField()
-                .onChange(of: form.year) { _, newValue in
-                    form.year = String(newValue.filter(\.isNumber).prefix(4))
-                }
-            vehicleTypePicker
-        }
-    }
-
-    private var ageField: some View {
-        TextField("Age (Years)", text: $form.age)
-            .keyboardType(.numberPad)
-            .fleetField()
-            .onChange(of: form.age) { _, newValue in
-                form.age = String(newValue.filter(\.isNumber).prefix(2))
-            }
-    }
-
-    private var vehicleTypePicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            FleetFormFieldLabel("Vehicle Type")
-            Picker(selection: $form.vehicleType) {
-                ForEach(["car", "van", "bus", "truck"], id: \.self) { type in
-                    Text(type.capitalized).tag(type)
-                }
-            } label: {
-                HStack(spacing: 10) {
-                    Text(form.vehicleType.capitalized)
-                        .font(.body).foregroundStyle(FleetPalette.accent).lineLimit(1)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption.weight(.bold)).foregroundStyle(FleetPalette.accent)
-                }
-                .contentShape(Rectangle())
-            }
-            .pickerStyle(.menu)
-            .tint(FleetPalette.accent)
-            .fleetField()
-        }
-    }
-
-    private var fuelPicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            FleetFormFieldLabel("Fuel Type")
-            Picker(selection: $form.fuelType) {
-                Text("None").tag("")
-                ForEach(["petrol", "diesel", "cng", "electric"], id: \.self) { type in
-                    Text(type.capitalized).tag(type)
-                }
-            } label: {
-                HStack(spacing: 10) {
-                    Text(form.fuelType.isEmpty ? "None" : form.fuelType.capitalized)
-                        .font(.body).foregroundStyle(FleetPalette.accent).lineLimit(1)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption.weight(.bold)).foregroundStyle(FleetPalette.accent)
-                }
-                .contentShape(Rectangle())
-            }
-            .pickerStyle(.menu)
-            .tint(FleetPalette.accent)
-            .fleetField()
-
-            if form.fuelType == "electric" {
-                FleetFormFieldLabel("Battery Capacity (kWh)")
-                TextField("e.g. 40", text: $form.batteryCapacityKwh)
-                    .keyboardType(.decimalPad).fleetField()
-            } else if !form.fuelType.isEmpty {
-                FleetFormFieldLabel("Fuel Capacity (Liters)")
-                TextField("e.g. 50", text: $form.fuelCapacityLiters)
-                    .keyboardType(.decimalPad).fleetField()
-            }
-        }
-    }
-
-    private var statusPicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            FleetFormFieldLabel("Status")
-            Picker(selection: $form.status) {
-                ForEach(editMode ? VehicleStatus.allCases : [.available, .outOfService]) { status in
-                    Text(status.title).tag(status)
-                }
-            } label: {
-                HStack(spacing: 10) {
-                    Text(form.status.title)
-                        .font(.body).foregroundStyle(FleetPalette.accent).lineLimit(1)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption.weight(.bold)).foregroundStyle(FleetPalette.accent)
-                }
-                .contentShape(Rectangle())
-            }
-            .pickerStyle(.menu)
-            .tint(FleetPalette.accent)
-        }
-    }
-
-    private var maintenanceFields: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            FleetFormFieldLabel("Maintenance Intervals (optional)")
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("KM Interval").font(.caption).foregroundStyle(FleetPalette.textSecondary)
-                    TextField("e.g. 10000", text: $form.maintenanceKmInterval)
-                        .keyboardType(.numberPad).fleetField()
-                        .onChange(of: form.maintenanceKmInterval) { _, newValue in
-                            form.maintenanceKmInterval = String(newValue.filter(\.isNumber).prefix(7))
-                        }
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Month Interval").font(.caption).foregroundStyle(FleetPalette.textSecondary)
-                    TextField("e.g. 6", text: $form.maintenanceMonthInterval)
-                        .keyboardType(.numberPad).fleetField()
-                        .onChange(of: form.maintenanceMonthInterval) { _, newValue in
-                            form.maintenanceMonthInterval = String(newValue.filter(\.isNumber).prefix(3))
-                        }
-                }
-            }
-        }
-    }
-
-    private var submitButton: some View {
-        Button {
-            Task {
-                if editMode, let vehicle = existingVehicle {
-                    if await viewModel.updateVehicle(vehicle, form: form) { dismiss() }
-                } else {
-                    if await viewModel.createVehicle(form: form) { dismiss() }
-                }
-            }
-        } label: {
-            Label(editMode ? "Save Changes" : "Add Vehicle", systemImage: editMode ? "checkmark.circle" : "plus.circle")
-                .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(FleetPalette.accent)
-        .disabled(form.isValid == false)
     }
 
     private var visiblePlateValidationMessage: String? {

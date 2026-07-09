@@ -99,9 +99,9 @@ struct ManagerTripsView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 TripFilterMenu(filter: $filter)
-            }
-            ToolbarItem(placement: .topBarTrailing) {
+                    .tint(FleetPalette.textPrimary)
                 Button("Add Trip", systemImage: "plus", action: openAddTrip)
+                    .tint(FleetPalette.textPrimary)
             }
         }
         .refreshable {
@@ -203,7 +203,7 @@ private struct ManagerTripGroupSection: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title.uppercased())
                 .font(.title3.weight(.heavy))
-                .foregroundStyle(Color(hex: 0x607086))
+                .foregroundStyle(FleetPalette.textPrimary)
                 .padding(.horizontal, 2)
 
             LazyVStack(spacing: 14) {
@@ -304,7 +304,7 @@ private struct ManagerTripCard: View {
             HStack(alignment: .center) {
                 Text(tripShortID)
                     .font(.headline.weight(.bold))
-                    .foregroundStyle(FleetPalette.accent)
+                    .foregroundStyle(FleetPalette.textPrimary)
 
                 Spacer()
 
@@ -386,7 +386,7 @@ private struct ManagerTripCard: View {
             // Extra information: Driver name/contact and Vehicle details so we don't miss any data
             if driver != nil || vehicle != nil {
                 Divider()
-                    .background(FleetPalette.tertiary.opacity(0.5))
+                    .overlay(Color.gray)
 
                 HStack(spacing: 10) {
                     if let driver {
@@ -438,6 +438,10 @@ private struct ManagerTripCard: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(FleetPalette.surface)
                 .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 6)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.gray, lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
     }
@@ -707,6 +711,7 @@ struct ManagerTripDetailView: View {
                 }
                 
                 Divider()
+                    .overlay(Color.gray)
                     .padding(.vertical, 4)
                 
                 InfoRow(title: "Pickup", value: currentTrip.startLocation)
@@ -816,6 +821,7 @@ struct ManagerTripDetailView: View {
                     }
 
                     Divider()
+                        .overlay(Color.gray)
                         .padding(.vertical, 4)
 
                     InfoRow(title: "Model", value: "\(vehicle.year) \(vehicle.make) \(vehicle.model)")

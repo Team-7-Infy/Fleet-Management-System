@@ -22,10 +22,8 @@ struct GlassPanel<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay {
-                if hasBorder {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(FleetPalette.tertiary.opacity(0.55), lineWidth: 1)
-                }
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Color.gray, lineWidth: 1)
             }
     }
 }

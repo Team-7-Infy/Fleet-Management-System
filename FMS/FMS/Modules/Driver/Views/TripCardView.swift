@@ -68,7 +68,7 @@ struct TripCardView: View {
         .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(FleetPalette.tertiary.opacity(0.55), lineWidth: 1)
+                .stroke(Color.gray, lineWidth: 1)
         }
         .shadow(color: FleetPalette.primary.opacity(0.10), radius: 16, x: 0, y: 9)
     }
