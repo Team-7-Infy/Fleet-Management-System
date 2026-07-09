@@ -93,7 +93,7 @@ struct ManagerMaintenanceView: View {
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search tasks")
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
+            ToolbarItem(placement: .topBarLeading) {
                 Menu("Filter", systemImage: "line.3.horizontal.decrease") {
                     Picker("Service Status", selection: $selectedSegment) {
                         ForEach(MaintenanceSegment.allCases) { segment in
@@ -101,6 +101,8 @@ struct ManagerMaintenanceView: View {
                         }
                     }
                 }
+            }
+            ToolbarItemGroup(placement: .topBarTrailing) {
                 NavigationLink {
                     ManagerInventoryView(inventoryService: inventoryService, onNotification: onNotification)
                 } label: {

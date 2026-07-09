@@ -13,6 +13,20 @@ struct ManagerOverviewView: View {
     var onProfile: (() -> Void)?
     var onShowReportsHub: (() -> Void)?
     @State private var selectedActiveTripID: UUID?
+    @State private var showInlineTitle = false
+    @State private var scrollOffset: CGFloat = 0
+
+    private var titleOpacity: Double {
+        let threshold: CGFloat = 10.0
+        let progress = min(max(scrollOffset / threshold, 0.0), 1.0)
+        return 1.0 - Double(progress)
+    }
+
+    private var titleBlur: CGFloat {
+        let threshold: CGFloat = 10.0
+        let progress = min(max(scrollOffset / threshold, 0.0), 1.0)
+        return progress * 6.0
+    }
 
     private var activeTrips: [Trip] {
         tripsViewModel.trips
@@ -61,41 +75,45 @@ struct ManagerOverviewView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                headerBar
-                activeTripsHeaderCard
-                fleetStatusSection
-                maintenanceSection
-                ReportsNavRow(action: onShowReportsHub)
+        ZStack(alignment: .topTrailing) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    headerBar
+                    activeTripsHeaderCard
+                    fleetStatusSection
+                    maintenanceSection
+                    ReportsNavRow(action: onShowReportsHub)
+                }
+                .padding()
+                .padding(.bottom, 10)
             }
-            .padding()
-            .padding(.bottom, 10)
-        }
-        .fleetScreenBackground()
-        .refreshable {
-            await refresh()
-        }
-        .task {
-            await refresh()
+            .padding(.top, -44)
+            .fleetScreenBackground()
+            .navigationTitle(showInlineTitle ? "Dashboard" : "")
+            .navigationBarTitleDisplayMode(.inline)
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y
+            } action: { oldValue, newValue in
+                scrollOffset = newValue
+                showInlineTitle = newValue > 10
+            }
+            .refreshable {
+                await refresh()
+            }
+            .task {
+                await refresh()
+            }
         }
     }
 
     private var headerBar: some View {
         HStack(alignment: .center) {
-            ScreenHeader(title: "Live")
+            ScreenHeader(title: "Dashboard")
+                .blur(radius: titleBlur)
+                .opacity(titleOpacity)
             Spacer()
-            NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
-                showingNotifications = true
-            }
-            .padding(.trailing, 4)
-            if let onProfile {
-                Button(action: onProfile) {
-                    profileIcon
-                }
-                .accessibilityLabel("Account")
-            }
         }
+        .padding(.top, 26)
     }
 
     @ViewBuilder
@@ -108,7 +126,7 @@ struct ManagerOverviewView: View {
                     image
                         .resizable()
                         .scaledToFill()
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                         .clipShape(Circle())
                 default:
                     fallbackProfileIcon
@@ -120,11 +138,13 @@ struct ManagerOverviewView: View {
     }
 
     private var fallbackProfileIcon: some View {
-        Image(systemName: "person.crop.circle")
-            .font(.title2.weight(.semibold))
-            .symbolRenderingMode(.hierarchical)
-            .foregroundStyle(FleetPalette.primary)
-            .frame(width: 36, height: 36)
+        Image("Profile")
+            .resizable()
+            .scaledToFill()
+            .frame(width: 28, height: 28)
+            .clipShape(Circle())
+            .offset(x: 0, y: 2)
+            .frame(width: 44, height: 44)
     }
 
     private var activeTripsHeaderCard: some View {
