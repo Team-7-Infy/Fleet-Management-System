@@ -29,7 +29,7 @@ struct EndTripView: View {
 
     var body: some View {
         ZStack {
-            Color(.systemGroupedBackground)
+            AppColor.background
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -166,7 +166,7 @@ struct EndTripView: View {
                             }
                         }
                         .padding(20)
-                        .background(Color(UIColor.secondarySystemGroupedBackground))
+                        .background(AppColor.surface)
                         .cornerRadius(16)
                         .shadow(color: Color.black.opacity(0.02), radius: 8, y: 4)
 

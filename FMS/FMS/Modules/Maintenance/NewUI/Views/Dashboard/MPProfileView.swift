@@ -15,7 +15,7 @@ struct MPProfileView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        // Replaced redundant NavigationStack
             ScrollView(showsIndicators: false) {
                 if viewModel.state.isLoading {
                     ProgressView()
@@ -24,12 +24,7 @@ struct MPProfileView: View {
                     VStack(spacing: 24) {
                         ProfileHeaderCard(viewModel: viewModel, user: user)
 
-                        ProfilePerformanceSummary(
-                            completionRate: viewModel.completionRate,
-                            completedJobs: "\(viewModel.completedWorkOrdersCount)",
-                            activeJobs: "\(viewModel.activeWorkOrdersCount)",
-                            nextDueJobDate: viewModel.nextDueJobDate
-                        )
+                        // Performance Summary removed
 
                         ProfileInfoSection(title: "Contact Details", rows: [
                             ProfileInfoRow(title: "Mobile", value: user.contactNumber, icon: "phone.fill"),
@@ -65,18 +60,11 @@ struct MPProfileView: View {
                     MPEmptyStateView(title: "Profile Unavailable", message: "Could not load user data.", systemImage: "person.crop.circle.badge.exclamationmark")
                 }
             }
-            .background(Color(UIColor.systemGroupedBackground))
+            .background(AppColor.background.ignoresSafeArea())
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        HapticManager.shared.triggerImpact(style: .light)
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                    }
-                }
+                // Redundant back button removed
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         HapticManager.shared.triggerImpact(style: .light)
@@ -84,8 +72,10 @@ struct MPProfileView: View {
                         showingEditSheet = true
                     } label: {
                         Text("Edit")
-                            .fontWeight(.semibold)
+                            .bold()
+                            .foregroundStyle(Color.primary)
                     }
+                    .tint(Color.primary)
                 }
             }
             .sheet(isPresented: $showingEditSheet) {
@@ -103,7 +93,7 @@ struct MPProfileView: View {
             .task {
                 await viewModel.load()
             }
-        }
+        // NavigationStack closed removed
     }
 
     private func maskAadhaar(_ number: String) -> String {
@@ -119,80 +109,80 @@ private struct ProfileHeaderCard: View {
     let user: UserProfile
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack(spacing: 16) {
-                ZStack {
-                    if let imageData = user.profileImageData, let uiImage = UIImage(data: imageData) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 76, height: 76)
-                            .clipShape(Circle())
-                            .shadow(radius: 4, x: 0, y: 2)
-                    } else {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.blue, Color(red: 0.12, green: 0.32, blue: 0.82)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+        GlassPanel(hasBorder: true) {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(spacing: 16) {
+                    ZStack {
+                        if let imageData = user.profileImageData, let uiImage = UIImage(data: imageData) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 76, height: 76)
+                                .clipShape(Circle())
+                                .shadow(radius: 4, x: 0, y: 2)
+                        } else {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.blue, Color(red: 0.12, green: 0.32, blue: 0.82)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
-                            )
-                            .frame(width: 76, height: 76)
-                            .shadow(color: Color.blue.opacity(0.3), radius: 6, x: 0, y: 3)
+                                .frame(width: 76, height: 76)
+                                .shadow(color: Color.blue.opacity(0.3), radius: 6, x: 0, y: 3)
 
-                        Text(initials(for: user.name))
-                            .font(.title2.weight(.bold))
-                            .foregroundStyle(.white)
-                    }
+                            Text(initials(for: user.name))
+                                .font(.title2.weight(.bold))
+                                .foregroundStyle(.white)
+                        }
 
-                    Circle()
-                        .stroke(Color.white, lineWidth: 3)
-                        .frame(width: 76, height: 76)
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        Text(user.name)
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(.primary)
-                            .lineLimit(2)
-
-                        Image(systemName: "checkmark.seal.fill")
-                            .foregroundStyle(.blue)
-                            .font(.subheadline)
-                    }
-
-                    Text("Maintenance")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-
-                    HStack(spacing: 6) {
                         Circle()
-                            .fill(.green)
-                            .frame(width: 6, height: 6)
-                        Text("Active")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.green)
+                            .stroke(Color.white, lineWidth: 3)
+                            .frame(width: 76, height: 76)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.green.opacity(0.08), in: Capsule())
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            Text(user.name)
+                                .font(.title3.weight(.bold))
+                                .foregroundStyle(.primary)
+                                .lineLimit(2)
+
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundStyle(.blue)
+                                .font(.subheadline)
+                        }
+
+                        Text("Maintenance")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(.green)
+                                .frame(width: 6, height: 6)
+                            Text("Active")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.green)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.green.opacity(0.08), in: Capsule())
+                    }
+
+                    Spacer(minLength: 0)
                 }
 
-                Spacer(minLength: 0)
-            }
+                Divider().opacity(0.6)
 
-            Divider().opacity(0.6)
-
-            HStack(spacing: 16) {
-                ProfileHeaderMetric(title: "Personnel ID", value: String(user.id.uuidString.prefix(8)).uppercased())
-                Divider().frame(height: 32)
-                ProfileHeaderMetric(title: "Joined", value: formatDate(user.createdat))
+                HStack(spacing: 16) {
+                    ProfileHeaderMetric(title: "Personnel ID", value: String(user.id.uuidString.prefix(8)).uppercased())
+                    Divider().frame(height: 32)
+                    ProfileHeaderMetric(title: "Joined", value: formatDate(user.createdat))
+                }
             }
         }
-        .padding(20)
-        .profileCardStyle()
     }
 
     private func initials(for name: String) -> String {
@@ -229,90 +219,9 @@ private struct ProfileHeaderMetric: View {
     }
 }
 
-private struct ProfilePerformanceSummary: View {
-    let completionRate: Int
-    let completedJobs: String
-    let activeJobs: String
-    let nextDueJobDate: String
+// Performance summary components removed
 
-    var body: some View {
-        ProfileSectionContainer(title: "Performance") {
-            HStack(spacing: 12) {
-                // Job completion rate gauge tile
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack {
-                        ZStack {
-                            Circle()
-                                .stroke(Color.blue.opacity(0.12), lineWidth: 4)
-                                .frame(width: 44, height: 44)
-                            Circle()
-                                .trim(from: 0.0, to: CGFloat(completionRate) / 100.0)
-                                .stroke(Color.blue, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                                .frame(width: 44, height: 44)
-                                .rotationEffect(.degrees(-90))
-                            Text("\(completionRate)%")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.blue)
-                        }
-                        Spacer()
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Completion Rate")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.primary)
-                        Text("Completed vs assigned")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 112)
-                .background(Color.blue.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                ProfileScoreTile(title: "Completed", value: completedJobs, subtitle: "Resolved", icon: "wrench.fill")
-                ProfileScoreTile(title: "Active Jobs", value: activeJobs, subtitle: "Remaining", icon: "clock.fill")
-            }
-
-            ProfilePlainRow(icon: "calendar.badge.clock", title: "Next Due Job", value: nextDueJobDate)
-                .padding(.top, 4)
-        }
-    }
-}
-
-private struct ProfileScoreTile: View {
-    let title: String
-    let value: String
-    let subtitle: String
-    let icon: String
-
-    var body: some View {
-        let tint = ProfileIconBadge(icon: icon).tint
-        VStack(alignment: .leading, spacing: 12) {
-            Image(systemName: icon)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(tint)
-                .frame(width: 30, height: 30)
-                .background(tint.opacity(0.12), in: Circle())
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value)
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(.primary)
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.primary)
-                Text(subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 112)
-        .background(tint.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-}
+// Score Tile Removed
 
 private struct ProfileInfoSection: View {
     let title: String
@@ -347,11 +256,11 @@ private struct ProfileSectionContainer<Content: View>: View {
                 .textCase(.uppercase)
                 .padding(.leading, 4)
 
-            VStack(spacing: 12) {
-                content
+            GlassPanel(hasBorder: true) {
+                VStack(spacing: 12) {
+                    content
+                }
             }
-            .padding(16)
-            .profileCardStyle()
         }
     }
 }
@@ -409,17 +318,7 @@ private struct ProfileIconBadge: View {
     }
 }
 
-private extension View {
-    func profileCardStyle() -> some View {
-        background(Color(UIColor.systemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
-            .shadow(color: Color.black.opacity(0.015), radius: 2, x: 0, y: 1)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color(UIColor.separator).opacity(0.15), lineWidth: 0.5)
-            )
-    }
-}
+// profileCardStyle removed
 
 // MARK: - Edit Profile View
 enum EditMaintenanceProfileField: Hashable {
@@ -507,7 +406,7 @@ struct EditMaintenanceProfileView: View {
                     .frame(maxWidth: .infinity)
                     .background(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color(UIColor.secondarySystemGroupedBackground))
+                            .fill(AppColor.surface)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -568,7 +467,7 @@ struct EditMaintenanceProfileView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
             }
-            .background(Color(UIColor.systemGroupedBackground))
+            .background(AppColor.background)
             .navigationTitle("Edit Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -707,7 +606,7 @@ private struct EditMaintenanceProfileRow: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(UIColor.secondarySystemGroupedBackground))
+                .fill(AppColor.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)

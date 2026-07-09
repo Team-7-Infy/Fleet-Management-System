@@ -26,7 +26,7 @@ struct ActiveTrackingView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(UIColor.systemGroupedBackground)
+                AppColor.background
                     .ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
@@ -143,7 +143,7 @@ struct ActiveTrackingView: View {
                                                     .foregroundColor(trip.status == .rejected ? .red : .secondary.opacity(0.6))
                                                     .padding(.horizontal, 10)
                                                     .padding(.vertical, 6)
-                                                    .background(trip.status == .rejected ? Color.red.opacity(0.1) : Color(UIColor.systemGroupedBackground))
+                                                    .background(trip.status == .rejected ? Color.red.opacity(0.1) : AppColor.background)
                                                     .clipShape(Capsule())
                                             }
                                             .padding(20)
@@ -155,7 +155,7 @@ struct ActiveTrackingView: View {
                                         }
                                     }
                                 }
-                                .background(Color(UIColor.systemBackground).opacity(0.75))
+                                .background(AppColor.surface)
                                 .cornerRadius(20)
                                 .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
                             }
@@ -366,7 +366,7 @@ private struct UpcomingTripCard: View {
             }
         }
         .padding(20)
-        .background(Color(UIColor.systemBackground))
+        .background(AppColor.surface)
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
     }

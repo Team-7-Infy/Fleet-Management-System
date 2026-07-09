@@ -143,7 +143,7 @@ struct TripFuelHistoryView: View {
             }
             .padding()
         }
-        .background(Color(UIColor.systemGroupedBackground))
+        .background(AppColor.background)
         .navigationTitle(isReadOnly ? "Fuel Logs" : "Add Fuel Refill")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -324,7 +324,7 @@ struct TripFuelHistoryView: View {
             .accessibilityLabel("Save Fuel Refill")
         }
         .padding(18)
-        .background(Color(UIColor.systemBackground))
+        .background(AppColor.surface)
         .cornerRadius(18)
     }
 
@@ -358,7 +358,7 @@ struct TripFuelHistoryView: View {
             }
         }
         .padding(18)
-        .background(Color(UIColor.systemBackground))
+        .background(AppColor.surface)
         .cornerRadius(18)
     }
 

@@ -230,65 +230,41 @@ struct FleetManagerDashboardView: View {
     }
 
     private var liveTab: some View {
-        ZStack(alignment: .topTrailing) {
-            NavigationStack {
-                ManagerOverviewView(
-                    usersViewModel: usersViewModel,
-                    vehiclesViewModel: vehiclesViewModel,
-                    tripsViewModel: tripsViewModel,
-                    maintenanceViewModel: maintenanceViewModel,
-                    notificationViewModel: notificationViewModel,
-                    showingNotifications: $showingNotifications,
-                    refresh: refreshAll,
-                    currentUserId: currentUserId,
-                    onProfile: { isShowingProfile = true },
-                    onShowReportsHub: { isShowingReportsHub = true }
-                )
-                .sheet(isPresented: $isShowingProfile) {
-                    if let user = usersViewModel.user(for: currentUserId) {
-                        ManagerProfileView(
-                            services: services,
-                            user: user,
-                            onLogout: onLogout
-                        )
-                    } else {
-                        ProgressView("Loading Profile...")
-                    }
-                }
-                .navigationDestination(isPresented: $showingNotifications) {
-                    NotificationListView(viewModel: notificationViewModel)
-                }
-                .navigationDestination(isPresented: $isShowingReportsHub) {
-                    ReportsHubView(
-                        tripsViewModel: tripsViewModel,
-                        vehiclesViewModel: vehiclesViewModel,
-                        maintenanceViewModel: maintenanceViewModel,
-                        usersViewModel: usersViewModel
+        NavigationStack {
+            ManagerOverviewView(
+                usersViewModel: usersViewModel,
+                vehiclesViewModel: vehiclesViewModel,
+                tripsViewModel: tripsViewModel,
+                maintenanceViewModel: maintenanceViewModel,
+                notificationViewModel: notificationViewModel,
+                showingNotifications: $showingNotifications,
+                refresh: refreshAll,
+                currentUserId: currentUserId,
+                onProfile: { isShowingProfile = true },
+                onShowReportsHub: { isShowingReportsHub = true }
+            )
+            .sheet(isPresented: $isShowingProfile) {
+                if let user = usersViewModel.user(for: currentUserId) {
+                    ManagerProfileView(
+                        services: services,
+                        user: user,
+                        onLogout: onLogout
                     )
+                } else {
+                    ProgressView("Loading Profile...")
                 }
             }
-
-            // Pinned overlay — lives above NavigationStack so nav bar never displaces it
-            // Hidden only for push navigations — modals (profile) cover the buttons naturally
-            let isOnChildScreen = showingNotifications || isShowingReportsHub
-            HStack(spacing: 4) {
-                NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
-                    showingNotifications = true
-                }
-                .padding(.trailing, 4)
-                if usersViewModel.user(for: currentUserId) != nil || true {
-                    Button(action: { isShowingProfile = true }) {
-                        liveTabProfileIcon
-                    }
-                    .glassEffect(.regular.interactive(), in: Circle())
-                    .accessibilityLabel("Account")
-                }
+            .navigationDestination(isPresented: $showingNotifications) {
+                NotificationListView(viewModel: notificationViewModel)
             }
-            .padding(.top, 0)
-            .padding(.trailing, 16)
-            .opacity(isOnChildScreen ? 0 : 1)
-            .allowsHitTesting(!isOnChildScreen)
-            .zIndex(999)
+            .navigationDestination(isPresented: $isShowingReportsHub) {
+                ReportsHubView(
+                    tripsViewModel: tripsViewModel,
+                    vehiclesViewModel: vehiclesViewModel,
+                    maintenanceViewModel: maintenanceViewModel,
+                    usersViewModel: usersViewModel
+                )
+            }
         }
     }
 

@@ -38,7 +38,7 @@ struct OnHoldWorkOrderCard: View {
             }
             .padding(.vertical, AppSpacing.medium)
             .padding(.horizontal, AppSpacing.large)
-            .background(Color.white)
+            .background(AppColor.surface)
             .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium))
             .shadow(color: AppColor.textPrimary.opacity(0.06), radius: 8, x: 0, y: 4)
         }

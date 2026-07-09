@@ -90,6 +90,19 @@ struct ManagerOverviewView: View {
             .fleetScreenBackground()
             .navigationTitle(showInlineTitle ? "Dashboard" : "")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 12) {
+                        NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
+                            showingNotifications = true
+                        }
+                        Button(action: { onProfile?() }) {
+                            profileIcon
+                        }
+                        .accessibilityLabel("Account")
+                    }
+                }
+            }
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.contentOffset.y
             } action: { oldValue, newValue in
@@ -125,7 +138,7 @@ struct ManagerOverviewView: View {
                     image
                         .resizable()
                         .scaledToFill()
-                        .frame(width: 44, height: 44)
+                        .frame(width: 32, height: 32)
                         .clipShape(Circle())
                 default:
                     fallbackProfileIcon
@@ -142,8 +155,7 @@ struct ManagerOverviewView: View {
             .scaledToFill()
             .frame(width: 28, height: 28)
             .clipShape(Circle())
-            .offset(x: 0, y: 2)
-            .frame(width: 44, height: 44)
+            .frame(width: 32, height: 32)
     }
 
     private var activeTripsHeaderCard: some View {

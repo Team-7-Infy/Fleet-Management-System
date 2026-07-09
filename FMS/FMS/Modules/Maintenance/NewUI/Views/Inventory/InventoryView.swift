@@ -2,6 +2,7 @@ import SwiftUI
 
 // MARK: - Inventory View
 struct InventoryView: View {
+    @Environment(\.colorScheme) var colorScheme
     @StateObject private var viewModel = InventoryViewModel()
     @FocusState private var isSearchFocused: Bool
 
@@ -43,7 +44,7 @@ struct InventoryView: View {
         HStack {
             Text("Inventory")
                 .font(.system(size: 34, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(Color.primary)
             Spacer()
         }
         .padding(.horizontal, 20)
@@ -78,7 +79,7 @@ struct InventoryView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color(hex: 0xE8EAED))
+        .background(AppColor.surface)
         .clipShape(Capsule())
         .padding(.horizontal, 20)
     }
@@ -91,7 +92,7 @@ struct InventoryView: View {
             }
         }
         .padding(4)
-        .background(Color(hex: 0xE8EAED))
+        .background(AppColor.surface)
         .clipShape(Capsule())
         .padding(.horizontal, 20)
     }
@@ -99,16 +100,14 @@ struct InventoryView: View {
     private func categoryChip(_ category: VehicleCategory) -> some View {
         let isSelected = viewModel.selectedCategory == category
         return Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                viewModel.selectedCategory = category
-            }
+            viewModel.selectedCategory = category
         } label: {
             Text(category.rawValue)
                 .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(isSelected ? Color.black : Color.gray)
+                .foregroundStyle(isSelected ? Color.primary : Color.gray)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(isSelected ? Color.white : Color.clear)
+                .background(isSelected ? AppColor.background : Color.clear)
                 .clipShape(Capsule())
                 .shadow(color: isSelected ? Color.black.opacity(0.04) : .clear, radius: 4, x: 0, y: 2)
         }

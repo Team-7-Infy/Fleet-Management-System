@@ -85,7 +85,7 @@ struct VehiclePickerView: View {
 
     var body: some View {
         ZStack {
-            Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+            AppColor.background.ignoresSafeArea()
             VStack(spacing: 0) {
 
                 // Header banner
@@ -135,7 +135,7 @@ struct VehiclePickerView: View {
                                             Image(systemName: "checkmark.circle.fill")
                                                 .font(.caption.weight(.bold))
                                                 .foregroundColor(FleetPalette.success)
-                                                .background(Color.white, in: Circle())
+                                                .background(AppColor.surface, in: Circle())
                                                 .offset(x: 4, y: -4)
                                         }
                                     }
@@ -178,7 +178,7 @@ struct VehiclePickerView: View {
                                     }
                                 }
                                 .padding(18)
-                                .background(Color(UIColor.systemBackground))
+                                .background(AppColor.surface)
                                 .cornerRadius(20)
                                 .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 4)
                                 .opacity(isDone ? 0.6 : 1.0)

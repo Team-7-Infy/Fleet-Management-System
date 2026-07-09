@@ -479,7 +479,7 @@ struct ActiveNavigationDetailView: View {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 34))
                             .foregroundColor(.black.opacity(0.6))
-                            .background(Circle().fill(Color(UIColor.systemBackground)))
+                            .background(Circle().fill(AppColor.surface))
                             .shadow(color: .black.opacity(0.15), radius: 6)
                     }
                     .padding(.top, 8)
@@ -715,7 +715,7 @@ struct ActiveNavigationDetailView: View {
                             }
                         }
                         .padding()
-                        .background(RoundedRectangle(cornerRadius: 20).fill(Color(UIColor.secondarySystemGroupedBackground)))
+                        .background(RoundedRectangle(cornerRadius: 20).fill(AppColor.surface))
                         .padding(.horizontal)
                         
                         // Pause / Resume Trip Row
@@ -757,7 +757,7 @@ struct ActiveNavigationDetailView: View {
                             }
                         }
                         .padding()
-                        .background(RoundedRectangle(cornerRadius: 20).fill(Color(UIColor.secondarySystemGroupedBackground)))
+                        .background(RoundedRectangle(cornerRadius: 20).fill(AppColor.surface))
                         .padding(.horizontal)
 
                         // Complete Trip Button

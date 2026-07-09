@@ -115,14 +115,19 @@ struct ManagerMaintenanceView: View {
                     }
                 }
                 .tint(FleetPalette.textPrimary)
-                NavigationLink {
-                    ManagerInventoryView(inventoryService: inventoryService, onNotification: onNotification)
-                } label: {
-                    Image(systemName: "shippingbox")
-                }
-                .tint(FleetPalette.textPrimary)
-                Button("Request Workshop", systemImage: "plus", action: openMaintenanceRequest)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                HStack(spacing: 16) {
+                    NavigationLink {
+                        ManagerInventoryView(inventoryService: inventoryService, onNotification: onNotification)
+                    } label: {
+                        Image(systemName: "shippingbox")
+                    }
                     .tint(FleetPalette.textPrimary)
+                    
+                    Button("Request Workshop", systemImage: "plus", action: openMaintenanceRequest)
+                        .tint(FleetPalette.textPrimary)
+                }
             }
         }
         .task {

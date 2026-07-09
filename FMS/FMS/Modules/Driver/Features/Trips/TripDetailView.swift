@@ -24,7 +24,7 @@ struct TripDetailView: View {
 
     var body: some View {
         ZStack {
-            Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+            AppColor.background.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
@@ -187,7 +187,7 @@ struct TripDetailView: View {
                                 }
                             }
                             .padding(20)
-                            .background(Color(UIColor.systemBackground))
+                            .background(AppColor.surface)
                             .cornerRadius(20)
                             .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
 
@@ -268,7 +268,7 @@ struct TripDetailView: View {
                                 }
                             }
                             .padding(20)
-                            .background(Color(UIColor.systemBackground))
+                            .background(AppColor.surface)
                             .cornerRadius(20)
                             .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
                         }
@@ -583,7 +583,7 @@ struct CompletedTripDetailView: View {
                 }
             }
             .padding(20)
-            .background(Color(UIColor.systemBackground))
+            .background(AppColor.surface)
             .cornerRadius(20)
             .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
 
@@ -654,7 +654,7 @@ struct CompletedTripDetailView: View {
                 }
             }
             .padding(20)
-            .background(Color(UIColor.systemBackground))
+            .background(AppColor.surface)
             .cornerRadius(20)
             .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
 
@@ -801,7 +801,7 @@ struct CompletedTripDetailView: View {
                 }
             }
             .padding(20)
-            .background(Color(UIColor.systemBackground))
+            .background(AppColor.surface)
             .cornerRadius(20)
             .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
 
@@ -905,7 +905,7 @@ struct CompletedTripDetailView: View {
                 }
             }
             .padding(20)
-            .background(Color(UIColor.systemBackground))
+            .background(AppColor.surface)
             .cornerRadius(20)
             .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
         }
@@ -992,7 +992,7 @@ struct VehicleMaintenanceReportCard: View {
             }
         }
         .padding(20)
-        .background(Color(UIColor.systemBackground))
+        .background(AppColor.surface)
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
     }
