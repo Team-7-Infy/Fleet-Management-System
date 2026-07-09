@@ -100,6 +100,8 @@ struct ManagerTripsView: View {
             ToolbarItem(placement: .topBarLeading) {
                 TripFilterMenu(filter: $filter)
                     .tint(FleetPalette.textPrimary)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Add Trip", systemImage: "plus", action: openAddTrip)
                     .tint(FleetPalette.textPrimary)
             }

@@ -81,7 +81,6 @@ struct ManagerOverviewView: View {
                     headerBar
                     activeTripsHeaderCard
                     fleetStatusSection
-                    maintenanceSection
                     ReportsNavRow(action: onShowReportsHub)
                 }
                 .padding()
@@ -190,11 +189,11 @@ struct ManagerOverviewView: View {
     }
 
     private var fleetStatusSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 16) {
             DashboardSectionTitle("Fleet Status")
-
-            GlassPanel(hasBorder: false) {
-                VStack(spacing: 0) {
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
                     NavigationLink {
                         DashboardDriverStatusListView(
                             usersViewModel: usersViewModel,
@@ -205,22 +204,18 @@ struct ManagerOverviewView: View {
                             offDutyDrivers: offDutyDrivers
                         )
                     } label: {
-                        FleetStatusRowContent(
+                        FleetStatusCard(
                             title: "Drivers",
                             systemImage: "person.2.fill",
-                            tint: FleetPalette.accent,
+                            titleTint: FleetPalette.accent,
                             metrics: [
-                                ("Active", "\(enrouteDrivers.count)", FleetPalette.success),
-                                ("Available", "\(availableDrivers.count)", FleetPalette.accent),
-                                ("Off duty", "\(offDutyDrivers.count)", FleetPalette.neutral)
+                                ("location.north.fill", "\(enrouteDrivers.count)", "ON TRIP", FleetPalette.success),
+                                ("person.fill", "\(availableDrivers.count)", "AVAILABLE", FleetPalette.accent),
+                                ("moon.fill", "\(offDutyDrivers.count)", "OFF DUTY", FleetPalette.neutral)
                             ]
                         )
                     }
                     .buttonStyle(.plain)
-
-                    Divider()
-                        .overlay(Color.gray)
-                        .padding(.vertical, 4)
 
                     NavigationLink {
                         DashboardVehicleStatusListView(
@@ -232,73 +227,45 @@ struct ManagerOverviewView: View {
                             maintenanceVehicles: maintenanceVehicles
                         )
                     } label: {
-                        FleetStatusRowContent(
+                        FleetStatusCard(
                             title: "Vehicles",
-                            systemImage: "car.2.fill",
-                            tint: FleetPalette.accent,
+                            systemImage: "car.fill",
+                            titleTint: FleetPalette.accent,
                             metrics: [
-                                ("On trip", "\(enrouteVehicles.count)", FleetPalette.success),
-                                ("Available", "\(availableVehicles.count)", FleetPalette.accent),
-                                ("Maintenance", "\(maintenanceVehicles.count)", FleetPalette.warning)
+                                ("truck.box.fill", "\(enrouteVehicles.count)", "ON TRIP", FleetPalette.success),
+                                ("truck.box.fill", "\(availableVehicles.count)", "AVAILABLE", FleetPalette.accent),
+                                ("wrench.and.screwdriver.fill", "\(maintenanceVehicles.count)", "MAINTENANCE", FleetPalette.warning)
+                            ]
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    NavigationLink {
+                        DashboardMaintenanceStatusListView(
+                            usersViewModel: usersViewModel,
+                            vehiclesViewModel: vehiclesViewModel,
+                            maintenanceViewModel: maintenanceViewModel,
+                            openTasks: maintenanceViewModel.openTasks,
+                            inProgressTasks: maintenanceViewModel.tasks.filter { $0.status == .inProgress },
+                            completedTasks: maintenanceViewModel.tasks.filter { $0.status == .completed || $0.status == .verified || $0.status == .closed }
+                        )
+                    } label: {
+                        FleetStatusCard(
+                            title: "Maintenance",
+                            systemImage: "wrench.and.screwdriver.fill",
+                            titleTint: FleetPalette.warning,
+                            metrics: [
+                                ("exclamationmark.circle.fill", "\(maintenanceViewModel.openTasks.count)", "OPEN", FleetPalette.warning),
+                                ("clock.fill", "\(maintenanceViewModel.tasks.filter { $0.status == .inProgress }.count)", "IN PROGRESS", FleetPalette.accent),
+                                ("checkmark.circle.fill", "\(maintenanceViewModel.tasks.filter { $0.status == .completed || $0.status == .verified || $0.status == .closed }.count)", "COMPLETED", FleetPalette.success)
                             ]
                         )
                     }
                     .buttonStyle(.plain)
                 }
+                .padding(.horizontal, 2)
+                .padding(.vertical, 8)
             }
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.gray, lineWidth: 1)
-            )
-        }
-    }
-
-    private var maintenanceSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                DashboardSectionTitle("Maintenance")
-                Spacer()
-                HStack(spacing: 4) {
-                    Circle().fill(FleetPalette.warning).frame(width: 8, height: 8)
-                    Text("\(maintenanceViewModel.openTasks.count) open")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(FleetPalette.textSecondary)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(FleetPalette.warning.opacity(0.12))
-                .clipShape(Capsule())
-            }
-            .padding(.horizontal, 2)
-
-            GlassPanel(hasBorder: false) {
-                VStack(spacing: 0) {
-                    if maintenanceViewModel.openTasks.isEmpty {
-                        EmptyStateView(
-                            title: "No Open Maintenance",
-                            message: "All vehicles are serviced and ready.",
-                            systemImage: "wrench.and.screwdriver"
-                        )
-                        .padding(.vertical, 20)
-                    } else {
-                        ForEach(Array(maintenanceViewModel.openTasks.prefix(3).enumerated()), id: \.element.id) { index, task in
-                            DashboardMaintenanceRow(
-                                task: task,
-                                assignee: usersViewModel.personnelUser(for: task.executedBy)
-                            )
-                            if index < min(maintenanceViewModel.openTasks.count, 3) - 1 {
-                                Divider()
-                                    .overlay(Color.gray)
-                                    .padding(.vertical, 12)
-                            }
-                        }
-                    }
-                }
-            }
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.gray, lineWidth: 1)
-            )
         }
     }
 }
@@ -541,47 +508,66 @@ struct ActiveTripGradientCard: View {
     }
 }
 
-struct FleetStatusRowContent: View {
+struct FleetStatusCard: View {
+    @Environment(\.colorScheme) var colorScheme
     var title: String
     var systemImage: String
-    var tint: Color
-    var metrics: [(String, String, Color)]
+    var titleTint: Color
+    var metrics: [(String, String, String, Color)]
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .center, spacing: 6) {
-                IconBubble(systemImage: systemImage, tint: tint)
-                Text(title)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(FleetPalette.textPrimary)
-                    .lineLimit(1)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: systemImage)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(titleTint)
+                    .frame(width: 44, height: 44)
+                    .background(titleTint.opacity(0.12))
+                    .clipShape(Circle())
+                
+                Spacer()
+                
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.gray)
             }
-            .frame(width: 68, alignment: .center)
-
-            Divider()
-                .padding(.vertical, 4)
-
-            HStack(spacing: 4) {
-                ForEach(metrics, id: \.0) { metric in
-                    VStack(spacing: 4) {
-                        Text(metric.0.uppercased())
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(FleetPalette.textSecondary)
-                            .lineLimit(1)
-
+            
+            Text(title)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(Color.primary)
+            
+            VStack(spacing: 12) {
+                ForEach(metrics, id: \.2) { metric in
+                    HStack(spacing: 12) {
+                        Image(systemName: metric.0)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(metric.3)
+                            .frame(width: 28, height: 28)
+                            .background(metric.3.opacity(0.12))
+                            .clipShape(Circle())
+                        
+                        Text(metric.2.capitalized)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Color.gray)
+                        
+                        Spacer()
+                        
                         Text(metric.1)
-                            .font(.system(size: 19, weight: .heavy, design: .rounded))
-                            .foregroundStyle(metric.2)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(metric.3)
                     }
-                    .frame(maxWidth: .infinity)
                 }
             }
-
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(FleetPalette.textSecondary)
         }
-        .padding(.vertical, 8)
+        .padding(20)
+        .frame(width: 240)
+        .background(colorScheme == .dark ? Color(white: 0.12) : Color.white)
+        .cornerRadius(24)
+        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Color.gray.opacity(colorScheme == .dark ? 0.3 : 0.15), lineWidth: 1)
+        )
     }
 }
 
@@ -838,6 +824,76 @@ private struct VehicleStatusRow: View {
                 .padding(.vertical, 5)
                 .background(color.opacity(0.12))
                 .clipShape(Capsule())
+        }
+    }
+}
+
+private struct DashboardMaintenanceStatusListView: View {
+    @ObservedObject var usersViewModel: UserManagementViewModel
+    @ObservedObject var vehiclesViewModel: VehicleViewModel
+    @ObservedObject var maintenanceViewModel: MaintenanceViewModel
+    var openTasks: [MaintenanceTask]
+    var inProgressTasks: [MaintenanceTask]
+    var completedTasks: [MaintenanceTask]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                ScreenHeader(title: "Maintenance")
+                maintenanceSection(title: "Open", tasks: openTasks, color: FleetPalette.warning)
+                maintenanceSection(title: "In Progress", tasks: inProgressTasks, color: FleetPalette.accent)
+                maintenanceSection(title: "Completed", tasks: completedTasks, color: FleetPalette.success)
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 24)
+        }
+        .fleetScreenBackground()
+        .navigationTitle("Maintenance Status")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private func maintenanceSection(title: String, tasks: [MaintenanceTask], color: Color) -> some View {
+        if tasks.isEmpty == false {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    DashboardSectionTitle(title)
+                    Spacer()
+                    Text("\(tasks.count)")
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(color)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(color.opacity(0.12))
+                        .clipShape(Capsule())
+                }
+
+                GlassPanel(hasBorder: false) {
+                    VStack(spacing: 14) {
+                        ForEach(tasks) { task in
+                            NavigationLink {
+                                ManagerServiceDetailView(
+                                    task: task,
+                                    viewModel: maintenanceViewModel,
+                                    vehiclesViewModel: vehiclesViewModel,
+                                    usersViewModel: usersViewModel
+                                )
+                            } label: {
+                                DashboardMaintenanceRow(
+                                    task: task,
+                                    assignee: usersViewModel.personnelUser(for: task.executedBy)
+                                )
+                            }
+                            .buttonStyle(.plain)
+
+                            if task.id != tasks.last?.id {
+                                Divider()
+                            }
+                        }
+                    }
+                    .padding(4)
+                }
+            }
         }
     }
 }
