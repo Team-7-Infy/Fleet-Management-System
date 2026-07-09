@@ -89,10 +89,17 @@ struct DashboardView: View {
             return false
         }()
 
-        // Is Start Trip enabled for the nearest Scheduled Trip? (1 hour before departure)
         let isStartTripEnabled: Bool = {
             guard let nearest = nearestScheduledTrip else { return false }
-            return dashboardNow >= nearest.startTime.addingTimeInterval(-TripTimingPolicy.startTripWindow)
+            let windowStart = nearest.startTime.addingTimeInterval(-TripTimingPolicy.startTripWindow)
+            let windowEnd = nearest.startTime.addingTimeInterval(TripTimingPolicy.startTripLateGraceWindow)
+            return dashboardNow >= windowStart && dashboardNow <= windowEnd
+        }()
+
+        // Is Start Trip window expired
+        let isStartTripExpired: Bool = {
+            guard let nearest = nearestScheduledTrip else { return false }
+            return dashboardNow > nearest.startTime.addingTimeInterval(TripTimingPolicy.startTripLateGraceWindow)
         }()
 
         // Remaining scheduled trips for the section list below
@@ -190,6 +197,7 @@ struct DashboardView: View {
                                         activeTripExists: false,
                                         isInspectionEnabled: isInspectionEnabled,
                                         canStartTrip: isStartTripEnabled,
+                                        isStartTripExpired: isStartTripExpired,
                                         onPerformInspection: {
                                             selectedTripToStart = nearest.id.uuidString
                                             showingInspectionSheet = true
@@ -289,10 +297,10 @@ struct DashboardView: View {
                         }
                         .padding(.bottom, 8)
 
-                        // --- 4. History Trips Section ---
+                        // --- 4. Trip History Section ---
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
-                                SectionHeader(title: "History Trips")
+                                SectionHeader(title: "Trip History")
                                 Spacer()
                                 if historyTrips.count > 3 {
                                     NavigationLink(destination: HistoryTripsListView(trips: historyTrips, vehicles: vehicles, services: services)) {
@@ -381,8 +389,10 @@ struct DashboardView: View {
             .onDisappear {
                 notificationViewModel.unsubscribeRealtime()
             }
-            .navigationDestination(isPresented: $showingNotifications) {
-                NotificationListView(viewModel: notificationViewModel)
+            .sheet(isPresented: $showingNotifications) {
+                NavigationStack {
+                    NotificationListView(viewModel: notificationViewModel)
+                }
             }
             .navigationDestination(isPresented: $showingProfile) {
                 ProfileHubView(
@@ -428,7 +438,7 @@ struct DashboardView: View {
                         expenseService: services.expenseService,
                         driverId: driver?.id,
                         vehicleId: liveTrip?.vehicleId,
-                        vehicleFuelType: nil
+                        vehicleFuelType: vehicles.first(where: { $0.id == liveTrip?.vehicleId })?.fuelType
                     )
                     .environmentObject(localStore)
                 }
@@ -569,12 +579,14 @@ struct DashboardView: View {
         return f.string(from: endTime)
     }
 
-    private func acceptTrip(_ trip: Trip) async {
+    private func acceptTrip(_ trip: Trip) async -> Bool {
         do {
             try await services.tripService.updateTripStatus(id: trip.id, status: .accepted)
             await onRefreshData?()
+            return true
         } catch {
             print("Failed to accept trip: \(error)")
+            return false
         }
     }
 
@@ -637,20 +649,17 @@ struct DashboardView: View {
                 )
                 _ = try? await services.sosService.createEvent(event)
 
-                let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
-                for fmUser in fmUsers {
-                    let notification = AppNotification(
-                        id: UUID(),
-                        title: "CRITICAL: Driver SOS Emergency",
-                        message: "Driver has triggered emergency SOS alert for Trip from \(tripToCancel?.startLocation ?? "N/A") to \(tripToCancel?.endLocation ?? "N/A").",
-                        type: "sos_emergency",
-                        isRead: false,
-                        referenceId: tripToCancel?.id,
-                        recipientId: fmUser.id,
-                        createdAt: Date()
-                    )
-                    _ = try? await services.notificationService.createNotification(notification)
-                }
+                let notification = AppNotification(
+                    id: UUID(),
+                    title: "CRITICAL: Driver SOS Emergency",
+                    message: "Driver has triggered emergency SOS alert for Trip from \(tripToCancel?.startLocation ?? "N/A") to \(tripToCancel?.endLocation ?? "N/A").",
+                    type: "sos_emergency",
+                    isRead: false,
+                    referenceId: tripToCancel?.id,
+                    recipientId: nil,
+                    createdAt: Date()
+                )
+                _ = try? await services.notificationService.createNotification(notification)
 
                 await viewModel.fetchDashboardData()
                 await onRefreshData?()
@@ -1962,6 +1971,7 @@ struct UpcomingLiveTripCard: View {
     let activeTripExists: Bool
     let isInspectionEnabled: Bool
     let canStartTrip: Bool
+    let isStartTripExpired: Bool
     let onPerformInspection: () -> Void
     let onStartTrip: () -> Void
 
@@ -2135,6 +2145,25 @@ struct UpcomingLiveTripCard: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
+            } else if isStartTripExpired {
+                VStack(spacing: 8) {
+                    HStack {
+                        Spacer()
+                        Image(systemName: "clock.badge.xmark.fill")
+                        Text("Trip Start Expired")
+                            .fontWeight(.bold)
+                        Spacer()
+                    }
+                    .padding(.vertical, 16)
+                    .background(Color.white.opacity(0.15))
+                    .foregroundColor(.white.opacity(0.6))
+                    .cornerRadius(14)
+
+                    Text("The start window for this trip has passed. Contact your fleet manager.")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
             } else if canStartTrip {
                 Button(action: {
                     HapticManager.shared.triggerImpact(style: .medium)
@@ -2174,7 +2203,7 @@ struct UpcomingLiveTripCard: View {
                     .foregroundColor(.white.opacity(0.6))
                     .cornerRadius(14)
 
-                    Text("You can start this trip 1 hour before the scheduled departure.")
+                    Text("Start trip becomes available 1 hour before departure and expires 2 hours after scheduled departure.")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.white.opacity(0.6))
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -2257,7 +2286,7 @@ struct HistoryTripsListView: View {
                 .padding(20)
             }
         }
-        .navigationTitle("History Trips")
+        .navigationTitle("Trip History")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar(.visible, for: .navigationBar)
@@ -2292,10 +2321,18 @@ struct PostTripInspectionCard: View {
     let onPerformInspection: () -> Void
 
     @State private var now = Date()
-    @State private var didNotifyOverdue = false
-
     private var deadline: Date? {
         localStore.pendingPostTripInspection?.deadline
+    }
+
+    private static let notifiedOverdueKey = "didNotifyOverdueTrip_"
+
+    private var hasNotified: Bool {
+        UserDefaults.standard.bool(forKey: Self.notifiedOverdueKey + trip.id.uuidString)
+    }
+
+    private func markNotified() {
+        UserDefaults.standard.set(true, forKey: Self.notifiedOverdueKey + trip.id.uuidString)
     }
 
     private var timeRemaining: TimeInterval {
@@ -2390,24 +2427,21 @@ struct PostTripInspectionCard: View {
         .shadow(color: Color.black.opacity(0.04), radius: 10, y: 5)
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { newNow in
             now = newNow
-            if isOverdue && !didNotifyOverdue {
-                didNotifyOverdue = true
+            if isOverdue && !hasNotified {
+                markNotified()
                 let plate = vehicles.first(where: { $0.id == trip.vehicleId })?.licencePlate ?? "Unknown"
                 Task {
-                    let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
-                    for fmUser in fmUsers {
-                        let notification = AppNotification(
-                            id: UUID(),
-                            title: "Overdue Post-Trip Inspection",
-                            message: "Post-trip inspection for \(plate) (Trip \(trip.id.shortIdentifier)) is overdue. Driver has not completed the inspection within the 2-hour window.",
-                            type: "overdue_post_trip",
-                            isRead: false,
-                            referenceId: trip.id,
-                            recipientId: fmUser.id,
-                            createdAt: Date()
-                        )
-                        _ = try? await services.notificationService.createNotification(notification)
-                    }
+                    let notification = AppNotification(
+                        id: UUID(),
+                        title: "Overdue Post-Trip Inspection",
+                        message: "Post-trip inspection for \(plate) (Trip \(trip.id.shortIdentifier)) is overdue. Driver has not completed the inspection within the 2-hour window.",
+                        type: "overdue_post_trip",
+                        isRead: false,
+                        referenceId: trip.id,
+                        recipientId: nil,
+                        createdAt: Date()
+                    )
+                    _ = try? await services.notificationService.createNotification(notification)
                 }
             }
         }

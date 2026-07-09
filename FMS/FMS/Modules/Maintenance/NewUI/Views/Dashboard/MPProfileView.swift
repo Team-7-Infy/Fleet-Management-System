@@ -118,6 +118,11 @@ private struct ProfileHeaderCard: View {
     @ObservedObject var viewModel: ProfileViewModel
     let user: UserProfile
 
+    private var avatarURL: URL? {
+        guard let urlStr = user.avatarurl else { return nil }
+        return URL(string: urlStr)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 16) {
@@ -129,6 +134,26 @@ private struct ProfileHeaderCard: View {
                             .frame(width: 76, height: 76)
                             .clipShape(Circle())
                             .shadow(radius: 4, x: 0, y: 2)
+                    } else if let url = avatarURL {
+                        CachedAsyncImage(url: url) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 76, height: 76)
+                                .clipShape(Circle())
+                                .shadow(radius: 4, x: 0, y: 2)
+                        } placeholder: {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.blue, Color(red: 0.12, green: 0.32, blue: 0.82)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 76, height: 76)
+                                .shadow(color: Color.blue.opacity(0.3), radius: 6, x: 0, y: 3)
+                        }
                     } else {
                         Circle()
                             .fill(

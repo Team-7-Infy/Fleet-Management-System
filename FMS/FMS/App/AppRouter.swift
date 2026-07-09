@@ -9,7 +9,6 @@ final class AppServices {
     let maintenanceService: MaintenanceService
     let inventoryService: InventoryService
     let userManagementService: UserManagementService
-    let fleetNotificationService: FleetNotificationService
     let notificationService: NotificationService
     let inspectionService: InspectionService
     let expenseService: ExpenseService
@@ -26,7 +25,6 @@ final class AppServices {
         maintenanceService = MaintenanceService(supabase: supabase)
         inventoryService = InventoryService(supabase: supabase)
         userManagementService = UserManagementService(supabase: supabase)
-        fleetNotificationService = FleetNotificationService(supabase: supabase)
         notificationService = NotificationService(supabase: supabase)
         inspectionService = InspectionService(supabase: supabase)
         expenseService = ExpenseService(supabase: supabase)

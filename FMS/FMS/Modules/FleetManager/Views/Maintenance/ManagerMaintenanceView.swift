@@ -126,14 +126,12 @@ private struct ManagerWorkOrderCard: View {
     var task: MaintenanceTask
     @ObservedObject var viewModel: MaintenanceViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
+    @State private var showDeleteConfirmation = false
 
     private var vehicle: Vehicle? {
         let links = viewModel.vehicles(for: task)
-        print("[DEBUG] Task \(task.id.uuidString) has \(links.count) links: \(links.map { $0.vin.uuidString })")
         guard let vin = links.first?.vin else { return nil }
-        let v = vehiclesViewModel.vehicle(for: vin)
-        print("[DEBUG] Task \(task.id.uuidString) looking up vin \(vin.uuidString) -> found vehicle: \(v?.licencePlate ?? "nil")")
-        return v
+        return vehiclesViewModel.vehicle(for: vin)
     }
 
     var body: some View {
@@ -201,6 +199,25 @@ private struct ManagerWorkOrderCard: View {
                 .fill(FleetPalette.surface)
                 .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 6)
         )
+        .contextMenu {
+            if task.status != .completed && task.status != .verified && task.status != .closed {
+                Button(role: .destructive) {
+                    showDeleteConfirmation = true
+                } label: {
+                    Label("Delete Work Order", systemImage: "trash")
+                }
+            }
+        }
+        .confirmationDialog("Delete Work Order", isPresented: $showDeleteConfirmation) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    await viewModel.delete(task)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This action cannot be undone. The work order will be permanently deleted.")
+        }
     }
 }
 
@@ -230,8 +247,37 @@ private struct ManagerInventoryView: View {
     @State private var isImporting = false
     @State private var importSuccessMessage: String?
 
+    @State private var searchText = ""
+    @State private var stockFilter: StockFilter = .all
+
+    enum StockFilter: String, CaseIterable, Identifiable {
+        case all = "All"
+        case lowStock = "Low Stock"
+        case outOfStock = "Out of Stock"
+        var id: String { rawValue }
+    }
+
     var lowStockParts: [InventoryPart] {
         parts.filter { $0.quantity <= ($0.reorderLevel ?? 0) && ($0.reorderLevel ?? 0) > 0 }
+    }
+
+    private var filteredParts: [InventoryPart] {
+        var result = parts
+        switch stockFilter {
+        case .all: break
+        case .lowStock:
+            result = result.filter { $0.quantity <= ($0.reorderLevel ?? 0) && ($0.reorderLevel ?? 0) > 0 }
+        case .outOfStock:
+            result = result.filter { $0.quantity <= 0 }
+        }
+        if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+            result = result.filter {
+                $0.partName.localizedCaseInsensitiveContains(searchText) ||
+                ($0.sku?.localizedCaseInsensitiveContains(searchText) ?? false) ||
+                ($0.category?.localizedCaseInsensitiveContains(searchText) ?? false)
+            }
+        }
+        return result
     }
 
     var body: some View {
@@ -255,9 +301,29 @@ private struct ManagerInventoryView: View {
                     )
                     .frame(maxWidth: .infinity, minHeight: 220)
                 } else {
-                    LazyVStack(spacing: 12) {
-                        ForEach(parts) { part in
-                            InventoryPartRow(part: part)
+                    TextField("Search parts...", text: $searchText)
+                        .textFieldStyle(.roundedBorder)
+                        .fleetField()
+
+                    Picker("Stock", selection: $stockFilter) {
+                        ForEach(StockFilter.allCases) { filter in
+                            Text(filter.rawValue).tag(filter)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    if filteredParts.isEmpty {
+                        ContentUnavailableView(
+                            "No matching parts",
+                            systemImage: "magnifyingglass",
+                            description: Text("Try adjusting your search or filter.")
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 120)
+                    } else {
+                        LazyVStack(spacing: 12) {
+                            ForEach(filteredParts) { part in
+                                InventoryPartRow(part: part)
+                            }
                         }
                     }
                 }

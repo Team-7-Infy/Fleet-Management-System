@@ -177,6 +177,18 @@ struct MPDashboardView: View {
                             .scaledToFill()
                             .frame(width: 36, height: 36)
                             .clipShape(Circle())
+                    } else if let avatarURL = viewModel.user?.avatarurl.flatMap(URL.init(string:)) {
+                        CachedAsyncImage(url: avatarURL) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 36, height: 36)
+                                .clipShape(Circle())
+                        } placeholder: {
+                            Circle()
+                                .fill(LinearGradient(colors: [AppColor.inProgress, AppColor.inProgress.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                .frame(width: 36, height: 36)
+                        }
                     } else {
                         ZStack {
                             Circle()

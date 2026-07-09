@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import Supabase
 
 struct TripFuelHistoryView: View {
     @EnvironmentObject var localStore: LocalDataStore
@@ -16,6 +17,7 @@ struct TripFuelHistoryView: View {
     let vehicleFuelType: String?
 
     @State private var selectedFuelType: FuelRecord.FuelType = .diesel
+    @State private var isFuelTypeFixed: Bool = false
     @State private var liters: String = ""
     @State private var pricePerLiter: String = ""
     @State private var receiptCode: String = ""
@@ -192,6 +194,17 @@ struct TripFuelHistoryView: View {
                 receiptNumber: $ocrNumber
             )
         }
+        .onAppear {
+            if let vehicleFuelType {
+                let fuelMap: [String: FuelRecord.FuelType] = [
+                    "diesel": .diesel, "petrol": .petrol, "cng": .cng, "electric": .electric
+                ]
+                if let mapped = fuelMap[vehicleFuelType.lowercased()] {
+                    selectedFuelType = mapped
+                    isFuelTypeFixed = true
+                }
+            }
+        }
         .onChange(of: selectedReceiptImage) { _, newItem in
             guard let item = newItem else { return }
             isScanningReceipt = true
@@ -306,13 +319,25 @@ struct TripFuelHistoryView: View {
             Text("Add Refill")
                 .font(.headline)
 
-            Picker("Fuel Type", selection: $selectedFuelType) {
-                ForEach(FuelRecord.FuelType.allCases, id: \.self) { type in
-                    Text(type.rawValue).tag(type)
+            if isFuelTypeFixed {
+                HStack {
+                    Text("Fuel Type")
+                        .fontWeight(.medium)
+                    Spacer()
+                    Text(selectedFuelType.rawValue)
+                        .foregroundStyle(.secondary)
                 }
+                .padding(.vertical, 4)
+                .accessibilityLabel("Fuel Type: \(selectedFuelType.rawValue)")
+            } else {
+                Picker("Fuel Type", selection: $selectedFuelType) {
+                    ForEach(FuelRecord.FuelType.allCases, id: \.self) { type in
+                        Text(type.rawValue).tag(type)
+                    }
+                }
+                .pickerStyle(SegmentedPickerStyle())
+                .accessibilityLabel("Fuel Type Selection")
             }
-            .pickerStyle(SegmentedPickerStyle())
-            .accessibilityLabel("Fuel Type Selection")
 
             FuelFormField(title: quantityTitle, placeholder: "0.0 \(quantityUnit)", text: $liters, keyboardType: .decimalPad)
             FuelFormField(title: priceTitle, placeholder: "0.00", text: $pricePerLiter, keyboardType: .decimalPad)
@@ -369,6 +394,9 @@ struct TripFuelHistoryView: View {
                 .buttonStyle(PlainButtonStyle())
             }
 
+            Divider()
+                .padding(.vertical, 4)
+
             HStack {
                 Text("Calculated Total")
                     .fontWeight(.semibold)
@@ -377,6 +405,7 @@ struct TripFuelHistoryView: View {
                     .font(.title3)
                     .fontWeight(.heavy)
             }
+            .padding(.vertical, 4)
 
             Button(action: saveRefill) {
                 Text("Save Refill")
@@ -453,6 +482,11 @@ struct TripFuelHistoryView: View {
             }
 
             if let expenseService, let driverId, let vehicleId {
+                var receiptImageUrl: String?
+                if let receiptImageData {
+                    receiptImageUrl = await uploadReceiptImage(receiptImageData)
+                }
+
                 var ocrData: String?
                 if ocrAmount != nil || ocrDate != nil || ocrVendor != nil || ocrNumber != nil {
                     let dict: [String: String?] = [
@@ -474,7 +508,7 @@ struct TripFuelHistoryView: View {
                     fuelType: selectedFuelType.rawValue.lowercased(),
                     totalCost: quantityValue * priceValue,
                     odometerReading: nil,
-                    receiptImageUrl: nil,
+                    receiptImageUrl: receiptImageUrl,
                     receiptOcrData: ocrData,
                     locationLat: nil,
                     locationLng: nil,
@@ -497,6 +531,41 @@ struct TripFuelHistoryView: View {
                 receiptImageData = nil
                 showingSavedAlert = true
             }
+        }
+    }
+
+    private func uploadReceiptImage(_ imageData: Data) async -> String? {
+        guard let supabase = localStore.supabase else { return nil }
+        let bucketId = "maintenance"
+        let path = "receipt-\(UUID().uuidString)-\(Int(Date().timeIntervalSince1970)).jpg"
+
+        guard let publicURL = try? supabase.storage.from(bucketId).getPublicURL(path: path).absoluteString else {
+            return nil
+        }
+
+        let baseURL = EnvironmentConfig.supabaseURL
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else { return nil }
+        components.path = "/storage/v1/object/\(bucketId)/\(path)"
+        guard let uploadURL = components.url else { return nil }
+
+        var request = URLRequest(url: uploadURL)
+        request.httpMethod = "PUT"
+        request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
+        request.setValue("3600", forHTTPHeaderField: "cache-control")
+        request.setValue("true", forHTTPHeaderField: "x-upsert")
+        request.setValue(EnvironmentConfig.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        if let token = try? await supabase.auth.session.accessToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = imageData
+
+        do {
+            let (_, urlResponse) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = urlResponse as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode) else { return nil }
+            return publicURL
+        } catch {
+            return nil
         }
     }
 }

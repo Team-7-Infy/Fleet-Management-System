@@ -296,21 +296,18 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 guard !notifiedDeviationTripIds.contains(tripId) else { return }
                 notifiedDeviationTripIds.insert(tripId)
 
-                if let notificationService, let userManagementService {
-                    let fmUsers = (try? await userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
-                    for fmUser in fmUsers {
-                        let notification = AppNotification(
-                            id: UUID(),
-                            title: "Route Deviation Detected",
-                            message: "Vehicle has deviated from planned route by \(String(format: "%.0f", distance)) meters.",
-                            type: "route_deviation",
-                            isRead: false,
-                            referenceId: tripId,
-                            recipientId: fmUser.id,
-                            createdAt: Date()
-                        )
-                        _ = try? await notificationService.createNotification(notification)
-                    }
+                if let notificationService {
+                    let notification = AppNotification(
+                        id: UUID(),
+                        title: "Route Deviation Detected",
+                        message: "Vehicle has deviated from planned route by \(String(format: "%.0f", distance)) meters.",
+                        type: "route_deviation",
+                        isRead: false,
+                        referenceId: tripId,
+                        recipientId: nil,
+                        createdAt: Date()
+                    )
+                    _ = try? await notificationService.createNotification(notification)
                 }
             } catch {
                 print("Failed to report deviation alert: \(error.localizedDescription)")

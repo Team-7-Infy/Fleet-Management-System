@@ -599,7 +599,7 @@ struct ActiveNavigationDetailView: View {
                                     expenseService: services.expenseService,
                                     driverId: trip.driverId,
                                     vehicleId: trip.vehicleId,
-                                    vehicleFuelType: nil
+                                    vehicleFuelType: vehicles.first(where: { $0.id == trip.vehicleId })?.fuelType
                                 )
                                 .environmentObject(localStore)
                             }
@@ -1052,20 +1052,17 @@ struct ActiveNavigationDetailView: View {
             )
             _ = try? await services.sosService.createEvent(event)
 
-            let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
-            for fmUser in fmUsers {
-                let notification = AppNotification(
-                    id: UUID(),
-                    title: "CRITICAL: Driver SOS Emergency",
-                    message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation) during active navigation.",
-                    type: "sos_emergency",
-                    isRead: false,
-                    referenceId: trip.id,
-                    recipientId: fmUser.id,
-                    createdAt: Date()
-                )
-                _ = try? await services.notificationService.createNotification(notification)
-            }
+            let notification = AppNotification(
+                id: UUID(),
+                title: "CRITICAL: Driver SOS Emergency",
+                message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation) during active navigation.",
+                type: "sos_emergency",
+                isRead: false,
+                referenceId: trip.id,
+                recipientId: nil,
+                createdAt: Date()
+            )
+            _ = try? await services.notificationService.createNotification(notification)
 
             onBack()
         } catch {

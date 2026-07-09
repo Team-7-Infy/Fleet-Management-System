@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import Supabase
 
 final class ManagerProfileViewModel: ObservableObject {
     private let services: AppServices
@@ -93,7 +94,6 @@ final class ManagerProfileViewModel: ObservableObject {
 
     @MainActor
     func updateProfile(newName: String, newPhone: String, newEmail: String, newAddress: String, newProfileImageData: Data?) async throws {
-        // Validation using UserProfileValidation defined in User.swift
         guard UserProfileValidation.isValidName(newName) else {
             throw AppError.unknown("First name and Last name must contain only alphabetic characters.")
         }
@@ -107,7 +107,6 @@ final class ManagerProfileViewModel: ObservableObject {
             throw AppError.unknown("Address cannot be empty.")
         }
 
-        // Detect contact history changes
         if newName != driverName {
             contactHistory.insert(ContactHistoryItem(field: "Name", oldValue: driverName), at: 0)
         }
@@ -129,13 +128,19 @@ final class ManagerProfileViewModel: ObservableObject {
         let last = nameParts.count > 1 ? nameParts[1] : ""
 
         var updatedUser = user
+
+        if let imageData = newProfileImageData {
+            let url = try await uploadProfileImage(imageData)
+            updatedUser.avatarUrl = url
+            self.profileImageData = imageData
+        }
+
         updatedUser.fName = first
         updatedUser.lName = last
         updatedUser.contact = Int64(newPhone) ?? user.contact
         updatedUser.email = newEmail
         updatedUser.address = newAddress
 
-        // Call database update
         let savedUser = try await services.userManagementService.updateUser(updatedUser)
 
         self.user = savedUser
@@ -143,11 +148,49 @@ final class ManagerProfileViewModel: ObservableObject {
         self.phone = String(savedUser.contact)
         self.email = savedUser.email
         self.address = savedUser.address
-        
-        if let imageData = newProfileImageData {
-            self.profileImageData = imageData
-        }
 
         NotificationCenter.default.post(name: NSNotification.Name("UserProfileUpdated"), object: nil)
+    }
+
+    private func uploadProfileImage(_ imageData: Data) async throws -> String {
+        guard let image = UIImage(data: imageData),
+              let uploadData = image.jpegData(compressionQuality: 0.82) else {
+            throw URLError(.cannotDecodeContentData)
+        }
+        let bucketId = "maintenance"
+        let path = "avatar-\(user.id.uuidString)-\(Int(Date().timeIntervalSince1970)).jpg"
+
+        let publicURL = try services.supabase.client.storage
+            .from(bucketId)
+            .getPublicURL(path: path)
+            .absoluteString
+
+        let baseURL = EnvironmentConfig.supabaseURL
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            throw URLError(.badURL)
+        }
+        components.path = "/storage/v1/object/\(bucketId)/\(path)"
+        guard let uploadURL = components.url else {
+            throw URLError(.badURL)
+        }
+
+        var request = URLRequest(url: uploadURL)
+        request.httpMethod = "PUT"
+        request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
+        request.setValue("3600", forHTTPHeaderField: "cache-control")
+        request.setValue("true", forHTTPHeaderField: "x-upsert")
+        request.setValue(EnvironmentConfig.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        if let token = try? await services.supabase.client.auth.session.accessToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = uploadData
+
+        let (_, urlResponse) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = urlResponse as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+
+        return publicURL
     }
 }
