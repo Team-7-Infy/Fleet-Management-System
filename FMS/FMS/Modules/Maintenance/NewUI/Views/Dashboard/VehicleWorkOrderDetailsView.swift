@@ -10,7 +10,6 @@ struct VehicleWorkOrderDetailsView: View {
     // Report Sheet State
     @State private var isShowingReportSheet = false
     @State private var reportReason = ""
-    @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var reportPhotoData: [Data] = []
     @State private var isSubmittingReport = false
     @State private var errorMessage: String?
@@ -104,7 +103,6 @@ struct VehicleWorkOrderDetailsView: View {
         .sheet(isPresented: $isShowingReportSheet) {
             ReportWorkOrderSheet(
                 reason: $reportReason,
-                selectedPhotoItems: $selectedPhotoItems,
                 photoData: $reportPhotoData,
                 isSubmitting: $isSubmittingReport,
                 onSubmit: {
@@ -117,7 +115,6 @@ struct VehicleWorkOrderDetailsView: View {
                                 isShowingReportSheet = false
                                 reportReason = ""
                                 reportPhotoData = []
-                                selectedPhotoItems = []
                                 navigation.popToRoot()
                             }
                         } catch {
@@ -326,10 +323,11 @@ struct VehicleWorkOrderDetailsView: View {
 struct ReportWorkOrderSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var reason: String
-    @Binding var selectedPhotoItems: [PhotosPickerItem]
     @Binding var photoData: [Data]
     @Binding var isSubmitting: Bool
     let onSubmit: () -> Void
+    
+    @State private var showingCameraPicker = false
     
     var body: some View {
         NavigationStack {
@@ -382,7 +380,6 @@ struct ReportWorkOrderSheet: View {
                                                 
                                                 Button(action: {
                                                     photoData.remove(at: index)
-                                                    selectedPhotoItems.remove(at: index)
                                                 }) {
                                                     Image(systemName: "xmark.circle.fill")
                                                         .font(.title2)
@@ -396,10 +393,10 @@ struct ReportWorkOrderSheet: View {
                             }
                         }
                         
-                        PhotosPicker(selection: $selectedPhotoItems, matching: .images) {
+                        Button(action: { showingCameraPicker = true }) {
                             HStack {
-                                Image(systemName: "photo.badge.plus")
-                                Text(photoData.isEmpty ? "Add Photo Proof" : "Add More Photos")
+                                Image(systemName: "camera.fill")
+                                Text(photoData.isEmpty ? "Take Photo Proof" : "Take More Photos")
                             }
                             .font(.system(size: 16, weight: .bold, design: .rounded))
                             .foregroundStyle(Color.blue)
@@ -412,18 +409,15 @@ struct ReportWorkOrderSheet: View {
                                     .stroke(Color.blue.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [5]))
                             )
                         }
-                        .onChange(of: selectedPhotoItems) { _, newItems in
-                            Task {
-                                var newData: [Data] = []
-                                for item in newItems {
-                                    if let data = try? await item.loadTransferable(type: Data.self) {
-                                        newData.append(data)
+                        .sheet(isPresented: $showingCameraPicker) {
+                            MaintenanceCameraPicker(selectedImage: Binding(
+                                get: { nil },
+                                set: { newImage in
+                                    if let image = newImage, let data = image.jpegData(compressionQuality: 0.8) {
+                                        self.photoData.append(data)
                                     }
                                 }
-                                await MainActor.run {
-                                    self.photoData = newData
-                                }
-                            }
+                            ))
                         }
                     }
                 }
@@ -453,5 +447,43 @@ struct ReportWorkOrderSheet: View {
             }
         }
         .interactiveDismissDisabled(isSubmitting)
+    }
+}
+
+// MARK: - Maintenance Camera Picker (Strictly Camera Only)
+struct MaintenanceCameraPicker: UIViewControllerRepresentable {
+    @Environment(\.dismiss) var dismiss
+    @Binding var selectedImage: UIImage?
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        picker.sourceType = .camera
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: MaintenanceCameraPicker
+
+        init(_ parent: MaintenanceCameraPicker) {
+            self.parent = parent
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                parent.selectedImage = image
+            }
+            parent.dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
+        }
     }
 }

@@ -21,9 +21,11 @@ final class CompleteWorkOrderViewModel: ObservableObject {
     @Published var currentVehicleType: String?
     @Published var laborCost: String = ""
     @Published var remarks: String = ""
+    @Published var hourlyRate: Double = 500.0
     
     private var startTime: Date?
     var wasCompleted = false
+    private var timer: AnyCancellable?
     
     // Mock parts exactly matching the design
     @Published var usedParts: [PartItem] = []
@@ -34,7 +36,8 @@ final class CompleteWorkOrderViewModel: ObservableObject {
     }
     
     var totalLaborCost: Decimal {
-        Decimal(string: laborCost) ?? 0
+        let hours = elapsedTime / 3600.0
+        return Decimal(hours * hourlyRate)
     }
     
     var totalCost: Decimal {
@@ -69,7 +72,15 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                 }
             }
             
+            var fetchedRate: Double = 500.0
+            if let executedBy = workOrder?.executedBy {
+                if let rate = try? await workOrderService.fetchPersonnelHourlyRate(id: executedBy) {
+                    fetchedRate = rate
+                }
+            }
+            
             await MainActor.run {
+                self.hourlyRate = fetchedRate
                 if let wo = workOrder {
                     self.elapsedTime = wo.elapsedTime ?? 0
                     if !wo.mappedParts.isEmpty {
@@ -115,6 +126,14 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                 }
                 self.startTime = Date()
                 self.isLoaded = true
+                
+                // Start ticking timer to update elapsedTime and laborCost in real-time
+                self.timer = Timer.publish(every: 1.0, on: .main, in: .common)
+                    .autoconnect()
+                    .sink { [weak self] _ in
+                        self?.updateElapsedTime()
+                    }
+                
                 state = .loaded(())
             }
             // Mark task as in-progress immediately when the view loads
@@ -138,9 +157,12 @@ final class CompleteWorkOrderViewModel: ObservableObject {
     
     func completeWorkOrder() async {
         wasCompleted = true
+        timer?.cancel()
         if let start = startTime {
             elapsedTime += Date().timeIntervalSince(start)
         }
+        
+        let finalLaborCost = totalLaborCost
 
         do {
             try await workOrderService.updateWorkOrder(
@@ -149,8 +171,8 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                 elapsedTime: elapsedTime,
                 parts: usedParts,
                 remarks: remarks,
-                totalCost: totalCost,
-                labourCost: totalLaborCost
+                totalCost: totalPartsCost + finalLaborCost,
+                labourCost: finalLaborCost
             )
             
             if let wo = workOrder {
@@ -179,6 +201,7 @@ final class CompleteWorkOrderViewModel: ObservableObject {
     
     func pauseWorkOrder() {
         if wasCompleted { return }
+        timer?.cancel()
         
         var currentElapsedTime = elapsedTime
         if let start = startTime {
@@ -187,7 +210,8 @@ final class CompleteWorkOrderViewModel: ObservableObject {
         
         let partsToSave = usedParts
         let currentRemarks = remarks
-        let currentCost = totalCost
+        let currentLaborDecimal = Decimal((currentElapsedTime / 3600.0) * hourlyRate)
+        let currentCost = totalPartsCost + currentLaborDecimal
         
         // Save local draft
         let draft = WorkOrderDraft(
@@ -209,9 +233,20 @@ final class CompleteWorkOrderViewModel: ObservableObject {
                 parts: partsToSave,
                 remarks: currentRemarks.isEmpty ? nil : currentRemarks,
                 totalCost: currentCost,
-                labourCost: nil
+                labourCost: currentLaborDecimal
             )
         }
+    }
+    
+    private func updateElapsedTime() {
+        guard let start = startTime, !wasCompleted else { return }
+        let currentElapsed = (workOrder?.elapsedTime ?? 0) + Date().timeIntervalSince(start)
+        self.elapsedTime = currentElapsed
+        self.laborCost = String(format: "%.2f", NSDecimalNumber(decimal: totalLaborCost).doubleValue)
+    }
+    
+    deinit {
+        timer?.cancel()
     }
     
     func incrementPart(id: String) {

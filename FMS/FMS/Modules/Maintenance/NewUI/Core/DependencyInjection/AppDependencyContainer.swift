@@ -50,7 +50,7 @@ final class AppDependencyContainer {
             supabaseKey: EnvironmentConfig.supabaseAnonKey
         )
         return AppDependencyContainer(
-            vehicleService: SupabaseVehicleService(apiClient: apiClient),
+            vehicleService: SupabaseVehicleService(client: supabaseClient),
             workOrderService: SupabaseWorkOrderService(apiClient: apiClient, client: supabaseClient),
             activityService: SupabaseActivityService(client: supabaseClient),
             authService: SupabaseAuthService(client: supabaseClient),

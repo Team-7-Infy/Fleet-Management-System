@@ -81,6 +81,7 @@ struct LoginView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         Text("Login")
                             .font(.custom("ClashGrotesk-Medium", size: 32))
+//                            .font(.system(size: 32, weight: .semibold))
                             .foregroundStyle(.black)
                             .padding(.top, 32)
                             .padding(.horizontal, 24)

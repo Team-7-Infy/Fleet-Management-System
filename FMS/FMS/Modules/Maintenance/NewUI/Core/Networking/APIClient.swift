@@ -21,9 +21,7 @@ struct APIClient {
         }
         
         do {
-            let decoder = JSONDecoder()
-            // Optional: If Supabase returns dates in ISO8601
-            decoder.dateDecodingStrategy = .iso8601
+            let decoder = SharedDecoder.json
             return try decoder.decode(Response.self, from: data)
         } catch {
             print("Decoding error: \(error)")
