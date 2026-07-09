@@ -44,6 +44,17 @@ struct InspectionView: View {
         return 75 + number
     }
 
+    private var availableCategories: [String] {
+        viewModel.categories
+    }
+    
+    private var filteredItems: [InspectionItem] {
+        if selectedCategory == "All" {
+            return viewModel.items
+        }
+        return viewModel.items.filter { $0.category == selectedCategory }
+    }
+    
     private var isSubmitEnabled: Bool {
         let hasFailedDefect = viewModel.items.contains { item in
             item.status == .failed && !item.failDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

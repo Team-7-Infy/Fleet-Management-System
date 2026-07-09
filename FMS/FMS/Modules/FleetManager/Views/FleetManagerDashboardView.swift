@@ -297,7 +297,7 @@ struct FleetManagerDashboardView: View {
         }
     }
 
-    private var liveTabProfileIcon: some View {
+   @ViewBuilder private var liveTabProfileIcon: some View {
         if let user = usersViewModel.user(for: currentUserId),
            let imageURL = user.avatarImageURL {
             AsyncImage(url: imageURL) { phase in
