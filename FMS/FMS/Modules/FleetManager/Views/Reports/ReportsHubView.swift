@@ -187,7 +187,7 @@ struct ReportsHubView: View {
                 reportsViewModel: viewModel,
                 vehiclesViewModel: vehiclesViewModel,
                 usersViewModel: usersViewModel,
-                tripsViewModel: viewModel.tripsViewModel
+                maintenanceViewModel: maintenanceViewModel
             ))
         }
     }

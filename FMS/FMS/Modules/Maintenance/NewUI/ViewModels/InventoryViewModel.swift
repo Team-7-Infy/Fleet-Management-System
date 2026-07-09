@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import Supabase
 
 // MARK: - Vehicle Category Filter
 enum VehicleCategory: String, CaseIterable, Identifiable {
@@ -28,6 +29,35 @@ final class InventoryViewModel: ObservableObject {
     init(thresholdStore: ThresholdStore = .shared) {
         self.thresholdStore = thresholdStore
         allItems = InventoryCSVLoader.load()
+        Task {
+            await loadFromDB()
+        }
+    }
+
+    func loadFromDB() async {
+        guard let client = thresholdStore.supabaseClient else { return }
+        do {
+            let parts: [InventoryPart] = try await client
+                .from("inventory")
+                .select()
+                .execute()
+                .value
+            
+            guard !parts.isEmpty else { return }
+            
+            self.allItems = parts.map { part in
+                InventoryCSVItem(
+                    id: part.id,
+                    partname: part.partName,
+                    cost: part.cost,
+                    quantityOnHand: part.quantity,
+                    vehicletype: part.vehicleType ?? part.category ?? "Car",
+                    partcode: part.sku ?? ""
+                )
+            }
+        } catch {
+            print("Failed to load inventory from database: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Filtering

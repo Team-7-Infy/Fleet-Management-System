@@ -5,7 +5,7 @@ struct FleetUtilizationDetailView: View {
     @ObservedObject var reportsViewModel: ReportsViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
-    @ObservedObject var tripsViewModel: TripManagementViewModel
+    @ObservedObject var maintenanceViewModel: MaintenanceViewModel
 
     @State private var localPeriod: PeriodPreset = .twoMonths
 
@@ -144,7 +144,7 @@ struct FleetUtilizationDetailView: View {
                 vehicle: item.vehicle,
                 viewModel: vehiclesViewModel,
                 usersViewModel: usersViewModel,
-                tripsViewModel: tripsViewModel,
+                maintenanceViewModel: maintenanceViewModel,
                 openMaintenanceRequest: { _ in }
             )
         } label: {

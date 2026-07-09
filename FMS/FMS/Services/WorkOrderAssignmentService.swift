@@ -14,7 +14,7 @@ final actor WorkOrderAssignmentService: WorkOrderAssignmentServiceProtocol {
 
     func findBestPersonnel() async throws -> MaintenancePersonnel? {
         let allPersonnel = try await userManagementService.fetchMaintenancePersonnel()
-        let activePersonnel = allPersonnel.filter { $0.status == .active }
+        let activePersonnel = allPersonnel.filter { $0.status != .unavailable }
         guard !activePersonnel.isEmpty else { return nil }
 
         let users = try await userManagementService.fetchUsers()

@@ -225,7 +225,7 @@ struct ManagerOverviewView: View {
                         DashboardVehicleStatusListView(
                             usersViewModel: usersViewModel,
                             vehiclesViewModel: vehiclesViewModel,
-                            tripsViewModel: tripsViewModel,
+                            maintenanceViewModel: maintenanceViewModel,
                             onTripVehicles: enrouteVehicles,
                             availableVehicles: availableVehicles,
                             maintenanceVehicles: maintenanceVehicles
@@ -677,7 +677,7 @@ private struct DashboardDriverStatusListView: View {
 private struct DashboardVehicleStatusListView: View {
     @ObservedObject var usersViewModel: UserManagementViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
-    @ObservedObject var tripsViewModel: TripManagementViewModel
+    @ObservedObject var maintenanceViewModel: MaintenanceViewModel
     var onTripVehicles: [Vehicle]
     var availableVehicles: [Vehicle]
     var maintenanceVehicles: [Vehicle]
@@ -722,7 +722,7 @@ private struct DashboardVehicleStatusListView: View {
                                     vehicle: vehicle,
                                     viewModel: vehiclesViewModel,
                                     usersViewModel: usersViewModel,
-                                    tripsViewModel: tripsViewModel,
+                                    maintenanceViewModel: maintenanceViewModel,
                                     openMaintenanceRequest: { _ in }
                                 )
                             } label: {

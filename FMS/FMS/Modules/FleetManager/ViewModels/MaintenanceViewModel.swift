@@ -95,6 +95,7 @@ final class MaintenanceViewModel: ObservableObject {
                         tasks[idx].executedBy = best.id
                         tasks[idx].status = .assigned
                     }
+                    try? await userManagementService.updateMaintenancePersonnelStatus(personnelId: best.id, status: PersonnelStatus.inService.rawValue)
                     await sendAssignmentNotifications(task: task, personnel: best, title: task.title ?? "Work Order")
                 } else {
                     let fmUsers = (try? await userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
@@ -166,6 +167,21 @@ final class MaintenanceViewModel: ObservableObject {
             if let index = tasks.firstIndex(where: { $0.id == task.id }) {
                 tasks[index].status = status
             }
+            
+            if status == .completed {
+                if let assignedMechanicId = task.executedBy {
+                    try? await userManagementService.updateMaintenancePersonnelStatus(personnelId: assignedMechanicId, status: PersonnelStatus.available.rawValue)
+                }
+                let taskVeh = vehicles(for: task)
+                for tv in taskVeh {
+                    if let veh = try? await vehicleService.fetchVehicle(id: tv.vin) {
+                        var updatedVeh = veh
+                        updatedVeh.status = .available
+                        _ = try? await vehicleService.updateVehicle(updatedVeh)
+                    }
+                }
+            }
+            
             successMessage = "Task marked \(status.title.lowercased())."
             errorMessage = nil
         } catch {
@@ -181,6 +197,17 @@ final class MaintenanceViewModel: ObservableObject {
                 tasks[index].executedBy = personnelId
                 tasks[index].status = .assigned
             }
+            try? await userManagementService.updateMaintenancePersonnelStatus(personnelId: personnelId, status: PersonnelStatus.inService.rawValue)
+            
+            let taskVeh = vehicles(for: task)
+            for tv in taskVeh {
+                if let veh = try? await vehicleService.fetchVehicle(id: tv.vin) {
+                    var updatedVeh = veh
+                    updatedVeh.status = .inMaintenance
+                    _ = try? await vehicleService.updateVehicle(updatedVeh)
+                }
+            }
+            
             successMessage = "Task assigned."
             errorMessage = nil
         } catch {
@@ -191,9 +218,25 @@ final class MaintenanceViewModel: ObservableObject {
 
     func delete(_ task: MaintenanceTask) async {
         do {
+            let assignedMechanicId = task.executedBy
+            let taskVeh = vehicles(for: task)
+            
             try await maintenanceService.deleteTask(id: task.id)
             tasks.removeAll { $0.id == task.id }
-            successMessage = "Task deleted."
+            
+            if let assignedMechanicId {
+                try? await userManagementService.updateMaintenancePersonnelStatus(personnelId: assignedMechanicId, status: PersonnelStatus.available.rawValue)
+            }
+            
+            for tv in taskVeh {
+                if let veh = try? await vehicleService.fetchVehicle(id: tv.vin) {
+                    var updatedVeh = veh
+                    updatedVeh.status = .available
+                    _ = try? await vehicleService.updateVehicle(updatedVeh)
+                }
+            }
+            
+            successMessage = nil
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
