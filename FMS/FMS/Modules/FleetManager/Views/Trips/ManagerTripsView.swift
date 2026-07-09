@@ -42,6 +42,7 @@ struct ManagerTripsView: View {
     @ObservedObject var viewModel: TripManagementViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
+    let expenseService: ExpenseServiceProtocol?
 
     @State private var searchText = ""
     @State private var filter: ManagerTripFilter = .all
@@ -91,7 +92,8 @@ struct ManagerTripsView: View {
             emptyMessage: "Use Add Trip to create a trip with a vehicle and driver.",
             viewModel: viewModel,
             vehiclesViewModel: vehiclesViewModel,
-            usersViewModel: usersViewModel
+            usersViewModel: usersViewModel,
+            expenseService: expenseService
         )
         .navigationTitle("Trips")
         .navigationBarTitleDisplayMode(.large)
@@ -99,9 +101,11 @@ struct ManagerTripsView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 TripFilterMenu(filter: $filter)
+                    .tint(FleetPalette.textPrimary)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Add Trip", systemImage: "plus", action: openAddTrip)
+                    .tint(FleetPalette.textPrimary)
             }
         }
         .refreshable {
@@ -133,6 +137,7 @@ private struct ManagerTripListScreen: View {
     @ObservedObject var viewModel: TripManagementViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
+    let expenseService: ExpenseServiceProtocol?
 
     var body: some View {
         ScrollView {
@@ -164,7 +169,8 @@ private struct ManagerTripListScreen: View {
                                 trips: group.trips,
                                 viewModel: viewModel,
                                 vehiclesViewModel: vehiclesViewModel,
-                                usersViewModel: usersViewModel
+                                usersViewModel: usersViewModel,
+                                expenseService: expenseService
                             )
                         }
                     }
@@ -198,12 +204,13 @@ private struct ManagerTripGroupSection: View {
     @ObservedObject var viewModel: TripManagementViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
+    let expenseService: ExpenseServiceProtocol?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title.uppercased())
                 .font(.title3.weight(.heavy))
-                .foregroundStyle(Color(hex: 0x607086))
+                .foregroundStyle(FleetPalette.textPrimary)
                 .padding(.horizontal, 2)
 
             LazyVStack(spacing: 14) {
@@ -213,7 +220,8 @@ private struct ManagerTripGroupSection: View {
                             trip: trip,
                             viewModel: viewModel,
                             vehiclesViewModel: vehiclesViewModel,
-                            usersViewModel: usersViewModel
+                            usersViewModel: usersViewModel,
+                            expenseService: expenseService
                         )
                     } label: {
                         ManagerTripCard(
@@ -304,7 +312,7 @@ private struct ManagerTripCard: View {
             HStack(alignment: .center) {
                 Text(tripShortID)
                     .font(.headline.weight(.bold))
-                    .foregroundStyle(FleetPalette.accent)
+                    .foregroundStyle(FleetPalette.textPrimary)
 
                 Spacer()
 
@@ -386,7 +394,7 @@ private struct ManagerTripCard: View {
             // Extra information: Driver name/contact and Vehicle details so we don't miss any data
             if driver != nil || vehicle != nil {
                 Divider()
-                    .background(FleetPalette.tertiary.opacity(0.5))
+                    .overlay(Color.gray)
 
                 HStack(spacing: 10) {
                     if let driver {
@@ -438,6 +446,10 @@ private struct ManagerTripCard: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(FleetPalette.surface)
                 .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 6)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.gray, lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
     }
@@ -575,15 +587,24 @@ struct ManagerTripDetailView: View {
     @ObservedObject var viewModel: TripManagementViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
+    var expenseService: ExpenseServiceProtocol? = nil
     @State private var driverMessage = ""
     @State private var isMapFullScreen = false
+    @State private var fuelLogs: [FuelLog] = []
+    @State private var mgrFuelExpenses: [ExpenseEntry] = []
 
     private var currentTrip: Trip {
         viewModel.trip(for: trip.id) ?? trip
     }
 
     private var isLive: Bool {
-        currentTrip.status == .accepted || currentTrip.status == .inProgress
+        let effective = currentTrip.effectiveTripStatus
+        return effective == .accepted || effective == .inProgress
+    }
+
+    private var isTripConcluded: Bool {
+        let effective = currentTrip.effectiveTripStatus
+        return effective == .completed || effective == .cancelled || effective == .rejected
     }
 
     private var vehicle: Vehicle? {
@@ -651,6 +672,7 @@ struct ManagerTripDetailView: View {
                     routeDetails
                     driverCard
                     vehicleCard
+                    fuelLogsCard
                 }
                 .padding()
             }
@@ -658,6 +680,78 @@ struct ManagerTripDetailView: View {
         }
         .background(FleetPalette.background.ignoresSafeArea())
         .ignoresSafeArea(edges: .top)
+        .task {
+            await loadFuelLogs()
+        }
+    }
+
+    @MainActor
+    private func loadFuelLogs() async {
+        guard let expenseService else { return }
+        if let tripId = trip.id as UUID? {
+            if let logs = try? await expenseService.fetchExpenses(tripId: tripId) {
+                mgrFuelExpenses = logs.filter { $0.expenseType == "fuel" }
+            }
+        }
+    }
+
+    private var fuelLogsCard: some View {
+        GlassPanel(hasBorder: false) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Fuel Refills")
+                    .font(.headline.weight(.bold))
+
+                if mgrFuelExpenses.isEmpty {
+                    Text("No fuel refills logged for this trip.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 4)
+                } else {
+                    ForEach(mgrFuelExpenses, id: \.id) { entry in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(entry.fuelType?.capitalized ?? "Fuel")
+                                        .font(.subheadline.weight(.semibold))
+                                    if let liters = entry.liters {
+                                        Text("\(liters, specifier: "%.1f") \(entry.quantityUnit)")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    Text(entry.totalCost.formatted(.currency(code: "INR")))
+                                        .font(.subheadline.weight(.bold))
+                                    if let costPerLiter = entry.costPerLiter {
+                                        Text("@ \(costPerLiter, specifier: "%.2f")/\(entry.quantityUnit)")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                            Text(FleetManagerFormat.shortDateTime.string(from: entry.createdAt))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            if entry.receiptImageUrl != nil {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "paperclip")
+                                        .font(.caption2)
+                                    Text("Receipt attached")
+                                        .font(.caption2)
+                                }
+                                .foregroundColor(.blue)
+                            }
+                        }
+                        .padding(.vertical, 6)
+                        if entry.id != mgrFuelExpenses.last?.id {
+                            Divider()
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private var routeHero: some View {
@@ -700,18 +794,24 @@ struct ManagerTripDetailView: View {
                         .font(.headline.weight(.bold))
                     Spacer()
                     StatusPill(
-                        text: currentTrip.status.title,
-                        color: FleetPalette.tripStatus(currentTrip.status),
+                        text: currentTrip.effectiveTripStatus.title,
+                        color: FleetPalette.tripStatus(currentTrip.effectiveTripStatus),
                         dotSize: 8
                     )
                 }
                 
                 Divider()
+                    .overlay(Color.gray)
                     .padding(.vertical, 4)
                 
                 InfoRow(title: "Pickup", value: currentTrip.startLocation)
                 InfoRow(title: "Destination", value: currentTrip.endLocation)
-                InfoRow(title: "Start", value: FleetManagerFormat.shortDateTime.string(from: currentTrip.startTime))
+                if currentTrip.actualStartTime != nil {
+                    InfoRow(title: "Scheduled", value: FleetManagerFormat.shortDateTime.string(from: currentTrip.startTime))
+                    InfoRow(title: "Started", value: FleetManagerFormat.shortDateTime.string(from: currentTrip.effectiveStartTime))
+                } else {
+                    InfoRow(title: "Start", value: FleetManagerFormat.shortDateTime.string(from: currentTrip.startTime))
+                }
                 InfoRow(
                     title: currentTrip.endTime == nil ? "ETA" : "Stop",
                     value: currentTrip.endTime.map { FleetManagerFormat.shortDateTime.string(from: $0) } ?? "TBD"
@@ -744,8 +844,8 @@ struct ManagerTripDetailView: View {
                     Spacer()
 
                     StatusPill(
-                        text: isLive ? "Assigned" : "Pending",
-                        color: isLive ? FleetPalette.success : FleetPalette.warning,
+                        text: isTripConcluded ? currentTrip.effectiveTripStatus.title : (isLive ? "Assigned" : "Pending"),
+                        color: isTripConcluded ? FleetPalette.tripStatus(currentTrip.effectiveTripStatus) : (isLive ? FleetPalette.success : FleetPalette.warning),
                         dotSize: 8
                     )
                 }
@@ -762,29 +862,31 @@ struct ManagerTripDetailView: View {
                             .foregroundStyle(FleetPalette.textPrimary)
                     }
 
-                    HStack(spacing: 10) {
-                        TextField("Message driver", text: $driverMessage)
-                            .font(.subheadline)
-                            .textInputAutocapitalization(.sentences)
+                    if !isTripConcluded {
+                        HStack(spacing: 10) {
+                            TextField("Message driver", text: $driverMessage)
+                                .font(.subheadline)
+                                .textInputAutocapitalization(.sentences)
 
-                        Button {
-                            driverMessage = ""
-                        } label: {
-                            Image(systemName: "paperplane.fill")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.white)
-                                .frame(width: 34, height: 34)
-                                .background(FleetPalette.accent, in: Circle())
+                            Button {
+                                driverMessage = ""
+                            } label: {
+                                Image(systemName: "paperplane.fill")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 34, height: 34)
+                                    .background(FleetPalette.accent, in: Circle())
+                            }
+                            .disabled(driverMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .opacity(driverMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
+                            .accessibilityLabel("Send message")
                         }
-                        .disabled(driverMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        .opacity(driverMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
-                        .accessibilityLabel("Send message")
+                        .padding(.leading, 12)
+                        .padding(.trailing, 6)
+                        .frame(height: 46)
+                        .background(FleetPalette.background, in: Capsule())
+                        .padding(.top, 4)
                     }
-                    .padding(.leading, 12)
-                    .padding(.trailing, 6)
-                    .frame(height: 46)
-                    .background(FleetPalette.background, in: Capsule())
-                    .padding(.top, 4)
                 }
             }
         }
@@ -816,6 +918,7 @@ struct ManagerTripDetailView: View {
                     }
 
                     Divider()
+                        .overlay(Color.gray)
                         .padding(.vertical, 4)
 
                     InfoRow(title: "Model", value: "\(vehicle.year) \(vehicle.make) \(vehicle.model)")

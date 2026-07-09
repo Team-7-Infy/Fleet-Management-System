@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import CoreMotion
 import MapKit
 import Combine
 
@@ -24,6 +25,14 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     var userManagementService: UserManagementServiceProtocol?
     private var lastAlertTime: Date?
     private var notifiedDeviationTripIds = Set<UUID>()
+    var onDeviationAlert: ((Double) -> Void)?
+    var onJerkDetected: (() -> Void)?
+
+    private let motionManager = CMMotionManager()
+    private let jerkThreshold: Double = 15.0
+    private var lastJerkTime: Date?
+    private var lastAccelMagnitude: Double?
+    private var lastAccelTime: TimeInterval?
 
     private var isStationary: Bool = false
     private var stationaryCount: Int = 0
@@ -54,6 +63,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         locationManager.startUpdatingLocation()
         locationManager.startUpdatingHeading()
         isTracking = true
+        startJerkDetection()
     }
 
     func startTracking() {
@@ -66,6 +76,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         locationManager.stopUpdatingLocation()
         locationManager.stopUpdatingHeading()
         isTracking = false
+        stopJerkDetection()
         activeTripId = nil
         activeVehicleId = nil
         activeDriverId = nil
@@ -87,6 +98,44 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         self.activeDriverId = nil
         self.waypoints = []
         self.tripService = nil
+    }
+
+    private func startJerkDetection() {
+        guard motionManager.isDeviceMotionAvailable else { return }
+        lastAccelMagnitude = nil
+        lastAccelTime = nil
+        motionManager.deviceMotionUpdateInterval = 0.1
+        motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, error in
+            guard let self = self, let motion = motion, error == nil else { return }
+            let ax = motion.userAcceleration.x
+            let ay = motion.userAcceleration.y
+            let az = motion.userAcceleration.z
+            let magnitude = sqrt(ax * ax + ay * ay + az * az)
+            let currentTime = motion.timestamp
+
+            if let lastMag = self.lastAccelMagnitude, let lastTime = self.lastAccelTime {
+                let dt = currentTime - lastTime
+                if dt > 0 {
+                    let jerk = abs(magnitude - lastMag) / dt
+                    if jerk > self.jerkThreshold {
+                        if let last = self.lastJerkTime, Date().timeIntervalSince(last) < 3 {
+                            return
+                        }
+                        self.lastJerkTime = Date()
+                        self.onJerkDetected?()
+                    }
+                }
+            }
+
+            self.lastAccelMagnitude = magnitude
+            self.lastAccelTime = currentTime
+        }
+    }
+
+    private func stopJerkDetection() {
+        motionManager.stopDeviceMotionUpdates()
+        lastAccelMagnitude = nil
+        lastAccelTime = nil
     }
 
     private func updateTrackingFrequency(speed: CLLocationSpeed) {
@@ -226,6 +275,8 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
         lastAlertTime = Date()
 
+        DispatchQueue.main.async { self.onDeviationAlert?(distance) }
+
         Task {
             do {
                 let alert = DeviationAlert(
@@ -245,21 +296,18 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 guard !notifiedDeviationTripIds.contains(tripId) else { return }
                 notifiedDeviationTripIds.insert(tripId)
 
-                if let notificationService, let userManagementService {
-                    let fmUsers = (try? await userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
-                    for fmUser in fmUsers {
-                        let notification = AppNotification(
-                            id: UUID(),
-                            title: "Route Deviation Detected",
-                            message: "Vehicle has deviated from planned route by \(String(format: "%.0f", distance)) meters.",
-                            type: "route_deviation",
-                            isRead: false,
-                            referenceId: tripId,
-                            recipientId: fmUser.id,
-                            createdAt: Date()
-                        )
-                        _ = try? await notificationService.createNotification(notification)
-                    }
+                if let notificationService {
+                    let notification = AppNotification(
+                        id: UUID(),
+                        title: "Route Deviation Detected",
+                        message: "Vehicle has deviated from planned route by \(String(format: "%.0f", distance)) meters.",
+                        type: "route_deviation",
+                        isRead: false,
+                        referenceId: tripId,
+                        recipientId: nil,
+                        createdAt: Date()
+                    )
+                    _ = try? await notificationService.createNotification(notification)
                 }
             } catch {
                 print("Failed to report deviation alert: \(error.localizedDescription)")

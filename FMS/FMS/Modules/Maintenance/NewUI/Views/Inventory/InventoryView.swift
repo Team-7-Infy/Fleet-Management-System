@@ -55,12 +55,10 @@ struct InventoryView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .fleetScreenBackground()
-        .navigationTitle("Inventory")
-        .navigationBarTitleDisplayMode(.large)
-        .searchable(text: $viewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search spare parts")
+        .background(AppColor.background.ignoresSafeArea())
+        .navigationBarHidden(true)
+        .onTapGesture { isSearchFocused = false }
+        // ── Threshold Sheet ──────────────────────────────────────
         .sheet(item: $viewModel.thresholdSheetItem) { item in
             InventoryThresholdSheet(item: item, store: viewModel.thresholdStore)
                 .presentationDetents([.medium])

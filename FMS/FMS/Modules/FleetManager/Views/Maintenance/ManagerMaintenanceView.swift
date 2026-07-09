@@ -52,61 +52,48 @@ struct ManagerMaintenanceView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
-                .padding(.horizontal)
-                .padding(.top, 8)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    if viewModel.tasks.isEmpty {
-                        ContentUnavailableView(
-                            "No work orders",
-                            systemImage: "doc.text.magnifyingglass",
-                            description: Text("Request maintenance and assign registered personnel.")
-                        )
-                    } else if filteredTasks.isEmpty {
-                        ContentUnavailableView.search
-                    } else {
-                        LazyVStack(spacing: 12) {
-                            ForEach(filteredTasks) { task in
-                                NavigationLink {
-                                    ManagerServiceDetailView(
-                                        task: task,
-                                        viewModel: viewModel,
-                                        vehiclesViewModel: vehiclesViewModel,
-                                        usersViewModel: usersViewModel
-                                    )
-                                } label: {
-                                    ManagerWorkOrderCard(
-                                        task: task,
-                                        viewModel: viewModel,
-                                        vehiclesViewModel: vehiclesViewModel
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                                .contextMenu {
-                                    Button(role: .destructive) {
-                                        Task { await viewModel.delete(task) }
-                                    } label: {
-                                        Label("Delete Task", systemImage: "trash")
-                                    }
-                                }
+                if viewModel.tasks.isEmpty {
+                    ContentUnavailableView(
+                        "No work orders",
+                        systemImage: "doc.text.magnifyingglass",
+                        description: Text("Request maintenance and assign registered personnel.")
+                    )
+                } else if filteredTasks.isEmpty {
+                    ContentUnavailableView.search
+                } else {
+                    LazyVStack(spacing: 14) {
+                        ForEach(filteredTasks) { task in
+                            NavigationLink {
+                                ManagerServiceDetailView(
+                                    task: task,
+                                    viewModel: viewModel,
+                                    vehiclesViewModel: vehiclesViewModel,
+                                    usersViewModel: usersViewModel
+                                )
+                            } label: {
+                                ManagerWorkOrderCard(
+                                    task: task,
+                                    viewModel: viewModel,
+                                    vehiclesViewModel: vehiclesViewModel
+                                )
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
-                .padding(.horizontal)
-                .padding(.bottom)
-                .padding(.top, 4)
             }
+            .padding()
         }
         .fleetScreenBackground()
         .navigationTitle("Workshop")
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search tasks")
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
                 Menu("Filter", systemImage: "line.3.horizontal.decrease") {
                     Picker("Service Status", selection: $selectedSegment) {
                         ForEach(MaintenanceSegment.allCases) { segment in
@@ -114,14 +101,15 @@ struct ManagerMaintenanceView: View {
                         }
                     }
                 }
-            }
-            ToolbarItemGroup(placement: .topBarTrailing) {
+                .tint(FleetPalette.textPrimary)
                 NavigationLink {
                     InventoryView()
                 } label: {
                     Image(systemName: "shippingbox")
                 }
+                .tint(FleetPalette.textPrimary)
                 Button("Request Workshop", systemImage: "plus", action: openMaintenanceRequest)
+                    .tint(FleetPalette.textPrimary)
             }
         }
         .task {
@@ -141,81 +129,108 @@ private struct ManagerWorkOrderCard: View {
     var task: MaintenanceTask
     @ObservedObject var viewModel: MaintenanceViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
+    @State private var showDeleteConfirmation = false
 
     private var vehicle: Vehicle? {
         let links = viewModel.vehicles(for: task)
-        print("[DEBUG] Task \(task.id.uuidString) has \(links.count) links: \(links.map { $0.vin.uuidString })")
         guard let vin = links.first?.vin else { return nil }
-        let v = vehiclesViewModel.vehicle(for: vin)
-        print("[DEBUG] Task \(task.id.uuidString) looking up vin \(vin.uuidString) -> found vehicle: \(v?.licencePlate ?? "nil")")
-        return v
+        return vehiclesViewModel.vehicle(for: vin)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(task.displayTitle)
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(FleetPalette.textPrimary)
-                        .lineLimit(2)
-
-                    if let vehicle {
-                        Text(vehicle.licencePlate)
-                            .font(.subheadline)
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(FleetPalette.maintenanceStatus(task.status))
+                .frame(width: 6)
+            
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(task.displayTitle)
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(FleetPalette.textPrimary)
+                                .lineLimit(2)
+                            
+                            if task.isUrgent {
+                                UrgentTag()
+                            }
+                        }
+                        
+                        if let vehicle {
+                            HStack(spacing: 6) {
+                                Image(systemName: "car.fill")
+                                    .font(.caption)
+                                Text(vehicle.licencePlate)
+                                    .font(.subheadline)
+                            }
                             .foregroundStyle(FleetPalette.textSecondary)
-                            .lineLimit(1)
-                    } else {
-                        Text("No Vehicle Linked")
-                            .font(.subheadline)
-                            .foregroundStyle(FleetPalette.textTertiary)
-                            .lineLimit(1)
+                        } else {
+                            Text("No Vehicle Linked")
+                                .font(.subheadline)
+                                .foregroundStyle(FleetPalette.textTertiary)
+                        }
                     }
-                }
-
-                Spacer(minLength: 8)
-
-                VStack(alignment: .trailing, spacing: 8) {
+                    
+                    Spacer(minLength: 12)
+                    
                     StatusPill(
                         text: task.status.title,
                         color: FleetPalette.maintenanceStatus(task.status),
                         dotSize: 8
                     )
+                }
 
-                    if task.isUrgent {
-                        UrgentTag()
+                Divider()
+                    .overlay(Color.gray.opacity(0.3))
+
+                HStack {
+                    HStack(spacing: 5) {
+                        Image(systemName: "calendar")
+                            .font(.caption)
+                        Text("Reported \(task.hoursAgoText)")
+                            .font(.caption)
+                    }
+                    .foregroundStyle(FleetPalette.textSecondary)
+                    
+                    Spacer()
+                    
+                    if let cost = task.totalCost, cost > 0 {
+                        Text("Cost: ₹\(Int(cost))")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(FleetPalette.success)
                     }
                 }
             }
-
-            Divider()
-                .background(FleetPalette.tertiary.opacity(0.5))
-
-            HStack {
-                HStack(spacing: 5) {
-                    Image(systemName: "calendar")
-                        .font(.caption)
-                    Text("Reported \(task.hoursAgoText)")
-                        .font(.caption)
-                }
-                .foregroundStyle(FleetPalette.textSecondary)
-                
-                Spacer()
-                
-                if let cost = task.totalCost, cost > 0 {
-                    Text("Cost: ₹\(Int(cost))")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(FleetPalette.success)
+            .padding(16)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(FleetPalette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+        )
+        .contextMenu {
+            if task.status != .completed && task.status != .verified && task.status != .closed {
+                Button(role: .destructive) {
+                    showDeleteConfirmation = true
+                } label: {
+                    Label("Delete Work Order", systemImage: "trash")
                 }
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(FleetPalette.surface)
-                .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 6)
-        )
+        .confirmationDialog("Delete Work Order", isPresented: $showDeleteConfirmation) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    await viewModel.delete(task)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This action cannot be undone. The work order will be permanently deleted.")
+        }
     }
 }
 
@@ -245,8 +260,37 @@ private struct ManagerInventoryView: View {
     @State private var isImporting = false
     @State private var importSuccessMessage: String?
 
+    @State private var searchText = ""
+    @State private var stockFilter: StockFilter = .all
+
+    enum StockFilter: String, CaseIterable, Identifiable {
+        case all = "All"
+        case lowStock = "Low Stock"
+        case outOfStock = "Out of Stock"
+        var id: String { rawValue }
+    }
+
     var lowStockParts: [InventoryPart] {
         parts.filter { $0.quantity <= ($0.reorderLevel ?? 0) && ($0.reorderLevel ?? 0) > 0 }
+    }
+
+    private var filteredParts: [InventoryPart] {
+        var result = parts
+        switch stockFilter {
+        case .all: break
+        case .lowStock:
+            result = result.filter { $0.quantity <= ($0.reorderLevel ?? 0) && ($0.reorderLevel ?? 0) > 0 }
+        case .outOfStock:
+            result = result.filter { $0.quantity <= 0 }
+        }
+        if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+            result = result.filter {
+                $0.partName.localizedCaseInsensitiveContains(searchText) ||
+                ($0.sku?.localizedCaseInsensitiveContains(searchText) ?? false) ||
+                ($0.category?.localizedCaseInsensitiveContains(searchText) ?? false)
+            }
+        }
+        return result
     }
 
     var body: some View {
@@ -270,18 +314,36 @@ private struct ManagerInventoryView: View {
                     )
                     .frame(maxWidth: .infinity, minHeight: 220)
                 } else {
-                    LazyVStack(spacing: 12) {
-                        ForEach(parts) { part in
-                            InventoryPartRow(part: part)
-                                .contextMenu {
-                                    Button(role: .destructive) {
-                                        Task {
-                                            await deletePart(part)
+                    TextField("Search parts...", text: $searchText)
+                        .textFieldStyle(.roundedBorder)
+                        .fleetField()
+
+                    Picker("Stock", selection: $stockFilter) {
+                        ForEach(StockFilter.allCases) { filter in
+                            Text(filter.rawValue).tag(filter)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    if filteredParts.isEmpty {
+                        ContentUnavailableView(
+                            "No matching parts",
+                            systemImage: "magnifyingglass",
+                            description: Text("Try adjusting your search or filter.")
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 120)
+                    } else {
+                        LazyVStack(spacing: 12) {
+                            ForEach(filteredParts) { part in
+                                InventoryPartRow(part: part)
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            Task { await deletePart(part) }
+                                        } label: {
+                                            Label("Delete Part", systemImage: "trash")
                                         }
-                                    } label: {
-                                        Label("Delete Part", systemImage: "trash")
                                     }
-                                }
+                            }
                         }
                     }
                 }
@@ -419,9 +481,9 @@ private struct ManagerInventoryView: View {
     private func deletePart(_ part: InventoryPart) async {
         do {
             try await inventoryService.deletePart(id: part.id)
-            parts.removeAll { $0.id == part.id }
+            await MainActor.run { parts.removeAll { $0.id == part.id } }
         } catch {
-            errorMessage = "Failed to delete part: \(error.localizedDescription)"
+            await MainActor.run { errorMessage = "Failed to delete part: \(error.localizedDescription)" }
         }
     }
 }

@@ -12,6 +12,7 @@ final class VoiceGuidanceManager: NSObject, ObservableObject {
     private var totalDistance: CLLocationDistance = 0
     private var currentStepIndex: Int = -1
     private var hasAnnouncedFirstStep = false
+    private var lastDeviationAnnouncement: Date?
 
     override init() {
         super.init()
@@ -55,6 +56,17 @@ final class VoiceGuidanceManager: NSObject, ObservableObject {
 
     func stop() {
         synthesizer.stopSpeaking(at: .immediate)
+    }
+
+    func announceDeviation(distanceMeters: Double) {
+        if let last = lastDeviationAnnouncement, Date().timeIntervalSince(last) < 30 {
+            return
+        }
+        lastDeviationAnnouncement = Date()
+
+        let rounded = (round(distanceMeters / 10) * 10)
+        let text = "You have deviated from the planned route by \(Int(rounded)) meters. Please return to the route."
+        speak(text)
     }
 
     private func speak(_ text: String) {

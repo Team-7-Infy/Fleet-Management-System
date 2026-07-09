@@ -9,20 +9,20 @@
 import SwiftUI
 
 enum FleetPalette {
-    static let primary = Color(hex: 0xE3F2FD)
-    static let secondary = Color(hex: 0xBBDEFB)
-    static let tertiary = Color(hex: 0x42A5F5)
+    static let primary = Color(lightHex: 0xE3F2FD, darkHex: 0x1E293B)
+    static let secondary = Color(lightHex: 0xBBDEFB, darkHex: 0x334155)
+    static let tertiary = Color(lightHex: 0x42A5F5, darkHex: 0x3B82F6)
     static let accent = tertiary
     static let inProgress = Color(hex: 0xFF7A2F)
     static let softBlue = primary
-    static let background = Color(hex: 0xF8FCFF)
-    static let surface = Color.white
-    static let textPrimary = Color.black
+    static let background = Color(lightHex: 0xF8FCFF, darkHex: 0x0F172A)
+    static let surface = Color(lightHex: 0xFFFFFF, darkHex: 0x1E293B)
+    static let textPrimary = Color.primary
     static let textSecondary = Color.secondary
     static let textTertiary = Color.secondary.opacity(0.65)
-    static let success = Color(hex: 0x9BCA53)
-    static let warning = Color(hex: 0xFFD746)
-    static let danger = Color(hex: 0xDB5243)
+    static let success = Color(lightHex: 0x9BCA53, darkHex: 0x4ADE80)
+    static let warning = Color(lightHex: 0xFFD746, darkHex: 0xFBBF24)
+    static let danger = Color(lightHex: 0xDB5243, darkHex: 0xF87171)
     static let neutral = Color.gray
     static let miscellaneous = Color.orange
 

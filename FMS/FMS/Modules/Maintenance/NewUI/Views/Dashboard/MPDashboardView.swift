@@ -119,7 +119,7 @@ struct MPDashboardView: View {
                 await viewModel.load()
             }
         }
-        .background(Color(hex: 0xF4F5F9).ignoresSafeArea())
+        .background(AppColor.background.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $isShowingProfile) {
             MPProfileView(dependencies: dependencies, onLogout: onLogout)
@@ -165,8 +165,10 @@ struct MPDashboardView: View {
             Spacer()
             
             HStack(spacing: 16) {
-                NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
-                    isShowingNotifications = true
+                Button(action: { isShowingNotifications = true }) {
+                    NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
+                        isShowingNotifications = true
+                    }
                 }
                 Button {
                     isShowingProfile = true
@@ -177,6 +179,18 @@ struct MPDashboardView: View {
                             .scaledToFill()
                             .frame(width: 36, height: 36)
                             .clipShape(Circle())
+                    } else if let avatarURL = viewModel.user?.avatarurl.flatMap(URL.init(string:)) {
+                        CachedAsyncImage(url: avatarURL) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 36, height: 36)
+                                .clipShape(Circle())
+                        } placeholder: {
+                            Circle()
+                                .fill(LinearGradient(colors: [AppColor.inProgress, AppColor.inProgress.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                .frame(width: 36, height: 36)
+                        }
                     } else {
                         ZStack {
                             Circle()

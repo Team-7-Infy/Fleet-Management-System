@@ -193,7 +193,8 @@ struct TripReportDetailView: View {
                                         trip: item.trip,
                                         viewModel: tripsManager,
                                         vehiclesViewModel: vehiclesViewModel,
-                                        usersViewModel: usersViewModel
+                                        usersViewModel: usersViewModel,
+                                        expenseService: nil
                                     )
                                 } label: {
                                     punctualityRow(item: item, isEarly: true)
@@ -212,13 +213,14 @@ struct TripReportDetailView: View {
 
                         VStack(spacing: 8) {
                             ForEach(delayed, id: \.trip.id) { item in
-                                NavigationLink {
-                                    ManagerTripDetailView(
-                                        trip: item.trip,
-                                        viewModel: tripsManager,
-                                        vehiclesViewModel: vehiclesViewModel,
-                                        usersViewModel: usersViewModel
-                                    )
+NavigationLink {
+                                ManagerTripDetailView(
+                                    trip: item.trip,
+                                    viewModel: tripsManager,
+                                    vehiclesViewModel: vehiclesViewModel,
+                                    usersViewModel: usersViewModel,
+                                    expenseService: nil
+                                )
                                 } label: {
                                     punctualityRow(item: item, isEarly: false)
                                 }
@@ -333,7 +335,8 @@ struct TripReportDetailView: View {
                                     trip: item.trip,
                                     viewModel: tripsManager,
                                     vehiclesViewModel: vehiclesViewModel,
-                                    usersViewModel: usersViewModel
+                                    usersViewModel: usersViewModel,
+                                    expenseService: nil
                                 )
                             } label: {
                                 fuelRow(item: item, isHighest: true)
@@ -355,7 +358,8 @@ struct TripReportDetailView: View {
                                     trip: item.trip,
                                     viewModel: tripsManager,
                                     vehiclesViewModel: vehiclesViewModel,
-                                    usersViewModel: usersViewModel
+                                    usersViewModel: usersViewModel,
+                                    expenseService: nil
                                 )
                             } label: {
                                 fuelRow(item: item, isHighest: false)

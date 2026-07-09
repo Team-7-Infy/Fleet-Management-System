@@ -30,9 +30,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 struct FMSApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     
+    init() {
+        UINavigationBar.appearance().tintColor = .white
+        UITableView.appearance().separatorColor = .white
+    }
+    
     var body: some Scene {
         WindowGroup {
             AppRouter()
+                .tint(.white)
         }
     }
 }

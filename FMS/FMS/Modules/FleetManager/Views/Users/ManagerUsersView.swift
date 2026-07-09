@@ -135,6 +135,8 @@ struct ManagerUsersView: View {
                 .listStyle(.insetGrouped)
                 .scrollContentBackground(.hidden)
                 .background(FleetPalette.background)
+                .listRowSeparatorTint(Color.gray)
+                .tint(FleetPalette.textPrimary)
             }
         }
         .fleetScreenBackground()
@@ -171,6 +173,7 @@ struct ManagerUsersView: View {
                     Image(systemName: "line.3.horizontal.decrease")
                 }
                 .accessibilityLabel("Filter by status")
+                .tint(FleetPalette.textPrimary)
             }
             ToolbarItem(placement: .principal) {
                 Picker("User Type", selection: $selectedSegment) {
@@ -183,6 +186,7 @@ struct ManagerUsersView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Add User", systemImage: "plus", action: openAddUser)
+                    .tint(FleetPalette.textPrimary)
             }
         }
         .onChange(of: selectedSegment) { _, _ in
@@ -300,6 +304,7 @@ struct ManagerUserDetailView: View {
                 switch user.role {
                 case .driver:
                     driverInfoCard
+                    driverScoreCard
                     driverTripHistorySection
                 case .maintenancePersonnel:
                     maintenanceInfoCard
@@ -481,6 +486,50 @@ struct ManagerUserDetailView: View {
                 }
             }
         }
+    }
+
+    private var driverScoreCard: some View {
+        guard let driverProfile else { return AnyView(EmptyView()) }
+        let score = viewModel.driverScore(for: driverProfile.id)
+
+        return AnyView(VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionTitle("Driver Safety Score")
+
+            GlassPanel(hasBorder: false) {
+                if let score {
+                    VStack(spacing: 12) {
+                        HStack {
+                            Text("Overall Score")
+                                .font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Text("\(Int(score.overallScore))")
+                                .font(.title.weight(.heavy))
+                                .foregroundStyle(score.overallScore >= 70 ? .green : score.overallScore >= 40 ? .orange : .red)
+                        }
+                        Divider()
+                        if let ins = score.inspectionFalseRate {
+                            InfoRow(title: "Inspection Compliance", value: "\(Int(ins))%")
+                        }
+                        if let geo = score.geofenceViolationRate {
+                            InfoRow(title: "Route Adherence", value: "\(Int(geo))%")
+                        }
+                        if let comp = score.complianceViolationRate {
+                            InfoRow(title: "Schedule Adherence", value: "\(Int(comp))%")
+                        }
+                        if let mile = score.mileageAccuracy {
+                            InfoRow(title: "Mileage Accuracy", value: "\(Int(mile))%")
+                        }
+                        InfoRow(title: "Last Calculated", value: score.calculatedAt.formatted(date: .abbreviated, time: .shortened))
+                    }
+                } else {
+                    EmptyStateView(
+                        title: "Score Not Calculated Yet",
+                        message: "The driver safety score will be available after the first completed trip.",
+                        systemImage: "chart.bar.xaxis"
+                    )
+                }
+            }
+        })
     }
 
     private var maintenanceInfoCard: some View {

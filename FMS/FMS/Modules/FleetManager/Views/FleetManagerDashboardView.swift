@@ -95,7 +95,7 @@ struct FleetManagerDashboardView: View {
         ZStack {
             TabView(selection: $selectedTab) {
                 liveTab
-                    .tabItem { Label("Dashboard", systemImage: "map") }
+                    .tabItem { Label("Live", systemImage: "map") }
                     .tag(ManagerTab.live)
 
                 usersTab
@@ -129,6 +129,11 @@ struct FleetManagerDashboardView: View {
                     }
                 )
                 .zIndex(99)
+            }
+        }
+        .sheet(isPresented: $showingNotifications) {
+            NavigationStack {
+                NotificationListView(viewModel: notificationViewModel)
             }
         }
         .task {
@@ -217,6 +222,7 @@ struct FleetManagerDashboardView: View {
         .sheet(item: $addSheet) { sheet in
             ManagerAddSheetView(
                 sheet: sheet,
+                services: services,
                 usersViewModel: usersViewModel,
                 vehiclesViewModel: vehiclesViewModel,
                 tripsViewModel: tripsViewModel,
@@ -244,7 +250,8 @@ struct FleetManagerDashboardView: View {
                     onProfile: { isShowingProfile = true },
                     onShowReportsHub: { isShowingReportsHub = true }
                 )
-                .sheet(isPresented: $isShowingProfile) {
+                .toolbar(.hidden, for: .navigationBar)
+                .fullScreenCover(isPresented: $isShowingProfile) {
                     if let user = usersViewModel.user(for: currentUserId) {
                         ManagerProfileView(
                             services: services,
@@ -268,8 +275,6 @@ struct FleetManagerDashboardView: View {
                 }
             }
 
-            // Pinned overlay — lives above NavigationStack so nav bar never displaces it
-            // Hidden only for push navigations — modals (profile) cover the buttons naturally
             let isOnChildScreen = showingNotifications || isShowingReportsHub
             HStack(spacing: 4) {
                 NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
@@ -292,8 +297,7 @@ struct FleetManagerDashboardView: View {
         }
     }
 
-    @ViewBuilder
-    private var liveTabProfileIcon: some View {
+   @ViewBuilder private var liveTabProfileIcon: some View {
         if let user = usersViewModel.user(for: currentUserId),
            let imageURL = user.avatarImageURL {
             AsyncImage(url: imageURL) { phase in
@@ -318,9 +322,6 @@ struct FleetManagerDashboardView: View {
             .resizable()
             .scaledToFill()
             .frame(width: 28, height: 28)
-            .clipShape(Circle())
-            .offset(x: 0, y: 2)
-            .frame(width: 44, height: 44)
     }
 
     private var usersTab: some View {
@@ -332,9 +333,6 @@ struct FleetManagerDashboardView: View {
                 selectedSegment: $selectedUserSegment,
                 openAddUser: { addSheet = .user }
             )
-            .navigationDestination(isPresented: $showingNotifications) {
-                NotificationListView(viewModel: notificationViewModel)
-            }
         }
     }
 
@@ -351,9 +349,6 @@ struct FleetManagerDashboardView: View {
                     addSheet = .maintenanceRequest
                 }
             )
-            .navigationDestination(isPresented: $showingNotifications) {
-                NotificationListView(viewModel: notificationViewModel)
-            }
         }
     }
 
@@ -372,9 +367,6 @@ struct FleetManagerDashboardView: View {
                     addSheet = .maintenanceRequest
                 }
             )
-            .navigationDestination(isPresented: $showingNotifications) {
-                NotificationListView(viewModel: notificationViewModel)
-            }
         }
     }
 
@@ -384,11 +376,9 @@ struct FleetManagerDashboardView: View {
                 viewModel: tripsViewModel,
                 vehiclesViewModel: vehiclesViewModel,
                 usersViewModel: usersViewModel,
+                expenseService: services.expenseService,
                 openAddTrip: { addSheet = .trip }
             )
-            .navigationDestination(isPresented: $showingNotifications) {
-                NotificationListView(viewModel: notificationViewModel)
-            }
         }
     }
 
@@ -430,6 +420,7 @@ struct FleetManagerDashboardView: View {
 
 struct ManagerAddSheetView: View {
     var sheet: ManagerAddSheet
+    let services: AppServices
     @ObservedObject var usersViewModel: UserManagementViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var tripsViewModel: TripManagementViewModel
@@ -458,7 +449,8 @@ struct ManagerAddSheetView: View {
                     usersViewModel: usersViewModel,
                     tripsViewModel: tripsViewModel,
                     initialVehicleId: initialMaintenanceVehicleId,
-                    currentUserId: currentUserId
+                    currentUserId: currentUserId,
+                    services: services
                 )
             }
         }
