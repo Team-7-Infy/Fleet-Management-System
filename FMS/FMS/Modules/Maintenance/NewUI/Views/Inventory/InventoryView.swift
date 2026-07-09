@@ -3,163 +3,186 @@ import SwiftUI
 // MARK: - Inventory View
 struct InventoryView: View {
     @StateObject private var viewModel = InventoryViewModel()
-    @FocusState private var isSearchFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            // ── Custom Header ────────────────────────────────
-            headerView
-            VStack(spacing: 16) {
-                searchBar
-                categoryChips
+        List {
+            // Category filter
+            Section {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(VehicleCategory.allCases) { category in
+                            categoryChip(category)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             }
-            .padding(.top, 16)
-            .padding(.bottom, 8)
-            
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    // ── Inventory List ───────────────────────────────
-                    inventoryList
-                        .padding(.top, 16)
-                        .padding(.horizontal, 0) // Rows have their own padding
-                        .padding(.bottom, 100)
+
+            // Inventory rows
+            if viewModel.filteredItems.isEmpty {
+                Section {
+                    ContentUnavailableView(
+                        "No parts found",
+                        systemImage: "wrench.and.screwdriver",
+                        description: Text("Try adjusting your search or category filter.")
+                    )
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
+            } else {
+                Section {
+                    ForEach(viewModel.filteredItems) { item in
+                        NativeInventoryRow(
+                            item: item,
+                            isLowStock: viewModel.isLowStock(item),
+                            threshold: viewModel.threshold(for: item),
+                            onSetThreshold: { viewModel.showThresholdSheet(for: item) }
+                        )
+                        .listRowBackground(FleetPalette.surface)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button {
+                                viewModel.showThresholdSheet(for: item)
+                            } label: {
+                                Label("Threshold", systemImage: "gauge.badge.plus")
+                            }
+                            .tint(viewModel.isLowStock(item) ? FleetPalette.danger : FleetPalette.accent)
+                        }
+                    }
                 }
             }
         }
-        .background(Color(hex: 0xF4F5F9).ignoresSafeArea())
-        .navigationBarHidden(true)
-        .onTapGesture { isSearchFocused = false }
-        // ── Threshold Sheet ──────────────────────────────────────
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .fleetScreenBackground()
+        .navigationTitle("Inventory")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $viewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search spare parts")
         .sheet(item: $viewModel.thresholdSheetItem) { item in
             InventoryThresholdSheet(item: item, store: viewModel.thresholdStore)
                 .presentationDetents([.medium])
-                .presentationDragIndicator(.hidden) // we draw our own handle
+                .presentationDragIndicator(.hidden)
                 .presentationBackground(.clear)
         }
     }
 
-    // MARK: - Custom Header
-    private var headerView: some View {
-        HStack {
-            Text("Inventory")
-                .font(.system(size: 34, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color.black)
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 16)
-    }
-
-    // MARK: - Search Bar
-    private var searchBar: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(Color.gray)
-
-            TextField("Search for spare parts", text: $viewModel.searchText)
-                .focused($isSearchFocused)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .font(.system(size: 16, weight: .medium))
-
-            if !viewModel.searchText.isEmpty {
-                Button {
-                    withAnimation(.spring(response: 0.3)) {
-                        viewModel.searchText = ""
-                    }
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(Color.gray.opacity(0.8))
-                }
-                .transition(.scale.combined(with: .opacity))
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color(hex: 0xE8EAED))
-        .clipShape(Capsule())
-        .padding(.horizontal, 20)
-    }
-
-    // MARK: - Category Chips
-    private var categoryChips: some View {
-        HStack(spacing: 0) {
-            ForEach(VehicleCategory.allCases) { category in
-                categoryChip(category)
-            }
-        }
-        .padding(4)
-        .background(Color(hex: 0xE8EAED))
-        .clipShape(Capsule())
-        .padding(.horizontal, 20)
-    }
-
+    // MARK: - Category Chip
     private func categoryChip(_ category: VehicleCategory) -> some View {
         let isSelected = viewModel.selectedCategory == category
         return Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                 viewModel.selectedCategory = category
             }
         } label: {
             Text(category.rawValue)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(isSelected ? Color.black : Color.gray)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(isSelected ? Color.white : Color.clear)
-                .clipShape(Capsule())
-                .shadow(color: isSelected ? Color.black.opacity(0.04) : .clear, radius: 4, x: 0, y: 2)
+                .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? FleetPalette.surface : FleetPalette.textSecondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(
+                    isSelected
+                        ? FleetPalette.accent
+                        : FleetPalette.tertiary.opacity(0.15),
+                    in: Capsule()
+                )
         }
         .buttonStyle(.plain)
     }
+}
 
-    // MARK: - Inventory List
-    @ViewBuilder
-    private var inventoryList: some View {
-        let items = viewModel.filteredItems
-        if items.isEmpty {
-            emptyState
-        } else {
-            LazyVStack(spacing: 8) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    InventoryRow(
-                        item: item,
-                        isLowStock: viewModel.isLowStock(item),
-                        threshold: viewModel.threshold(for: item),
-                        isLast: index == items.count - 1,
-                        onSetThreshold: {
-                            viewModel.showThresholdSheet(for: item)
-                        }
+// MARK: - Native Inventory Row
+struct NativeInventoryRow: View {
+    let item: InventoryCSVItem
+    let isLowStock: Bool
+    let threshold: Int
+    let onSetThreshold: () -> Void
+
+    private var iconForPart: String {
+        let name = item.partname.lowercased()
+        if name.contains("filter")                                          { return "camera.filters" }
+        if name.contains("oil") || name.contains("fluid") || name.contains("coolant") { return "drop.fill" }
+        if name.contains("brake") || name.contains("pad")                   { return "circle.dashed" }
+        if name.contains("tire") || name.contains("wheel")                  { return "circle.circle.fill" }
+        if name.contains("battery")                                         { return "minus.plus.batteryblock.fill" }
+        if name.contains("light") || name.contains("bulb")                  { return "lightbulb.fill" }
+        if name.contains("engine") || name.contains("motor")                { return "engine.combustion.fill" }
+        if name.contains("belt")                                            { return "link" }
+        if name.contains("sensor")                                          { return "sensor.tag.radiowaves.forward" }
+        if name.contains("wiper")                                           { return "cloud.rain.fill" }
+        if name.contains("spark") || name.contains("plug")                  { return "bolt.fill" }
+        if name.contains("gear") || name.contains("clutch")                 { return "gearshape.fill" }
+        if name.contains("radiator") || name.contains("cooling")            { return "snowflake" }
+        let fallbacks = ["nut.fill", "wrench.adjustable.fill", "hammer.fill", "screwdriver.fill", "shippingbox.fill"]
+        return fallbacks[abs(item.partname.hashValue) % fallbacks.count]
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            // Icon
+            Image(systemName: iconForPart)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(isLowStock ? FleetPalette.danger : FleetPalette.accent)
+                .frame(width: 40, height: 40)
+                .background(
+                    (isLowStock ? FleetPalette.danger : FleetPalette.accent).opacity(0.1),
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                )
+
+            // Details
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(item.partname)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(FleetPalette.textPrimary)
+                        .lineLimit(1)
+                    Spacer()
+                    StatusPill(
+                        text: isLowStock ? "Low Stock" : "In Stock",
+                        color: isLowStock ? FleetPalette.danger : FleetPalette.success,
+                        dotSize: 6
                     )
-                    .id("\(item.id)-\(viewModel.threshold(for: item))-\(viewModel.isLowStock(item))")
+                }
+
+                HStack(spacing: 4) {
+                    Text(item.vehicletype)
+                    Text("•")
+                    Text(item.partcode)
+                }
+                .font(.caption)
+                .foregroundStyle(FleetPalette.textSecondary)
+
+                HStack {
+                    Text(item.priceFormatted)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(FleetPalette.textSecondary)
+                    Text("/ part")
+                        .font(.caption2)
+                        .foregroundStyle(FleetPalette.textTertiary)
+
+                    Spacer()
+
+                    Text("Qty \(item.quantityOnHand)")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(isLowStock ? FleetPalette.danger : FleetPalette.success)
                 }
             }
         }
-    }
-
-    // MARK: - Empty State
-    private var emptyState: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "wrench.and.screwdriver")
-                .font(.system(size: 48))
-                .foregroundStyle(AppColor.brand.opacity(0.4))
-
-            Text("No parts found")
-                .font(.system(.headline, design: .rounded))
-                .foregroundStyle(AppColor.textPrimary)
-
-            Text("Try adjusting your search or filter.")
-                .font(.system(.subheadline, design: .rounded))
-                .foregroundStyle(AppColor.textSecondary)
-                .multilineTextAlignment(.center)
+        .padding(.vertical, 10)
+        .contextMenu {
+            Button {
+                onSetThreshold()
+            } label: {
+                Label("Set Threshold", systemImage: "gauge.badge.plus")
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 60)
     }
 }
 
 #Preview {
-    InventoryView()
+    NavigationStack {
+        InventoryView()
+    }
 }

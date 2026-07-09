@@ -401,6 +401,10 @@ struct EndTripView: View {
 
                     vehicle.status = .inMaintenance
                     vehicle.driverId = nil
+                } else {
+                    // Clean trip end — unassign driver and make vehicle available again
+                    vehicle.driverId = nil
+                    vehicle.status = .available
                 }
 
                 _ = try await services.vehicleService.updateVehicle(vehicle)

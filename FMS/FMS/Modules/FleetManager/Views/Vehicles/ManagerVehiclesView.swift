@@ -94,6 +94,7 @@ struct ManagerVehiclesView: View {
                                 vehicle: vehicle,
                                 viewModel: viewModel,
                                 usersViewModel: usersViewModel,
+                                tripsViewModel: tripsViewModel,
                                 openMaintenanceRequest: openMaintenanceRequest
                             )
                         } label: {
@@ -258,7 +259,7 @@ private struct ManagerVehicleRow: View {
         ).text
 
         if status == "Maintenance" {
-            return FleetPalette.warning
+            return FleetPalette.accent
         } else if status == "On Trip" {
             return FleetPalette.accent
         } else {
@@ -271,12 +272,19 @@ struct ManagerVehicleDetailView: View {
     var vehicle: Vehicle
     @ObservedObject var viewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
+    @ObservedObject var tripsViewModel: TripManagementViewModel
     var openMaintenanceRequest: (UUID?) -> Void
 
     @State private var showEditSheet = false
 
     private var currentVehicle: Vehicle {
         viewModel.vehicle(for: vehicle.id) ?? vehicle
+    }
+
+    private var vehicleTrips: [Trip] {
+        tripsViewModel.trips
+            .filter { $0.vehicleId == currentVehicle.id && ($0.status == .completed || $0.status == .cancelled) }
+            .sorted { ($0.endTime ?? $0.startTime) > ($1.endTime ?? $1.startTime) }
     }
 
     var body: some View {
@@ -288,6 +296,7 @@ struct ManagerVehicleDetailView: View {
                 complianceDocsSection
                 assignmentDetails
                 maintenanceDetails
+                tripHistorySection
             }
             .padding()
         }
@@ -480,6 +489,89 @@ struct ManagerVehicleDetailView: View {
             }
         }
     }
+
+    private var tripHistorySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionTitle("Trip History")
+
+            GlassPanel(hasBorder: false) {
+                if vehicleTrips.isEmpty {
+                    EmptyStateView(
+                        title: "No Past Trips",
+                        message: "Completed trips for this vehicle will appear here.",
+                        systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90"
+                    )
+                } else {
+                    VStack(spacing: 0) {
+                        ForEach(Array(vehicleTrips.enumerated()), id: \.element.id) { index, trip in
+                            VehicleTripHistoryRow(
+                                trip: trip,
+                                driverName: usersViewModel.driverUser(for: trip.driverId)?.displayName
+                            )
+                            if index < vehicleTrips.count - 1 {
+                                Divider().padding(.vertical, 6)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct VehicleTripHistoryRow: View {
+    let trip: Trip
+    let driverName: String?
+
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        return f
+    }()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                // Status badge
+                StatusPill(
+                    text: trip.status == .completed ? "Completed" : "Cancelled",
+                    color: trip.status == .completed ? FleetPalette.success : FleetPalette.danger,
+                    dotSize: 7
+                )
+                Spacer()
+                Text(Self.dateFormatter.string(from: trip.endTime ?? trip.startTime))
+                    .font(.caption2)
+                    .foregroundStyle(FleetPalette.textTertiary)
+            }
+
+            // Route
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.right")
+                    .font(.caption2)
+                    .foregroundStyle(FleetPalette.textTertiary)
+                Text("\(trip.startLocation) → \(trip.endLocation)")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(FleetPalette.textPrimary)
+                    .lineLimit(1)
+            }
+
+            // Driver + Distance
+            HStack(spacing: 12) {
+                if let driver = driverName {
+                    Label(driver, systemImage: "person.fill")
+                        .font(.caption2)
+                        .foregroundStyle(FleetPalette.accent)
+                }
+                if let km = trip.distanceKm, km > 0 {
+                    Label(String(format: "%.1f km", km), systemImage: "road.lanes")
+                        .font(.caption2)
+                        .foregroundStyle(FleetPalette.textSecondary)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
 }
 
 enum VehicleHealth {
@@ -550,9 +642,14 @@ func calculateVehicleStatus(
         return ("Maintenance", FleetPalette.warning)
     }
 
-    // Check if On Trip (only active live trip)
+    // Check if On Trip (any active or upcoming trip)
     let vehicleTrips = trips.filter { $0.vehicleId == vehicle.id }
-    let hasActiveTrip = vehicleTrips.contains { $0.status == .accepted || $0.status == .inProgress }
+    let hasActiveTrip = vehicleTrips.contains {
+        $0.status == .accepted ||
+        $0.status == .inProgress ||
+        $0.status == .scheduled ||
+        $0.status == .pending
+    }
     if hasActiveTrip {
         return ("On Trip", FleetPalette.accent)
     }

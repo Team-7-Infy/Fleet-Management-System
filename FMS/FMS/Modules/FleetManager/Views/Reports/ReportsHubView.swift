@@ -186,7 +186,8 @@ struct ReportsHubView: View {
             navigationPill(destination: FleetUtilizationDetailView(
                 reportsViewModel: viewModel,
                 vehiclesViewModel: vehiclesViewModel,
-                usersViewModel: usersViewModel
+                usersViewModel: usersViewModel,
+                tripsViewModel: viewModel.tripsViewModel
             ))
         }
     }

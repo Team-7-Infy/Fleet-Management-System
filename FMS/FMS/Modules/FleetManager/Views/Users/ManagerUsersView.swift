@@ -49,7 +49,7 @@ struct ManagerUsersView: View {
         case .drivers:
             return ["Available", "On Trip", "Scheduled", "Unavailable"]
         case .mechanics:
-            return ["Available", "In Progress", "Unavailable"]
+            return ["Available", "In Service", "Unavailable"]
         }
     }
 
@@ -751,10 +751,10 @@ func calculateUserStatus(
             return (user.isActive ? "Active" : "Inactive", user.isActive ? FleetPalette.success : FleetPalette.neutral)
         }
 
-        // Check if they are In Progress
-        let hasActiveWork = tasks.contains { $0.executedBy == personnel.id && $0.status == .inProgress }
+        // Check if they are In Service (assigned to a work order, whether assigned or actively in progress)
+        let hasActiveWork = tasks.contains { $0.executedBy == personnel.id && ($0.status == .assigned || $0.status == .inProgress) }
         if hasActiveWork {
-            return ("In Progress", FleetPalette.warning)
+            return ("In Service", FleetPalette.warning)
         }
 
         return ("Available", FleetPalette.success)
