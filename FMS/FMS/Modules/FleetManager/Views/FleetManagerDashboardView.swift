@@ -95,7 +95,7 @@ struct FleetManagerDashboardView: View {
         ZStack {
             TabView(selection: $selectedTab) {
                 liveTab
-                    .tabItem { Label("Live", systemImage: "map") }
+                    .tabItem { Label("Dashboard", systemImage: "map") }
                     .tag(ManagerTab.live)
 
                 usersTab
@@ -129,11 +129,6 @@ struct FleetManagerDashboardView: View {
                     }
                 )
                 .zIndex(99)
-            }
-        }
-        .sheet(isPresented: $showingNotifications) {
-            NavigationStack {
-                NotificationListView(viewModel: notificationViewModel)
             }
         }
         .task {
@@ -222,13 +217,13 @@ struct FleetManagerDashboardView: View {
         .sheet(item: $addSheet) { sheet in
             ManagerAddSheetView(
                 sheet: sheet,
-                services: services,
                 usersViewModel: usersViewModel,
                 vehiclesViewModel: vehiclesViewModel,
                 tripsViewModel: tripsViewModel,
                 maintenanceViewModel: maintenanceViewModel,
                 initialMaintenanceVehicleId: maintenanceVehicleId,
-                currentUserId: currentUserId
+                currentUserId: currentUserId,
+                services: services
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
@@ -236,68 +231,46 @@ struct FleetManagerDashboardView: View {
     }
 
     private var liveTab: some View {
-        ZStack(alignment: .topTrailing) {
-            NavigationStack {
-                ManagerOverviewView(
-                    usersViewModel: usersViewModel,
-                    vehiclesViewModel: vehiclesViewModel,
-                    tripsViewModel: tripsViewModel,
-                    maintenanceViewModel: maintenanceViewModel,
-                    notificationViewModel: notificationViewModel,
-                    showingNotifications: $showingNotifications,
-                    refresh: refreshAll,
-                    currentUserId: currentUserId,
-                    onProfile: { isShowingProfile = true },
-                    onShowReportsHub: { isShowingReportsHub = true }
-                )
-                .toolbar(.hidden, for: .navigationBar)
-                .fullScreenCover(isPresented: $isShowingProfile) {
-                    if let user = usersViewModel.user(for: currentUserId) {
-                        ManagerProfileView(
-                            services: services,
-                            user: user,
-                            onLogout: onLogout
-                        )
-                    } else {
-                        ProgressView("Loading Profile...")
-                    }
-                }
-                .navigationDestination(isPresented: $showingNotifications) {
-                    NotificationListView(viewModel: notificationViewModel)
-                }
-                .navigationDestination(isPresented: $isShowingReportsHub) {
-                    ReportsHubView(
-                        tripsViewModel: tripsViewModel,
-                        vehiclesViewModel: vehiclesViewModel,
-                        maintenanceViewModel: maintenanceViewModel,
-                        usersViewModel: usersViewModel
+        NavigationStack {
+            ManagerOverviewView(
+                usersViewModel: usersViewModel,
+                vehiclesViewModel: vehiclesViewModel,
+                tripsViewModel: tripsViewModel,
+                maintenanceViewModel: maintenanceViewModel,
+                notificationViewModel: notificationViewModel,
+                showingNotifications: $showingNotifications,
+                refresh: refreshAll,
+                currentUserId: currentUserId,
+                onProfile: { isShowingProfile = true },
+                onShowReportsHub: { isShowingReportsHub = true }
+            )
+            .sheet(isPresented: $isShowingProfile) {
+                if let user = usersViewModel.user(for: currentUserId) {
+                    ManagerProfileView(
+                        services: services,
+                        user: user,
+                        onLogout: onLogout
                     )
+                } else {
+                    ProgressView("Loading Profile...")
                 }
             }
-
-            let isOnChildScreen = showingNotifications || isShowingReportsHub
-            HStack(spacing: 4) {
-                NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
-                    showingNotifications = true
-                }
-                .padding(.trailing, 4)
-                if usersViewModel.user(for: currentUserId) != nil || true {
-                    Button(action: { isShowingProfile = true }) {
-                        liveTabProfileIcon
-                    }
-                    .glassEffect(.regular.interactive(), in: Circle())
-                    .accessibilityLabel("Account")
-                }
+            .navigationDestination(isPresented: $showingNotifications) {
+                NotificationListView(viewModel: notificationViewModel)
             }
-            .padding(.top, 0)
-            .padding(.trailing, 16)
-            .opacity(isOnChildScreen ? 0 : 1)
-            .allowsHitTesting(!isOnChildScreen)
-            .zIndex(999)
+            .navigationDestination(isPresented: $isShowingReportsHub) {
+                ReportsHubView(
+                    tripsViewModel: tripsViewModel,
+                    vehiclesViewModel: vehiclesViewModel,
+                    maintenanceViewModel: maintenanceViewModel,
+                    usersViewModel: usersViewModel
+                )
+            }
         }
     }
 
-   @ViewBuilder private var liveTabProfileIcon: some View {
+    @ViewBuilder
+    private var liveTabProfileIcon: some View {
         if let user = usersViewModel.user(for: currentUserId),
            let imageURL = user.avatarImageURL {
             AsyncImage(url: imageURL) { phase in
@@ -322,6 +295,9 @@ struct FleetManagerDashboardView: View {
             .resizable()
             .scaledToFill()
             .frame(width: 28, height: 28)
+            .clipShape(Circle())
+            .offset(x: 0, y: 2)
+            .frame(width: 44, height: 44)
     }
 
     private var usersTab: some View {
@@ -333,6 +309,9 @@ struct FleetManagerDashboardView: View {
                 selectedSegment: $selectedUserSegment,
                 openAddUser: { addSheet = .user }
             )
+            .navigationDestination(isPresented: $showingNotifications) {
+                NotificationListView(viewModel: notificationViewModel)
+            }
         }
     }
 
@@ -349,6 +328,9 @@ struct FleetManagerDashboardView: View {
                     addSheet = .maintenanceRequest
                 }
             )
+            .navigationDestination(isPresented: $showingNotifications) {
+                NotificationListView(viewModel: notificationViewModel)
+            }
         }
     }
 
@@ -367,6 +349,9 @@ struct FleetManagerDashboardView: View {
                     addSheet = .maintenanceRequest
                 }
             )
+            .navigationDestination(isPresented: $showingNotifications) {
+                NotificationListView(viewModel: notificationViewModel)
+            }
         }
     }
 
@@ -379,6 +364,9 @@ struct FleetManagerDashboardView: View {
                 expenseService: services.expenseService,
                 openAddTrip: { addSheet = .trip }
             )
+            .navigationDestination(isPresented: $showingNotifications) {
+                NotificationListView(viewModel: notificationViewModel)
+            }
         }
     }
 
@@ -420,13 +408,13 @@ struct FleetManagerDashboardView: View {
 
 struct ManagerAddSheetView: View {
     var sheet: ManagerAddSheet
-    let services: AppServices
     @ObservedObject var usersViewModel: UserManagementViewModel
     @ObservedObject var vehiclesViewModel: VehicleViewModel
     @ObservedObject var tripsViewModel: TripManagementViewModel
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
     var initialMaintenanceVehicleId: UUID?
     var currentUserId: UUID?
+    let services: AppServices
 
     var body: some View {
         NavigationStack {

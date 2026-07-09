@@ -1,0 +1,229 @@
+=== FMS/FMS/Modules/FleetManager/Views/FleetManagerDashboardView.swift ===
+237-
+238-    private var liveTab: some View {
+239:<<<<<<< HEAD
+240-        NavigationStack {
+241-            ManagerOverviewView(
+242-                usersViewModel: usersViewModel,
+243-                vehiclesViewModel: vehiclesViewModel,
+244-                tripsViewModel: tripsViewModel,
+245-                maintenanceViewModel: maintenanceViewModel,
+246-                notificationViewModel: notificationViewModel,
+247-                showingNotifications: $showingNotifications,
+248-                refresh: refreshAll,
+249-                currentUserId: currentUserId,
+--
+299-                }
+300-            }
+301:<<<<<<< HEAD
+302-            .navigationDestination(isPresented: $showingNotifications) {
+303-                NotificationListView(viewModel: notificationViewModel)
+304-            }
+305-            .navigationDestination(isPresented: $isShowingReportsHub) {
+306-                ReportsHubView(
+307-                    tripsViewModel: tripsViewModel,
+308-                    vehiclesViewModel: vehiclesViewModel,
+309-                    maintenanceViewModel: maintenanceViewModel,
+310-                    usersViewModel: usersViewModel
+311-                )
+
+=== FMS/FMS/Modules/FleetManager/Views/Maintenance/ManagerMaintenanceView.swift ===
+103-                }
+104-                .tint(FleetPalette.textPrimary)
+105:<<<<<<< HEAD
+106-            }
+107-            ToolbarItem(placement: .topBarTrailing) {
+108-                HStack(spacing: 16) {
+109-                    NavigationLink {
+110-                        ManagerInventoryView(inventoryService: inventoryService, onNotification: onNotification)
+111-                    } label: {
+112-                        Image(systemName: "shippingbox")
+113-                    }
+114-=======
+115-                NavigationLink {
+
+=== FMS/FMS/Modules/FleetManager/Views/Trips/ManagerTripFormSheet.swift ===
+357-                                ForEach(availableDrivers) { driver in
+358-                                    let user = usersViewModel.user(for: driver.userId)
+359:<<<<<<< HEAD
+360-                                    Text(user?.displayName ?? "Driver").tag(Optional(driver.id))
+361-=======
+362-                                    let uidPrefix = driver.userId.displayId(.user)
+363-                                    Text("\(user?.displayName ?? "Driver") (\(uidPrefix))").tag(Optional(driver.id))
+364-                                }
+365-                            } label: {
+366-                                if let dId = form.selectedDriverId, let driver = usersViewModel.drivers.first(where: { $0.id == dId }), let user = usersViewModel.user(for: driver.userId) {
+367-                                    Text("\(user.displayName) (\(driver.userId.displayId(.user)))")
+368-                                } else {
+369-                                    Text("Select")
+
+=== FMS/FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPDashboardView.swift ===
+169-    }
+170-
+171:<<<<<<< HEAD
+172-    @Environment(\.colorScheme) var colorScheme
+173-
+174-
+175-=======
+176-    private var header: some View {
+177-        HStack {
+178-            Text("Home")
+179-                .font(.system(size: 34, weight: .heavy, design: .rounded))
+180-                .foregroundStyle(Color.black)
+181-            
+
+=== FMS/FMS/Modules/Maintenance/NewUI/Views/Dashboard/MPProfileView.swift ===
+115-
+116-    var body: some View {
+117:<<<<<<< HEAD
+118-        GlassPanel(hasBorder: true) {
+119-            VStack(alignment: .leading, spacing: 20) {
+120-                HStack(spacing: 16) {
+121-                    ZStack {
+122-                        if let imageData = user.profileImageData, let uiImage = UIImage(data: imageData) {
+123-                            Image(uiImage: uiImage)
+124-=======
+125-        VStack(alignment: .leading, spacing: 20) {
+126-            HStack(spacing: 16) {
+127-                ZStack {
+--
+142-                                .clipShape(Circle())
+143-                                .shadow(radius: 4, x: 0, y: 2)
+144:<<<<<<< HEAD
+145-                        } else {
+146-=======
+147-                        } placeholder: {
+148->>>>>>> production
+149-                            Circle()
+150-                                .fill(
+151-                                    LinearGradient(
+152-                                        colors: [.blue, Color(red: 0.12, green: 0.32, blue: 0.82)],
+153-                                        startPoint: .topLeading,
+154-                                        endPoint: .bottomTrailing
+155-                                    )
+156:<<<<<<< HEAD
+157-=======
+158-                                )
+159-                                .frame(width: 76, height: 76)
+160-                                .shadow(color: Color.blue.opacity(0.3), radius: 6, x: 0, y: 3)
+161-                        }
+162-                    } else {
+163-                        Circle()
+164-                            .fill(
+165-                                LinearGradient(
+166-                                    colors: [.blue, Color(red: 0.12, green: 0.32, blue: 0.82)],
+--
+216-                Divider().opacity(0.6)
+217-
+218:<<<<<<< HEAD
+219-                HStack(spacing: 16) {
+220-                    ProfileHeaderMetric(title: "Personnel ID", value: String(user.id.uuidString.prefix(8)).uppercased())
+221-                    Divider().frame(height: 32)
+222-                    ProfileHeaderMetric(title: "Joined", value: formatDate(user.createdat))
+223-                }
+224-=======
+225-            Divider().opacity(0.6)
+226-
+227-            HStack(spacing: 16) {
+228-                ProfileHeaderMetric(title: "Personnel ID", value: user.displayId)
+
+=== FMS/FMS/Modules/Maintenance/NewUI/Views/Inventory/InventoryView.swift ===
+67-    }
+68-
+69:<<<<<<< HEAD
+70-    // MARK: - Custom Header
+71-    private var headerView: some View {
+72-        HStack {
+73-            Text("Inventory")
+74-                .font(.system(size: 34, weight: .heavy, design: .rounded))
+75-                .foregroundStyle(Color.primary)
+76-            Spacer()
+77-        }
+78-        .padding(.horizontal, 20)
+79-        .padding(.top, 10)
+
+=== FMS/FMS/Modules/Maintenance/NewUI/Views/WorkOrders/AddPartsSheet.swift ===
+43-                    Image(systemName: "xmark")
+44-                        .font(.system(size: 16, weight: .bold))
+45:<<<<<<< HEAD
+46-                        .foregroundStyle(AppColor.textPrimary)
+47-                        .frame(width: 36, height: 36)
+48-                        .background(AppColor.surface)
+49-=======
+50-                        .foregroundStyle(Color.black)
+51-                        .frame(width: 44, height: 44)
+52-                        .background(Color.white)
+53->>>>>>> production
+54-                        .clipShape(Circle())
+55-                }
+--
+79-                            VStack(alignment: .leading, spacing: 4) {
+80-                                Text(part.name)
+81:<<<<<<< HEAD
+82-                                    .font(.system(size: 16, weight: .bold))
+83-                                    .foregroundStyle(AppColor.textPrimary)
+84-                                Text("₹\(NSDecimalNumber(decimal: part.unitPrice).intValue)/part")
+85-                                    .font(.system(size: 14))
+86-                                    .foregroundStyle(AppColor.textSecondary)
+87-=======
+88-                                    .font(.body.weight(.bold))
+89-                                    .foregroundStyle(Color.black)
+90-                                Text("₹\(NSDecimalNumber(decimal: part.unitPrice).intValue)/part")
+91-                                    .font(.subheadline)
+--
+98-                            VStack(alignment: .trailing, spacing: 4) {
+99-                                Text("\(part.currentQuantity) in stock")
+100:<<<<<<< HEAD
+101-                                    .font(.system(size: 12, weight: .medium))
+102-                                    .foregroundStyle(part.currentQuantity > 0 ? AppColor.textSecondary : AppColor.destructive)
+103-=======
+104-                                    .font(.caption.weight(.medium))
+105-                                    .foregroundStyle(part.currentQuantity > 0 ? Color(UIColor.secondaryLabel) : AppColor.destructive)
+106->>>>>>> production
+107-                                
+108-                                Button(action: {
+109-                                    onAddPart(part, 1)
+110-                                    dismiss() 
+111-                                }) {
+112-                                    Text("Add")
+113:<<<<<<< HEAD
+114-                                        .font(.system(size: 12, weight: .bold))
+115-                                        .foregroundStyle(part.currentQuantity > 0 ? AppColor.inProgress : AppColor.textSecondary)
+116-=======
+117-                                        .font(.caption.weight(.bold))
+118-                                        .foregroundStyle(part.currentQuantity > 0 ? AppColor.inProgress : Color(UIColor.secondaryLabel))
+119->>>>>>> production
+120-                                        .padding(.horizontal, 16)
+121-                                        .padding(.vertical, 6)
+122-                                        .background(part.currentQuantity > 0 ? AppColor.inProgress.opacity(0.1) : AppColor.textSecondary.opacity(0.1))
+123-                                        .clipShape(Capsule())
+
+=== FMS/FMS/Modules/Maintenance/NewUI/Views/WorkOrders/CompleteWorkOrderView.swift ===
+27-                        
+28-                        // 1. Top Card: Issue Details
+29:<<<<<<< HEAD
+30-                        issueDetailsCard(workOrder: workOrder)
+31-                        
+32-                        // Attached Photos
+33-                        if let photoUrls = workOrder.photoUrls, !photoUrls.isEmpty {
+34-                            attachedPhotosSection(photoUrls: photoUrls)
+35-=======
+36-                        VStack(alignment: .leading, spacing: 12) {
+37-
+38-                            VStack(alignment: .leading, spacing: 6) {
+39-                                Text(workOrder.title)
+--
+88-                        
+89-                        // 2. Parts Used Card
+90:<<<<<<< HEAD
+91-                        partsUsedCard()
+92-                        
+93-                        // 3. Labour Cost
+94-                        labourCostSection()
+95-                        
+96-                        // 4. Remarks
+97-                        remarksSection()
+98-                        
+99-                        // 5. Summary
+100-                        summaryCard()
+

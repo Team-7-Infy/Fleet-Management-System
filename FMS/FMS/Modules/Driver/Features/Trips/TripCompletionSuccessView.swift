@@ -78,7 +78,7 @@ struct TripCompletionSuccessView: View {
     
     var body: some View {
         ZStack {
-            Color(.systemGroupedBackground)
+            AppColor.background
                 .ignoresSafeArea()
             
             ConfettiEmitterView()
@@ -158,7 +158,7 @@ struct TripCompletionSuccessView: View {
                             }
                         }
                         .padding(24)
-                        .background(Color(UIColor.systemBackground))
+                        .background(AppColor.surface)
                         .cornerRadius(24)
                         .shadow(color: Color.black.opacity(0.04), radius: 10, y: 5)
                         .offset(y: animateItems ? 0 : 50)
@@ -196,7 +196,7 @@ struct TripCompletionSuccessView: View {
                                 .padding(12)
                             }
                         }
-                        .background(Color(UIColor.systemBackground))
+                        .background(AppColor.surface)
                         .cornerRadius(24)
                         .shadow(color: Color.black.opacity(0.04), radius: 10, y: 5)
                         .offset(y: animateItems ? 0 : 50)

@@ -83,7 +83,7 @@ struct WorkOrderSuccessView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("WORK ORDER")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color.gray)
+                        .foregroundStyle(AppColor.textSecondary)
                     Text(workOrder.title)
                         .font(.system(size: 16, weight: .bold))
                 }
@@ -97,7 +97,7 @@ struct WorkOrderSuccessView: View {
                     .clipShape(Capsule())
             }
             .padding(16)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
+            .background(RoundedRectangle(cornerRadius: 16).fill(AppColor.surface))
             .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
 
             // Card 2: Labor & Parts
@@ -110,7 +110,7 @@ struct WorkOrderSuccessView: View {
                     Spacer()
                     Text(viewModel.formattedLaborTime)
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(Color.gray)
+                        .foregroundStyle(AppColor.textSecondary)
                 }
                 
                 let parts = viewModel.usedParts
@@ -132,11 +132,11 @@ struct WorkOrderSuccessView: View {
                                         .foregroundStyle(AppColor.inProgress)
                                     Text("\(part.name) x\(part.quantity)")
                                         .font(.system(size: 12))
-                                        .foregroundStyle(Color.black.opacity(0.7))
+                                        .foregroundStyle(AppColor.textPrimary.opacity(0.7))
                                 }
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
-                                .background(Color.gray.opacity(0.1))
+                                .background(AppColor.textSecondary.opacity(0.1))
                                 .clipShape(Capsule())
                             }
                         }
@@ -144,7 +144,7 @@ struct WorkOrderSuccessView: View {
                 }
             }
             .padding(16)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
+            .background(RoundedRectangle(cornerRadius: 16).fill(AppColor.surface))
             .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
 
             // Card 3: Total Cost
@@ -167,7 +167,7 @@ struct WorkOrderSuccessView: View {
                     .foregroundStyle(AppColor.inProgress)
             }
             .padding(16)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
+            .background(RoundedRectangle(cornerRadius: 16).fill(AppColor.surface))
             .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
             
             // Card 4: Remarks
@@ -182,11 +182,11 @@ struct WorkOrderSuccessView: View {
                     }
                     Text(remarks)
                         .font(.system(size: 14))
-                        .foregroundStyle(Color.gray)
+                        .foregroundStyle(AppColor.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(16)
-                .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
+                .background(RoundedRectangle(cornerRadius: 16).fill(AppColor.surface))
                 .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
             }
         }

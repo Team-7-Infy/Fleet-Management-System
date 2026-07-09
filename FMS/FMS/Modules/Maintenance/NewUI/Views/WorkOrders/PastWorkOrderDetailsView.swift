@@ -82,8 +82,7 @@ struct PastWorkOrderDetailsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(16)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 16).fill(AppColor.surface))
             
             // Card 2: Service Details
             VStack(alignment: .leading, spacing: 16) {
@@ -145,8 +144,7 @@ struct PastWorkOrderDetailsView: View {
                 }
             }
             .padding(16)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 16).fill(AppColor.surface))
             
             // Card 3: Service Summary (Only for completed)
             if workOrder.status != .fake {
@@ -198,8 +196,7 @@ struct PastWorkOrderDetailsView: View {
                     }
                 }
                 .padding(16)
-                .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: 16).fill(AppColor.surface))
             } else {
                 if let remarks = workOrder.remarks, !remarks.isEmpty {
                     VStack(alignment: .leading, spacing: 16) {
@@ -215,8 +212,7 @@ struct PastWorkOrderDetailsView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(16)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                    .background(RoundedRectangle(cornerRadius: 16).fill(AppColor.surface))
                 }
             }
         }

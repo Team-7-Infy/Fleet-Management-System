@@ -11,10 +11,8 @@ struct NotificationBadge: View {
         }) {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "bell")
-                    .font(.system(size: 24))
+                    .font(.system(size: 20))
                     .foregroundStyle(FleetPalette.accent)
-                    .frame(width: 44, height: 44)
-                    .glassEffect(.regular.tint(.white.opacity(0.80)).interactive(), in: Circle())
 
                 if unreadCount > 0 {
                     ZStack {

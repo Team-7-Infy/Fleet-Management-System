@@ -59,7 +59,7 @@ struct ProfileHubView: View {
             .padding(.horizontal, 20)
             .padding(.top, 16)
         }
-        .background(Color(UIColor.systemGroupedBackground))
+        .background(AppColor.background)
         .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -70,7 +70,9 @@ struct ProfileHubView: View {
                 } label: {
                     Text("Edit")
                         .bold()
+                        .foregroundStyle(Color.primary)
                 }
+                .tint(Color.primary)
             }
         }
         .sheet(isPresented: $showingEditSheet) {
@@ -456,7 +458,7 @@ private struct ProfileIconBadge: View {
 
 private extension View {
     func profileCardStyle() -> some View {
-        background(Color(UIColor.systemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        background(AppColor.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
             .shadow(color: Color.black.opacity(0.015), radius: 2, x: 0, y: 1)
             .overlay(
@@ -661,7 +663,7 @@ struct EditProfileView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
             }
-            .background(Color(UIColor.systemGroupedBackground))
+            .background(AppColor.background)
             .navigationTitle("Edit Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -34,6 +34,7 @@ struct RootTabView: View {
             }
             .tag(AppTab.inventory)
         }
+        .tint(AppColor.brand)
     }
 }
 

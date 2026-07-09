@@ -21,7 +21,7 @@ struct PerformanceView: View {
 
     var body: some View {
         ZStack {
-            Color(.systemGroupedBackground).edgesIgnoringSafeArea(.all)
+            AppColor.background.edgesIgnoringSafeArea(.all)
 
             if viewModel.isLoading {
                 ProgressView("Calculating Metrics...")
@@ -64,7 +64,7 @@ struct PerformanceView: View {
                         }
                         .padding()
                         .frame(maxWidth: .infinity)
-                        .background(Color.white)
+                        .background(AppColor.surface)
                         .cornerRadius(16)
                         .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
                         .padding(.horizontal)
@@ -113,7 +113,7 @@ struct KPIBox: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color.white)
+        .background(AppColor.surface)
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
     }

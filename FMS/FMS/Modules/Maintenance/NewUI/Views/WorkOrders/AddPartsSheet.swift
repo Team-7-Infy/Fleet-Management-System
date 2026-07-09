@@ -25,7 +25,7 @@ struct AddPartsSheet: View {
             )
         }.filter { part in
             let matchesVehicle = vehicleType == nil || part.vehicletype == nil || part.vehicletype?.lowercased() == vehicleType?.lowercased()
-            let matchesSearch = part.matches(searchText: searchText)
+            let matchesSearch = searchText.isEmpty || part.name.localizedCaseInsensitiveContains(searchText) || part.id.uuidString.localizedCaseInsensitiveContains(searchText)
             return matchesVehicle && matchesSearch
         }
     }
@@ -36,29 +36,28 @@ struct AddPartsSheet: View {
             HStack {
                 Spacer()
                 Text("Add Parts")
-                    .font(.title2.weight(.bold))
+                    .font(.system(size: 20, weight: .bold))
                 Spacer()
                 
                 Button(action: { dismiss() }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(Color.black)
-                        .frame(width: 44, height: 44)
-                        .background(Color.white)
+                        .foregroundStyle(AppColor.textPrimary)
+                        .frame(width: 36, height: 36)
+                        .background(AppColor.surface)
                         .clipShape(Circle())
                 }
-                .accessibilityLabel("Close")
             }
             .padding(24)
             
             // Search Bar
             HStack {
                 Image(systemName: "magnifyingglass")
-                    .foregroundStyle(Color.gray)
+                    .foregroundStyle(AppColor.textSecondary)
                 TextField("Search for spare parts", text: $searchText)
             }
             .padding(16)
-            .background(Color.white)
+            .background(AppColor.surface)
             .clipShape(RoundedRectangle(cornerRadius: 30))
             .padding(.horizontal, 24)
             .padding(.bottom, 16)
@@ -72,33 +71,32 @@ struct AddPartsSheet: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(part.name)
-                                    .font(.body.weight(.bold))
-                                    .foregroundStyle(Color.black)
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundStyle(AppColor.textPrimary)
                                 Text("₹\(NSDecimalNumber(decimal: part.unitPrice).intValue)/part")
-                                    .font(.subheadline)
-                                    .foregroundStyle(Color(UIColor.secondaryLabel))
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(AppColor.textSecondary)
                             }
                             
                             Spacer()
                             
                             VStack(alignment: .trailing, spacing: 4) {
                                 Text("\(part.currentQuantity) in stock")
-                                    .font(.caption.weight(.medium))
-                                    .foregroundStyle(part.currentQuantity > 0 ? Color(UIColor.secondaryLabel) : AppColor.destructive)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(part.currentQuantity > 0 ? AppColor.textSecondary : AppColor.destructive)
                                 
                                 Button(action: {
                                     onAddPart(part, 1)
                                     dismiss() 
                                 }) {
                                     Text("Add")
-                                        .font(.caption.weight(.bold))
-                                        .foregroundStyle(part.currentQuantity > 0 ? AppColor.inProgress : Color(UIColor.secondaryLabel))
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundStyle(part.currentQuantity > 0 ? AppColor.inProgress : AppColor.textSecondary)
                                         .padding(.horizontal, 16)
                                         .padding(.vertical, 6)
-                                        .background(part.currentQuantity > 0 ? AppColor.inProgress.opacity(0.1) : Color.gray.opacity(0.1))
+                                        .background(part.currentQuantity > 0 ? AppColor.inProgress.opacity(0.1) : AppColor.textSecondary.opacity(0.1))
                                         .clipShape(Capsule())
                                 }
-                                .accessibilityLabel("Add \(part.name)")
                                 .disabled(part.currentQuantity == 0)
                             }
                         }
@@ -112,7 +110,7 @@ struct AddPartsSheet: View {
                 .padding(.horizontal, 24)
                 .background(
                     RoundedRectangle(cornerRadius: 24)
-                        .fill(Color.white)
+                        .fill(AppColor.surface)
                 )
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)

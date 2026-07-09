@@ -16,14 +16,22 @@ struct GlassPanel<Content: View>: View {
         self.hasBorder = hasBorder
     }
 
+    @Environment(\.colorScheme) var colorScheme
+
     var body: some View {
         content
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.gray, lineWidth: 1)
-            }
+            .background(colorScheme == .dark ? Color(white: 0.15) : Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.04), radius: 12, x: 0, y: 6)
+            .overlay(
+                Group {
+                    if hasBorder {
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(Color.gray.opacity(colorScheme == .dark ? 0.3 : 0.2), lineWidth: 1)
+                    }
+                }
+            )
     }
 }

@@ -147,12 +147,12 @@ struct VehicleWorkOrderDetailsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(workOrder.title)
                         .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(AppColor.textPrimary)
                         .lineLimit(2)
                     
                     Text(workOrder.description)
                         .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color.gray)
+                        .foregroundStyle(AppColor.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 
@@ -184,12 +184,12 @@ struct VehicleWorkOrderDetailsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(formatDate(workOrder.dueDate))
                             .font(.system(size: 14, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(AppColor.textPrimary)
                             .lineLimit(1)
                             .fixedSize(horizontal: true, vertical: false)
                         Text("Scheduled")
                             .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundStyle(Color.gray)
+                            .foregroundStyle(AppColor.textSecondary)
                     }
                 }
                 
@@ -206,26 +206,26 @@ struct VehicleWorkOrderDetailsView: View {
                         if let fname = workOrder.scheduledByRelation?.users?.f_name {
                             Text("\(fname) \(workOrder.scheduledByRelation?.users?.l_name ?? "")")
                                 .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundStyle(Color.black)
+                                .foregroundStyle(AppColor.textPrimary)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
                         } else if let scheduledBy = workOrder.scheduledBy {
                             Text("ID \(scheduledBy.displayId(.user))")
                                 .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundStyle(Color.black)
+                                .foregroundStyle(AppColor.textPrimary)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
                         } else {
                             Text("Fleet Manager")
                                 .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundStyle(Color.black)
+                                .foregroundStyle(AppColor.textPrimary)
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
                         }
                         
                         Text(workOrder.taskTitle?.hasPrefix("Routine Maintenance -") == true ? "Auto assigned by Manager" : "Assigned")
                             .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundStyle(Color.gray)
+                            .foregroundStyle(AppColor.textSecondary)
                     }
                 }
                 
@@ -235,7 +235,7 @@ struct VehicleWorkOrderDetailsView: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white)
+                .fill(AppColor.surface)
         )
     }
     
@@ -285,7 +285,7 @@ struct VehicleWorkOrderDetailsView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white)
+                .fill(AppColor.surface)
                 .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
         )
     }

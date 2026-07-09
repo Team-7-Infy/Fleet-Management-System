@@ -42,6 +42,8 @@ struct InventoryRow: View {
         return fallbacks[index]
     }
 
+    @Environment(\.colorScheme) var colorScheme
+
     var body: some View {
         ZStack(alignment: .trailing) {
             // ── Background Action Button ──────────────────────
@@ -67,75 +69,69 @@ struct InventoryRow: View {
             .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.large, style: .continuous))
 
             // ── Main Content Row ──────────────────────────────
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .center, spacing: 14) {
+                // ICON
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(AppColor.brand.opacity(0.12))
+                    Image(systemName: iconForPart)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(AppColor.brand)
+                }
+                .frame(width: 48, height: 48)
                 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .top) {
-                        Text(item.partname)
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.black)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
+                // MIDDLE TEXT: Name and Vehicle type
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(item.partname)
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.primary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         
-                        Spacer()
-                        
-                        // Tiny Status Pill
-                        Text(isLowStock ? "LOW STOCK" : "IN STOCK")
-                            .font(.system(size: 9, weight: .heavy, design: .rounded))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(isLowStock ? Color.red.opacity(0.1) : Color.green.opacity(0.1))
-                            .foregroundStyle(isLowStock ? Color.red : Color.green)
-                            .clipShape(Capsule())
-                    }
-                    
                     HStack(spacing: 4) {
-                        Text(item.vehicletype)
+                        Text(item.vehicletype.capitalized)
                         Text("•")
                         Text(item.partcode)
                     }
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.gray)
+                    .foregroundStyle(Color.secondary)
                     .lineLimit(1)
+                }
+                
+                Spacer(minLength: 8)
+                
+                // RIGHT SIDE: Price and Pill
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text(item.priceFormatted)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.primary)
                     
-                    HStack {
-                        HStack(alignment: .firstTextBaseline, spacing: 2) {
-                            Text(item.priceFormatted)
-                                .font(.system(size: 15, weight: .bold, design: .rounded))
-                                .foregroundStyle(Color.black)
-                            Text("/ part")
-                                .font(.system(size: 10, weight: .medium, design: .rounded))
-                                .foregroundStyle(Color.gray)
+                    HStack(spacing: 4) {
+                        if isLowStock {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(AppColor.destructive)
                         }
                         
-                        Spacer()
-                        
-                        VStack(alignment: .center, spacing: 2) {
-                            Text("\(item.quantityOnHand)")
-                                .font(.system(size: 16, weight: .heavy, design: .rounded))
-                            Text("IN STOCK")
-                                .font(.system(size: 9, weight: .bold, design: .rounded))
-                        }
-                        .foregroundStyle(isLowStock ? Color.red : AppColor.brand)
+                        Text("\(item.quantityOnHand) left")
+                            .font(.system(size: 12, weight: .heavy, design: .rounded))
+                            .foregroundStyle(isLowStock ? AppColor.destructive : AppColor.success)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(isLowStock ? AppColor.destructive.opacity(0.12) : AppColor.success.opacity(0.12))
+                            .clipShape(Capsule())
                     }
                 }
                 
-                Spacer(minLength: 0)
-                
+                // FAR RIGHT: Chevron
                 Image(systemName: "chevron.left.2")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(Color.gray.opacity(0.4))
+                    .foregroundStyle(Color.secondary.opacity(0.5))
+                    .padding(.leading, 4)
             }
-            .padding(.vertical, 12)
+            .padding(.vertical, 14)
             .padding(.horizontal, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-            )
+            .background(GlassPanel(hasBorder: true) { Color.clear })
             .offset(x: offset)
             .gesture(
                 DragGesture(minimumDistance: 15, coordinateSpace: .local)

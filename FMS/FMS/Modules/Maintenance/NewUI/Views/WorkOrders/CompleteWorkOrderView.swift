@@ -4,14 +4,9 @@ struct CompleteWorkOrderView: View {
     @StateObject private var viewModel: CompleteWorkOrderViewModel
     @ObservedObject private var navigation: TabNavigationState
     @State private var showingAddPartsSheet = false
-    @State private var voiceTokens: [NSObjectProtocol] = []
-    @State private var showVoiceAlert = false
-    @State private var voiceAlertMessage = ""
     let dependencies: AppDependencyContainer
-    let workOrderID: WorkOrder.ID
 
     init(workOrderID: WorkOrder.ID, dependencies: AppDependencyContainer, navigation: TabNavigationState) {
-        self.workOrderID = workOrderID
         _viewModel = StateObject(wrappedValue: CompleteWorkOrderViewModel(workOrderID: workOrderID, dependencies: dependencies))
         self.navigation = navigation
         self.dependencies = dependencies
@@ -26,298 +21,28 @@ struct CompleteWorkOrderView: View {
                     VStack(alignment: .leading, spacing: 24) {
                         
                         // 1. Top Card: Issue Details
-                        VStack(alignment: .leading, spacing: 12) {
-
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(workOrder.title)
-                                    .font(.title2.weight(.bold))
-                                    .foregroundStyle(Color.black)
-                                    .lineLimit(2)
-                                
-                                Text(workOrder.description)
-                                    .font(.body.weight(.medium))
-                                    .foregroundStyle(Color(UIColor.secondaryLabel))
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .padding(20)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.white)
-                        )
+                        issueDetailsCard(workOrder: workOrder)
                         
                         // Attached Photos
                         if let photoUrls = workOrder.photoUrls, !photoUrls.isEmpty {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Attached Photos")
-                                    .font(.headline)
-                                    .foregroundStyle(Color.black)
-                                
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 12) {
-                                        ForEach(photoUrls, id: \.self) { urlString in
-                                            AsyncImage(url: URL(string: urlString)) { image in
-                                                image
-                                                    .resizable()
-                                                    .scaledToFill()
-                                            } placeholder: {
-                                                Rectangle()
-                                                    .fill(Color(hex: 0xE8EAED))
-                                                    .overlay(
-                                                        Image(systemName: "photo")
-                                                            .foregroundStyle(Color.gray)
-                                                    )
-                                            }
-                                            .frame(width: 100, height: 100)
-                                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                        }
-                                    }
-                                }
-                            }
+                            attachedPhotosSection(photoUrls: photoUrls)
                         }
+
                         
                         // 2. Parts Used Card
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Text("Parts Used")
-                                    .font(.headline)
-                                    .foregroundStyle(Color.black)
-                                Spacer()
-                                Button(action: { showingAddPartsSheet = true }) {
-                                    Image(systemName: "plus.circle.fill")
-                                        .font(.system(size: 24))
-                                        .foregroundStyle(AppColor.inProgress)
-                                }
-                                .accessibilityLabel("Add Parts")
-                                .frame(minWidth: 44, minHeight: 44)
-                                .contentShape(Rectangle())
-                            }
-                            
-                            // Parts List
-                            ForEach(viewModel.usedParts) { part in
-                                HStack(alignment: .top, spacing: 12) {
-                                    VStack(alignment: .leading, spacing: 12) {
-                                        HStack(alignment: .top) {
-                                            VStack(alignment: .leading, spacing: 4) {
-                                                Text(part.name)
-                                                    .font(.body.weight(.bold))
-                                                    .foregroundStyle(Color.black)
-                                                    .fixedSize(horizontal: false, vertical: true)
-                                            }
-                                            
-                                            Spacer()
-                                            
-                                            // Amount & Unit Price
-                                            VStack(alignment: .trailing, spacing: 4) {
-                                                Text("₹\(formatDecimal(part.amount))")
-                                                    .font(.body.weight(.bold))
-                                                    .foregroundStyle(Color.black)
-                                                
-                                                Text("₹\(formatDecimal(part.unitPrice))/ea")
-                                                    .font(.caption.weight(.medium))
-                                                    .foregroundStyle(Color(UIColor.secondaryLabel))
-                                            }
-                                        }
-                                        
-                                        HStack {
-                                            // Stepper
-                                            HStack(spacing: 16) {
-                                                Button(action: { viewModel.decrementPart(id: part.id) }) {
-                                                    Image(systemName: "minus")
-                                                        .foregroundStyle(Color(UIColor.secondaryLabel))
-                                                        .font(.caption.weight(.bold))
-                                                        .frame(width: 44, height: 44)
-                                                }
-                                                .accessibilityLabel("Decrease quantity")
-                                                Text("\(part.quantity)")
-                                                    .font(.subheadline.weight(.bold))
-                                                Button(action: { viewModel.incrementPart(id: part.id) }) {
-                                                    Image(systemName: "plus")
-                                                        .foregroundStyle(Color.black)
-                                                        .font(.caption.weight(.bold))
-                                                        .frame(width: 44, height: 44)
-                                                }
-                                                .accessibilityLabel("Increase quantity")
-                                            }
-                                            .padding(.horizontal, 4)
-                                            .padding(.vertical, 4)
-                                            .background(Color(hex: 0xE8EAED))
-                                            .clipShape(Capsule())
-                                            
-                                            Spacer()
-                                                
-                                            Button(action: { viewModel.removePart(id: part.id) }) {
-                                                Image(systemName: "trash.fill")
-                                                    .foregroundStyle(AppColor.destructive.opacity(0.8))
-                                                    .font(.system(size: 16))
-                                                    .padding(14)
-                                            }
-                                            .accessibilityLabel("Remove part")
-                                        }
-                                    }
-                                }
-                                .padding(.vertical, 8)
-                                
-                                if part.id != viewModel.usedParts.last?.id {
-                                    Divider().opacity(0.5)
-                                }
-                            }
-                            
-                            Divider().opacity(0.5)
-                            
-                            HStack {
-                                Spacer()
-                                Text("TOTAL PARTS COST")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(Color(UIColor.secondaryLabel))
-                                Text("₹\(formatDecimal(viewModel.totalPartsCost))")
-                                    .font(.headline)
-                                    .foregroundStyle(Color.black)
-                            }
-                        }
-                        .padding(20)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.white)
-                        )
+                        partsUsedCard()
                         
                         // 3. Labour Cost
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Labour Cost")
-                                .font(.headline)
-                                .foregroundStyle(Color.black)
-                            
-                            HStack {
-                                Text("₹")
-                                    .font(.title2.weight(.bold))
-                                    .foregroundStyle(Color(UIColor.secondaryLabel))
-                                
-                                Text(viewModel.laborCost.isEmpty ? "0.00" : viewModel.laborCost)
-                                    .font(.title2.weight(.bold))
-                                    .foregroundStyle(Color.black)
-                                
-                                Spacer()
-                                
-                                Text(formatTime(viewModel.elapsedTime))
-                                    .font(.subheadline.monospaced())
-                                    .foregroundStyle(Color(UIColor.secondaryLabel))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color(hex: 0xE8EAED))
-                                    .clipShape(Capsule())
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 16)
-                            .background(Color.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .stroke(Color(hex: 0xE8EAED), lineWidth: 1)
-                            )
-                            
-                            Text("Calculated: hourly rate of ₹\(Int(viewModel.hourlyRate))/hr × \(String(format: "%.3f", viewModel.elapsedTime / 3600.0)) hrs.")
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(Color(UIColor.secondaryLabel))
-                        }
+                        labourCostSection()
                         
                         // 4. Remarks
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 4) {
-                                Text("Remarks")
-                                    .font(.headline)
-                                    .foregroundStyle(Color.black)
-                                Text("(Optional)")
-                                    .font(.subheadline)
-                                    .foregroundStyle(Color(UIColor.secondaryLabel))
-                            }
-                            
-                            VStack(alignment: .trailing, spacing: 4) {
-                                TextEditor(text: $viewModel.remarks)
-                                    .font(.body)
-                                    .frame(height: 100)
-                                    .padding(12)
-                                    .scrollContentBackground(.hidden)
-                                    .accessibilityLabel("Remarks")
-                                
-                                Text("\(viewModel.remarks.count)/250")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(Color(UIColor.secondaryLabel))
-                                    .padding(.trailing, 12)
-                                    .padding(.bottom, 12)
-                                    .accessibilityLabel("\(viewModel.remarks.count) of 250 characters")
-                            }
-                            .background(Color(hex: 0xE8EAED))
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        }
+                        remarksSection()
                         
                         // 5. Summary
-                        VStack(spacing: 16) {
-                            Text("SUMMARY")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(Color(UIColor.secondaryLabel))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                
-                            HStack {
-                                Text("Parts Cost")
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(Color(UIColor.secondaryLabel))
-                                Spacer()
-                                Text("₹\(formatDecimal(viewModel.totalPartsCost))")
-                                    .font(.subheadline.weight(.bold))
-                                    .foregroundStyle(Color.black)
-                            }
-                            HStack {
-                                Text("Labour Cost")
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(Color(UIColor.secondaryLabel))
-                                Spacer()
-                                Text("₹\(formatDecimal(viewModel.totalLaborCost))")
-                                    .font(.subheadline.weight(.bold))
-                                    .foregroundStyle(Color.black)
-                            }
-                            
-                            Divider().opacity(0.5)
-                            
-                            HStack {
-                                Text("Total Cost")
-                                    .font(.title3.weight(.bold))
-                                    .foregroundStyle(Color.black)
-                                Spacer()
-                                Text("₹\(formatDecimal(viewModel.totalCost))")
-                                    .font(.largeTitle.weight(.black))
-                                    .foregroundStyle(AppColor.inProgress)
-                            }
-                        }
-                        .padding(20)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.white)
-                        )
+                        summaryCard()
                         
                         // 6. Action Buttons at end of ScrollView
-                        HStack(spacing: 16) {
-                            Button(action: {
-                                Task {
-                                    await viewModel.completeWorkOrder()
-                                    if let id = viewModel.workOrder?.id {
-                                        await MainActor.run {
-                                            navigation.push(.workOrderSuccess(workOrderID: id, elapsedTime: viewModel.elapsedTime, parts: viewModel.usedParts, laborCost: viewModel.totalLaborCost))
-                                        }
-                                    }
-                                }
-                            }) {
-                                Text("Complete")
-                                    .font(.headline)
-                                    .foregroundStyle(Color.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
-                                    .background(AppColor.success)
-                                    .clipShape(Capsule())
-                                    .shadow(color: AppColor.success.opacity(0.3), radius: 8, x: 0, y: 4)
-                            }
-                        }
-                        .padding(.top, 16)
+                        actionButtons()
                         
                     }
                     .padding(24)
@@ -331,56 +56,13 @@ struct CompleteWorkOrderView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("Complete Work Order")
-                    .font(.headline)
+                    .font(.system(size: 16, weight: .bold))
             }
         }
         .task {
             await viewModel.load()
         }
-        .onAppear {
-            VoiceActionBridge.shared.openWorkOrderID = workOrderID
-        }
-        .onReceive(viewModel.$isLoaded) { [self] loaded in
-            guard loaded else { return }
-
-            let addPartObs = NotificationCenter.default.addObserver(forName: .voiceAddPart, object: nil, queue: .main) { note in
-                guard let partID = note.userInfo?["partID"] as? String,
-                      let quantity = note.userInfo?["quantity"] as? Int else { return }
-                if let part = viewModel.inventoryParts.first(where: { $0.id.uuidString == partID }) {
-                    viewModel.addPart(part, quantity: quantity)
-                } else {
-                    voiceAlertMessage = "Part no longer in inventory."
-                    showVoiceAlert = true
-                }
-            }
-
-            let remarkObs = NotificationCenter.default.addObserver(forName: .voiceAddRemark, object: nil, queue: .main) { [self] note in
-                guard let text = note.userInfo?["text"] as? String else { return }
-                let currentCount = viewModel.remarks.count
-                let remaining = 250 - currentCount
-                if remaining <= 0 {
-                    voiceAlertMessage = "Remark is already at the 250-character limit."
-                    showVoiceAlert = true
-                } else if text.count > remaining {
-                    viewModel.remarks += String(text.prefix(remaining))
-                    voiceAlertMessage = "Remark was truncated to \(remaining) characters to fit the limit."
-                    showVoiceAlert = true
-                } else {
-                    if viewModel.remarks.isEmpty {
-                        viewModel.remarks = text
-                    } else {
-                        viewModel.remarks += "\n" + text
-                    }
-                }
-            }
-
-            voiceTokens = [addPartObs, remarkObs]
-        }
         .onDisappear {
-            voiceTokens.forEach { NotificationCenter.default.removeObserver($0) }
-            voiceTokens.removeAll()
-            VoiceActionBridge.shared.openWorkOrderID = nil
-            VoiceActionBridge.shared.currentVehicleType = nil
             viewModel.pauseWorkOrder()
         }
         .sheet(isPresented: $showingAddPartsSheet) {
@@ -392,11 +74,6 @@ struct CompleteWorkOrderView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(viewModel.errorMessage ?? "An error occurred.")
-        }
-        .alert("Voice Action", isPresented: $showVoiceAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(voiceAlertMessage)
         }
     }
     
@@ -412,6 +89,300 @@ struct CompleteWorkOrderView: View {
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = 0
         return formatter.string(from: decimal as NSDecimalNumber) ?? "0"
+    }
+    
+    @ViewBuilder
+    private func issueDetailsCard(workOrder: WorkOrder) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(workOrder.title)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppColor.textPrimary)
+                    .lineLimit(2)
+                
+                Text(workOrder.description)
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundStyle(AppColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(AppColor.surface)
+        )
+    }
+    
+    @ViewBuilder
+    private func attachedPhotosSection(photoUrls: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Attached Photos")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(AppColor.textPrimary)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(photoUrls, id: \.self) { urlString in
+                        AsyncImage(url: URL(string: urlString)) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        } placeholder: {
+                            Rectangle()
+                                .fill(AppColor.background)
+                                .overlay(
+                                    Image(systemName: "photo")
+                                        .foregroundStyle(AppColor.textSecondary)
+                                )
+                        }
+                        .frame(width: 100, height: 100)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func partsUsedCard() -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Parts Used")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppColor.textPrimary)
+                Spacer()
+                Button(action: { showingAddPartsSheet = true }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(AppColor.inProgress)
+                }
+            }
+            
+            ForEach(viewModel.usedParts) { part in
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(part.name)
+                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                    .foregroundStyle(AppColor.textPrimary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            
+                            Spacer()
+                            
+                            VStack(alignment: .trailing, spacing: 4) {
+                                Text("₹\(formatDecimal(part.amount))")
+                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                    .foregroundStyle(AppColor.textPrimary)
+                                
+                                Text("₹\(formatDecimal(part.unitPrice))/ea")
+                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                    .foregroundStyle(AppColor.textSecondary)
+                            }
+                        }
+                        
+                        HStack {
+                            HStack(spacing: 16) {
+                                Button(action: { viewModel.decrementPart(id: part.id) }) {
+                                    Image(systemName: "minus")
+                                        .foregroundStyle(AppColor.textSecondary)
+                                        .font(.system(size: 12, weight: .bold))
+                                        .frame(width: 24, height: 24)
+                                }
+                                Text("\(part.quantity)")
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                Button(action: { viewModel.incrementPart(id: part.id) }) {
+                                    Image(systemName: "plus")
+                                        .foregroundStyle(AppColor.textPrimary)
+                                        .font(.system(size: 12, weight: .bold))
+                                        .frame(width: 24, height: 24)
+                                }
+                            }
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 4)
+                            .background(AppColor.background)
+                            .clipShape(Capsule())
+                            
+                            Spacer()
+                                
+                            Button(action: { viewModel.removePart(id: part.id) }) {
+                                Image(systemName: "trash.fill")
+                                    .foregroundStyle(AppColor.destructive.opacity(0.8))
+                                    .font(.system(size: 16))
+                                    .padding(8)
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 8)
+                
+                if part.id != viewModel.usedParts.last?.id {
+                    Divider().opacity(0.5)
+                }
+            }
+            
+            Divider().opacity(0.5)
+            
+            HStack {
+                Spacer()
+                Text("TOTAL PARTS COST")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppColor.textSecondary)
+                Text("₹\(formatDecimal(viewModel.totalPartsCost))")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppColor.textPrimary)
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(AppColor.surface)
+        )
+    }
+
+    @ViewBuilder
+    private func labourCostSection() -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Labour Cost")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.black)
+            
+            HStack {
+                Text("₹")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(AppColor.textSecondary)
+                
+                Text(viewModel.laborCost.isEmpty ? "0.00" : viewModel.laborCost)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppColor.textPrimary)
+                
+                Spacer()
+                
+                Text(formatTime(viewModel.elapsedTime))
+                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(AppColor.textSecondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(AppColor.background)
+                    .clipShape(Capsule())
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .background(AppColor.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(AppColor.separator, lineWidth: 1)
+            )
+            
+            Text("Calculated: hourly rate of ₹\(Int(viewModel.hourlyRate))/hr × \(String(format: "%.3f", viewModel.elapsedTime / 3600.0)) hrs.")
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(Color.gray)
+        }
+    }
+
+    @ViewBuilder
+    private func remarksSection() -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                Text("Remarks")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppColor.textPrimary)
+                Text("(Optional)")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(AppColor.textSecondary)
+            }
+            
+            VStack(alignment: .trailing, spacing: 4) {
+                TextEditor(text: $viewModel.remarks)
+                    .font(.system(size: 15, design: .rounded))
+                    .frame(height: 100)
+                    .padding(12)
+                    .scrollContentBackground(.hidden)
+                
+                Text("\(viewModel.remarks.count)/250")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppColor.textSecondary)
+                    .padding(.trailing, 12)
+                    .padding(.bottom, 12)
+            }
+            .background(AppColor.background)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+
+    @ViewBuilder
+    private func summaryCard() -> some View {
+        VStack(spacing: 16) {
+            Text("SUMMARY")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.gray)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+            HStack {
+                Text("Parts Cost")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(AppColor.textSecondary)
+                Spacer()
+                Text("₹\(formatDecimal(viewModel.totalPartsCost))")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppColor.textPrimary)
+            }
+            HStack {
+                Text("Labour Cost")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(AppColor.textSecondary)
+                Spacer()
+                Text("₹\(formatDecimal(viewModel.totalLaborCost))")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppColor.textPrimary)
+            }
+            
+            Divider().opacity(0.5)
+            
+            HStack {
+                Text("Total Cost")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppColor.textPrimary)
+                Spacer()
+                Text("₹\(formatDecimal(viewModel.totalCost))")
+                    .font(.system(size: 28, weight: .black, design: .rounded))
+                    .foregroundStyle(AppColor.inProgress)
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(AppColor.surface)
+        )
+    }
+
+    @ViewBuilder
+    private func actionButtons() -> some View {
+        HStack(spacing: 16) {
+            Button(action: {
+                Task {
+                    await viewModel.completeWorkOrder()
+                    if let id = viewModel.workOrder?.id {
+                        await MainActor.run {
+                            navigation.push(.workOrderSuccess(workOrderID: id, elapsedTime: viewModel.elapsedTime, parts: viewModel.usedParts, laborCost: viewModel.totalLaborCost))
+                        }
+                    }
+                }
+            }) {
+                Text("Complete")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(AppColor.success)
+                    .clipShape(Capsule())
+                    .shadow(color: AppColor.success.opacity(0.3), radius: 8, x: 0, y: 4)
+            }
+        }
+        .padding(.top, 16)
     }
 }
 

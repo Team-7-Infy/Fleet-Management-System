@@ -44,8 +44,6 @@ struct MPDashboardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            
             searchAndTabs
             
             ScrollView {
@@ -120,7 +118,21 @@ struct MPDashboardView: View {
             }
         }
         .background(AppColor.background.ignoresSafeArea())
-        .toolbar(.hidden, for: .navigationBar)
+        .navigationTitle("Home")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                HStack(spacing: 12) {
+                    NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
+                        isShowingNotifications = true
+                    }
+                    Button(action: { isShowingProfile = true }) {
+                        profileIcon
+                    }
+                    .accessibilityLabel("Account")
+                }
+            }
+        }
         .navigationDestination(isPresented: $isShowingProfile) {
             MPProfileView(dependencies: dependencies, onLogout: onLogout)
         }
@@ -156,72 +168,36 @@ struct MPDashboardView: View {
         }
     }
 
-    private var header: some View {
-        HStack {
-            Text("Home")
-                .font(.system(size: 34, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color.black)
-            
-            Spacer()
-            
-            HStack(spacing: 16) {
-                Button(action: { isShowingNotifications = true }) {
-                    NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
-                        isShowingNotifications = true
-                    }
-                }
-                Button {
-                    isShowingProfile = true
-                } label: {
-                    if let imageData = viewModel.user?.profileImageData, let uiImage = UIImage(data: imageData) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 36, height: 36)
-                            .clipShape(Circle())
-                    } else if let avatarURL = viewModel.user?.avatarurl.flatMap(URL.init(string:)) {
-                        CachedAsyncImage(url: avatarURL) { image in
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 36, height: 36)
-                                .clipShape(Circle())
-                        } placeholder: {
-                            Circle()
-                                .fill(LinearGradient(colors: [AppColor.inProgress, AppColor.inProgress.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                .frame(width: 36, height: 36)
-                        }
-                    } else {
-                        ZStack {
-                            Circle()
-                                .fill(LinearGradient(colors: [AppColor.inProgress, AppColor.inProgress.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                .frame(width: 36, height: 36)
-                            
-                            if let name = viewModel.user?.name {
-                                Text(initials(for: name))
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundStyle(Color.white)
-                            } else {
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(Color.white)
-                            }
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.white)
-            .clipShape(Capsule())
-            .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 16)
-    }
+    @Environment(\.colorScheme) var colorScheme
+
+
     
+    @ViewBuilder
+    private var profileIcon: some View {
+        if let imageData = viewModel.user?.profileImageData, let uiImage = UIImage(data: imageData) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 32, height: 32)
+                .clipShape(Circle())
+        } else {
+            ZStack {
+                Circle()
+                    .fill(LinearGradient(colors: [AppColor.inProgress, AppColor.inProgress.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 32, height: 32)
+                
+                if let name = viewModel.user?.name {
+                    Text(initials(for: name))
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.white)
+                } else {
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Color.white)
+                }
+            }
+        }
+    }
     private var searchAndTabs: some View {
         VStack(spacing: 16) {
             HStack(spacing: 12) {
@@ -234,7 +210,7 @@ struct MPDashboardView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color(hex: 0xE8EAED))
+            .background(AppColor.surface)
             .clipShape(Capsule())
             
             HStack(spacing: 0) {
@@ -246,10 +222,10 @@ struct MPDashboardView: View {
                     } label: {
                         Text(tabTitle(for: tab))
                             .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundStyle(selectedTab == tab ? Color.black : Color.gray)
+                            .foregroundStyle(selectedTab == tab ? Color.primary : Color.gray)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .background(selectedTab == tab ? Color.white : Color.clear)
+                            .background(selectedTab == tab ? AppColor.background : Color.clear)
                             .clipShape(Capsule())
                             .shadow(color: selectedTab == tab ? Color.black.opacity(0.04) : .clear, radius: 4, x: 0, y: 2)
                     }
@@ -257,7 +233,7 @@ struct MPDashboardView: View {
                 }
             }
             .padding(4)
-            .background(Color(hex: 0xE8EAED))
+            .background(AppColor.surface)
             .clipShape(Capsule())
         }
         .padding(.horizontal, 20)
@@ -345,53 +321,46 @@ struct MPDashboardView: View {
             dateString = "Scheduled on: \(dateFormatter.string(from: workOrder.dueDate))"
         }
         
-        return HStack(alignment: .center, spacing: 16) {
-            VehicleAssetImage(vehicle: vehicle, width: 46, height: 36, cornerRadius: 9)
-            
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .top) {
-                    Text(plateDisplay)
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.black)
+        return GlassPanel(hasBorder: true) {
+            HStack(alignment: .center, spacing: 16) {
+                VehicleAssetImage(vehicle: vehicle, width: 46, height: 36, cornerRadius: 9)
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .top) {
+                        Text(plateDisplay)
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color.primary)
+                        
+                        Spacer()
+                        
+                        Text(statusText)
+                            .font(.system(size: 9, weight: .heavy, design: .rounded))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(statusBgColor)
+                            .foregroundStyle(statusColor)
+                            .clipShape(Capsule())
+                    }
                     
-                    Spacer()
+                    Text(workOrder.title)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.primary)
+                        .lineLimit(1)
                     
-                    Text(statusText)
-                        .font(.system(size: 9, weight: .heavy, design: .rounded))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(statusBgColor)
-                        .foregroundStyle(statusColor)
-                        .clipShape(Capsule())
+                    Text(dateString)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color.secondary)
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "wrench.and.screwdriver.fill")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(vehicleDisplay)
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                    }
+                    .foregroundStyle(AppColor.brand)
                 }
-                
-                Text(workOrder.title)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color.black)
-                    .lineLimit(1)
-                
-                Text(dateString)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.gray)
-                
-                HStack(spacing: 4) {
-                    Image(systemName: "wrench.and.screwdriver.fill")
-                        .font(.system(size: 11, weight: .bold))
-                    Text(vehicleDisplay)
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                }
-                .foregroundStyle(AppColor.brand)
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(AppColor.inProgress.opacity(0.3), lineWidth: 1)
-        )
     }
     
     private func initials(for name: String) -> String {

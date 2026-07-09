@@ -73,7 +73,7 @@ struct InspectionView: View {
 
     var body: some View {
         ZStack {
-            Color(.systemGroupedBackground)
+            AppColor.background
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -192,7 +192,7 @@ struct InspectionView: View {
                             }
                         }
                         .padding()
-                        .background(Color(UIColor.secondarySystemGroupedBackground))
+                        .background(AppColor.surface)
                         .cornerRadius(16)
                         .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
 
@@ -264,7 +264,7 @@ struct InspectionView: View {
                     .disabled(!isSubmitEnabled || viewModel.isSubmitting)
                     .padding()
                 }
-                .background(Color(UIColor.secondarySystemGroupedBackground))
+                .background(AppColor.surface)
             }
             
             if showingComplaintRaisedAnimation {
@@ -330,7 +330,7 @@ struct InspectionView: View {
                                     }
                                 }
                                 .padding()
-                                .background(Color(UIColor.secondarySystemGroupedBackground))
+                                .background(AppColor.surface)
                                 .cornerRadius(12)
                             } else {
                                 Text("No replacement vehicle currently available. Please contact dispatch.")
@@ -359,7 +359,7 @@ struct InspectionView: View {
                             .padding(.top, 8)
                         }
                         .padding(24)
-                        .background(Color(UIColor.systemBackground))
+                        .background(AppColor.surface)
                         .cornerRadius(20)
                         .shadow(color: Color.black.opacity(0.15), radius: 15, x: 0, y: 10)
                         .padding(.horizontal, 36)
@@ -833,7 +833,7 @@ struct InspectionRow: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(Color(UIColor.secondarySystemGroupedBackground))
+        .background(AppColor.surface)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
         .onAppear {

@@ -126,20 +126,13 @@ struct DashboardView: View {
     var body: some View {
         return NavigationStack {
             ZStack {
-                Color(UIColor.systemGroupedBackground)
+                AppColor.background
                     .ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
 
-                        HomeHeaderView(
-                            showingProfile: $showingProfile,
-                            notificationViewModel: notificationViewModel,
-                            showingNotifications: $showingNotifications,
-                            firstName: user.fName,
-                            lastName: user.lName,
-                            avatarImageURL: user.avatarImageURL
-                        )
+
 
                         // --- 1. Active/Post-Trip Section (Highest Priority) ---
                         ZStack {
@@ -359,7 +352,24 @@ struct DashboardView: View {
                 await viewModel.fetchDashboardData()
                 await onRefreshData?()
             }
-            .toolbar(.hidden, for: .navigationBar)
+            .navigationTitle("Home")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 12) {
+                        NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
+                            showingNotifications = true
+                        }
+                        Button(action: {
+                            HapticManager.shared.triggerImpact(style: .medium)
+                            showingProfile = true
+                        }) {
+                            profileIcon
+                        }
+                        .accessibilityLabel("Account")
+                    }
+                }
+            }
             .task {
                 await viewModel.fetchDashboardData()
                 await notificationViewModel.loadNotifications()
@@ -667,75 +677,45 @@ struct DashboardView: View {
             }
         }
     }
-}
 
+    @ViewBuilder
+    private var profileIcon: some View {
+        let f = user.fName.first.map { String($0).uppercased() } ?? ""
+        let l = user.lName.first.map { String($0).uppercased() } ?? ""
+        let initials = "\(f)\(l)"
 
-struct HomeHeaderView: View {
-    @Binding var showingProfile: Bool
-    @ObservedObject var notificationViewModel: NotificationViewModel
-    @Binding var showingNotifications: Bool
-    let firstName: String
-    let lastName: String
-    let avatarImageURL: URL?
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.blue, Color(red: 0.1, green: 0.3, blue: 0.9)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 32, height: 32)
 
-    private var initials: String {
-        let f = firstName.first.map { String($0).uppercased() } ?? ""
-        let l = lastName.first.map { String($0).uppercased() } ?? ""
-        return "\(f)\(l)"
-    }
-
-    var body: some View {
-        HStack(alignment: .center) {
-            Text("Home")
-                .font(.system(size: 34, weight: .heavy, design: .default))
-                .foregroundColor(.primary)
-                .accessibilityAddTraits(.isHeader)
-
-            Spacer()
-
-            NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
-                showingNotifications = true
-            }
-            .padding(.trailing, 8)
-
-            Button(action: {
-                HapticManager.shared.triggerImpact(style: .medium)
-                showingProfile = true
-            }) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.blue, Color(red: 0.1, green: 0.3, blue: 0.9)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 36, height: 36)
-                        .shadow(color: Color.blue.opacity(0.2), radius: 4, x: 0, y: 2)
-
-                    if let avatarImageURL {
-                        CachedAsyncImage(url: avatarImageURL) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 36, height: 36)
-                                .clipShape(Circle())
-                        } placeholder: {
-                            Text(initials)
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundColor(.white)
-                        }
-                    } else {
-                        Text(initials)
-                            .font(.system(size: 14, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                    }
+            if let avatarImageURL = user.avatarImageURL {
+                CachedAsyncImage(url: avatarImageURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 32, height: 32)
+                        .clipShape(Circle())
+                } placeholder: {
+                    Text(initials)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
                 }
+            } else {
+                Text(initials)
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
             }
         }
     }
 }
+
 // MARK: - 2. Active Route Card
 struct ActiveRouteCard: View {
     @Environment(\.colorScheme) var colorScheme
@@ -951,7 +931,8 @@ struct UrgentTaskCard: View {
             Image(systemName: "chevron.right").foregroundColor(.gray.opacity(0.5))
                 .accessibilityHidden(true)
         }
-        .padding(20).background(Color(UIColor.systemBackground)).cornerRadius(20).shadow(color: Color.red.opacity(0.1), radius: 15, x: 0, y: 5)
+        .padding(20)
+        .background(GlassPanel(hasBorder: true) { Color.clear })
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(type): \(title)")
         .accessibilityHint("Tapping this will open the pre-trip inspection workflow.")
@@ -974,14 +955,14 @@ struct ComplianceWidget: View {
             }
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color(UIColor.systemGroupedBackground)).frame(height: 6)
+                    Capsule().fill(AppColor.background).frame(height: 6)
                     Capsule().fill(color).frame(width: geometry.size.width * progress, height: 6)
                 }
             }
             .frame(height: 6)
         }
-        .padding(20).frame(maxWidth: .infinity, alignment: .leading).background(Color(UIColor.systemBackground))
-        .cornerRadius(20).shadow(color: Color.black.opacity(0.03), radius: 15, x: 0, y: 5)
+        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        .background(GlassPanel(hasBorder: true) { Color.clear })
     }
 }
 
@@ -1019,9 +1000,7 @@ struct ActionTile: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(Color(UIColor.systemBackground))
-            .cornerRadius(16)
-            .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 4)
+            .background(GlassPanel(hasBorder: true) { Color.clear })
         }
         .buttonStyle(PlainButtonStyle())
         .accessibilityLabel(title)
@@ -1079,9 +1058,7 @@ struct PendingRequestCard: View {
             cardActions
         }
         .padding(20)
-        .background(Color(UIColor.systemBackground))
-        .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.03), radius: 15, x: 0, y: 5)
+        .background(GlassPanel(hasBorder: true) { Color.clear })
     }
 
     @ViewBuilder
@@ -1320,7 +1297,7 @@ struct ManifestRow: View {
                 Text("Trip: \(id)").font(.caption).foregroundColor(.secondary)
             }
             Spacer()
-            Text(status).font(.system(size: 11, weight: .bold)).foregroundColor(.secondary).padding(.horizontal, 10).padding(.vertical, 6).background(Color(UIColor.systemGroupedBackground)).clipShape(Capsule())
+            Text(status).font(.system(size: 11, weight: .bold)).foregroundColor(.secondary).padding(.horizontal, 10).padding(.vertical, 6).background(AppColor.background).clipShape(Capsule())
         }
         .padding(20)
     }
@@ -1420,7 +1397,7 @@ struct LogbookView: View {
             }
             .padding()
         }
-        .background(Color(UIColor.systemGroupedBackground))
+        .background(AppColor.background)
         .navigationTitle("Journey Logbook")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable {
@@ -1522,8 +1499,7 @@ struct LogbookView: View {
             }
         }
         .padding(16)
-        .background(Color(UIColor.systemBackground))
-        .cornerRadius(16)
+        .background(GlassPanel(hasBorder: true) { Color.clear })
     }
 
     private var journeyTimeline: some View {
@@ -1545,8 +1521,7 @@ struct LogbookView: View {
             }
         }
         .padding(16)
-        .background(Color(UIColor.systemBackground))
-        .cornerRadius(16)
+        .background(GlassPanel(hasBorder: true) { Color.clear })
     }
 
     private var driverNotes: some View {
@@ -1641,8 +1616,7 @@ struct LogbookMetric: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color(UIColor.systemBackground))
-        .cornerRadius(14)
+        .background(GlassPanel(hasBorder: true) { Color.clear })
     }
 }
 
@@ -1712,7 +1686,7 @@ struct ActiveTripDetailView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(UIColor.systemGroupedBackground)
+                AppColor.background
                     .ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
@@ -1806,9 +1780,7 @@ struct ActiveTripDetailView: View {
                             }
                         }
                         .padding(20)
-                        .background(Color(UIColor.systemBackground))
-                        .cornerRadius(20)
-                        .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
+                        .background(GlassPanel(hasBorder: true) { Color.clear })
 
 
                         // 2. Time / Schedule Vitals Card
@@ -1859,9 +1831,7 @@ struct ActiveTripDetailView: View {
                             }
                         }
                         .padding(20)
-                        .background(Color(UIColor.systemBackground))
-                        .cornerRadius(20)
-                        .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
+                        .background(GlassPanel(hasBorder: true) { Color.clear })
 
                         // 3. Distance and Progress Card
                         VStack(alignment: .leading, spacing: 16) {
@@ -1878,7 +1848,7 @@ struct ActiveTripDetailView: View {
                             VStack(spacing: 12) {
                                 GeometryReader { geometry in
                                     ZStack(alignment: .leading) {
-                                        Capsule().fill(Color(UIColor.systemGroupedBackground)).frame(height: 8)
+                                        Capsule().fill(AppColor.background).frame(height: 8)
                                         Capsule().fill(Color.blue).frame(width: geometry.size.width * progress, height: 8)
                                             .shadow(color: Color.blue.opacity(0.3), radius: 4, x: 0, y: 0)
                                     }
@@ -1909,9 +1879,7 @@ struct ActiveTripDetailView: View {
                             }
                         }
                         .padding(20)
-                        .background(Color(UIColor.systemBackground))
-                        .cornerRadius(20)
-                        .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
+                        .background(GlassPanel(hasBorder: true) { Color.clear })
 
                         // 4. Vehicle Details Card
                         VStack(alignment: .leading, spacing: 16) {
@@ -1940,9 +1908,7 @@ struct ActiveTripDetailView: View {
                             }
                         }
                         .padding(20)
-                        .background(Color(UIColor.systemBackground))
-                        .cornerRadius(20)
-                        .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 4)
+                        .background(GlassPanel(hasBorder: true) { Color.clear })
 
                     }
                     .padding(.horizontal, 20)
@@ -2228,7 +2194,7 @@ struct ScheduledTripsListView: View {
 
     var body: some View {
         ZStack {
-            Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+            AppColor.background.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
                     ForEach(trips) { trip in
@@ -2272,7 +2238,7 @@ struct HistoryTripsListView: View {
 
     var body: some View {
         ZStack {
-            Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+            AppColor.background.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
                     ForEach(trips) { trip in
