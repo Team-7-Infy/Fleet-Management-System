@@ -76,7 +76,7 @@ final class DriverProfileViewModel: ObservableObject {
                 self.completedTrips = completed.count
                 self.totalTrips = "\(trips.count)"
                 self.onTimeRate = trips.isEmpty ? "0%" : "\(Int(Double(completed.count) / Double(trips.count) * 100))%"
-                self.safetyScore = Int(scoreRecord?.overallScore ?? 0)
+                self.safetyScore = Int(scoreRecord?.overallScore ?? 75)
 
                 if let last = trips.max(by: { ($0.startTime) < ($1.startTime) }) {
                     let f = DateFormatter()

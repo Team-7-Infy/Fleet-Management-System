@@ -13,7 +13,7 @@ enum FleetPalette {
     static let secondary = Color(lightHex: 0xBBDEFB, darkHex: 0x334155)
     static let tertiary = Color(lightHex: 0x42A5F5, darkHex: 0x3B82F6)
     static let accent = tertiary
-    static let inProgress = tertiary
+    static let inProgress = Color(hex: 0xFF7A2F)
     static let softBlue = primary
     static let background = Color(lightHex: 0xF8FCFF, darkHex: 0x0F172A)
     static let surface = Color(lightHex: 0xFFFFFF, darkHex: 0x1E293B)

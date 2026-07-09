@@ -41,4 +41,5 @@ struct UserProfile: Identifiable, Codable, Hashable {
     var address: String { addressStr ?? "Not provided" }
     var aadhaarNumber: String { aadhar ?? "N/A" }
     var status: String { isactive == true ? "Active" : "Inactive" }
+    var displayId: String { id.displayId(.user) }
 }

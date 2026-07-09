@@ -331,6 +331,8 @@ struct ActiveNavigationDetailView: View {
     
     // General SOS alerts
     @State private var showingSOSAlert = false
+    @State private var showingJerkCountdown = false
+    @State private var jerkCountdownSeconds = 5
     
     // Reroute state
     @State private var showingRerouteConfirm = false
@@ -351,6 +353,7 @@ struct ActiveNavigationDetailView: View {
     @State private var lastOffset: CGFloat = 0.0
     @State private var isExpanded = false
     @State private var liveDistanceRemaining: String? = nil
+    @State private var voiceTokens: [NSObjectProtocol] = []
     
     private var assignedVehicle: String {
         vehicles.first(where: { $0.id == trip.vehicleId })?.licencePlate ?? ""
@@ -513,7 +516,7 @@ struct ActiveNavigationDetailView: View {
                         
                         VStack(alignment: .leading, spacing: 2) {
                             Text(voiceGuidance.currentInstruction.isEmpty ? "Proceed to the route" : voiceGuidance.currentInstruction)
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.headline)
                                 .foregroundColor(.white)
                                 .lineLimit(2)
                         }
@@ -596,7 +599,7 @@ struct ActiveNavigationDetailView: View {
                                     expenseService: services.expenseService,
                                     driverId: trip.driverId,
                                     vehicleId: trip.vehicleId,
-                                    vehicleFuelType: nil
+                                    vehicleFuelType: vehicles.first(where: { $0.id == trip.vehicleId })?.fuelType
                                 )
                                 .environmentObject(localStore)
                             }
@@ -637,36 +640,38 @@ struct ActiveNavigationDetailView: View {
                 HStack(spacing: 0) {
                     VStack(spacing: 4) {
                         Text(viewModel.eta)
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .font(.title.weight(.bold))
                             .foregroundColor(.primary)
                         Text("arrival")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.caption.weight(.bold))
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity)
                     
                     VStack(spacing: 4) {
                         Text(liveDistanceRemaining ?? viewModel.distanceRemaining)
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .font(.title.weight(.bold))
                             .foregroundColor(.green)
                         Text("remaining")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.caption.weight(.bold))
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity)
                     
                     VStack(spacing: 4) {
                         Text(isTripStopped ? "0 km/h" : "65 km/h")
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .font(.title.weight(.bold))
                             .foregroundColor(.blue)
                         Text("speed")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.caption.weight(.bold))
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity)
                 }
                 .padding(.horizontal)
                 .contentShape(Rectangle())
+                .accessibilityAddTraits(.isButton)
+                .accessibilityLabel("Show trip details")
                 .onTapGesture {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
                         isExpanded.toggle()
@@ -698,21 +703,22 @@ struct ActiveNavigationDetailView: View {
                             
                             Spacer()
                             
-                            Button(action: {
-                                HapticManager.shared.triggerImpact(style: .medium)
-                                if let url = URL(string: "tel://100") {
-                                    UIApplication.shared.open(url)
-                                }
-                            }) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color(UIColor.systemGray5))
-                                        .frame(width: 38, height: 38)
-                                    Image(systemName: "phone.fill")
-                                        .foregroundColor(.blue)
-                                        .font(.subheadline)
-                                }
-                            }
+                    Button(action: {
+                        HapticManager.shared.triggerImpact(style: .medium)
+                        if let url = URL(string: "tel://100") {
+                            UIApplication.shared.open(url)
+                        }
+                    }) {
+                        ZStack {
+                            Circle()
+                                .fill(Color(UIColor.systemGray5))
+                                .frame(width: 44, height: 44)
+                            Image(systemName: "phone.fill")
+                                .foregroundColor(.blue)
+                                .font(.subheadline)
+                        }
+                    }
+                    .accessibilityLabel("Call Manager")
                         }
                         .padding()
                         .background(RoundedRectangle(cornerRadius: 20).fill(AppColor.surface))
@@ -749,12 +755,13 @@ struct ActiveNavigationDetailView: View {
                                 ZStack {
                                     Circle()
                                         .fill(Color(UIColor.systemGray5))
-                                        .frame(width: 38, height: 38)
+                                        .frame(width: 44, height: 44)
                                     Image(systemName: isTripStopped ? "play.fill" : "pause.fill")
                                         .foregroundColor(.orange)
                                         .font(.subheadline)
                                 }
                             }
+                            .accessibilityLabel(isTripStopped ? "Resume Journey" : "Pause Journey")
                         }
                         .padding()
                         .background(RoundedRectangle(cornerRadius: 20).fill(AppColor.surface))
@@ -847,55 +854,49 @@ struct ActiveNavigationDetailView: View {
                 title: Text("EMERGENCY SOS"),
                 message: Text("Triggering SOS will instantly broadcast your live coordinates and alert fleet dispatch."),
                 primaryButton: .destructive(Text("CONFIRM EMERGENCY SOS")) {
-                    Task {
-                        do {
-                            try await services.tripService.updateTripStatus(
-                                id: trip.id,
-                                status: .cancelled,
-                                rejectionReason: "SOS Emergency: Automatically cancelled via emergency SOS alert during active navigation."
-                            )
-
-                            let event = SOSEvent(
-                                id: UUID(),
-                                tripId: trip.id,
-                                driverId: driver?.id ?? user.id,
-                                vehicleId: assignedVehicle,
-                                type: "critical",
-                                status: .pending,
-                                latitude: locationService.location?.coordinate.latitude ?? 0,
-                                longitude: locationService.location?.coordinate.longitude ?? 0,
-                                resolvedBy: nil,
-                                resolvedAt: nil,
-                                notes: nil,
-                                createdAt: Date()
-                            )
-                            _ = try? await services.sosService.createEvent(event)
-
-                            let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
-                            for fmUser in fmUsers {
-                                let notification = AppNotification(
-                                    id: UUID(),
-                                    title: "CRITICAL: Driver SOS Emergency",
-                                    message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation) during active navigation.",
-                                    type: "sos_emergency",
-                                    isRead: false,
-                                    referenceId: trip.id,
-                                    recipientId: fmUser.id,
-                                    createdAt: Date()
-                                )
-                                _ = try? await services.notificationService.createNotification(notification)
-                            }
-
-                            await MainActor.run {
-                                onBack()
-                            }
-                        } catch {
-                            print("Failed to cancel trip on SOS: \(error)")
-                        }
-                    }
+                    Task { await triggerEmergencySOS() }
                 },
                 secondaryButton: .cancel()
             )
+        }
+        .overlay {
+            if showingJerkCountdown {
+                ZStack {
+                    Color.black.opacity(0.4)
+                        .ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 48))
+                            .minimumScaleFactor(0.5)
+                            .foregroundColor(.orange)
+                        Text("Possible Collision Detected")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                        Text("Emergency SOS will be sent in \(jerkCountdownSeconds)s unless cancelled.")
+                            .font(.subheadline)
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(.secondary)
+                            .accessibilityValue("\(jerkCountdownSeconds) seconds remaining")
+                        Button(action: { showingJerkCountdown = false }) {
+                            Text("I'm OK — Cancel")
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                        }
+                        .accessibilityLabel("Cancel Emergency SOS")
+                    }
+                    .padding(24)
+                    .background(.regularMaterial)
+                    .cornerRadius(20)
+                    .padding(40)
+                }
+                .accessibilityAddTraits(.isModal)
+                .transition(.opacity)
+                .zIndex(100)
+            }
         }
         .sheet(isPresented: $showingCancelSheet, onDismiss: {
             withAnimation(.spring()) {
@@ -932,7 +933,36 @@ struct ActiveNavigationDetailView: View {
                 service: services.tripService
             )
 
+            locationService.onDeviationAlert = { [weak voiceGuidance] distance in
+                voiceGuidance?.announceDeviation(distanceMeters: distance)
+            }
+
+            locationService.onJerkDetected = { [self] in
+                triggerJerkCountdown()
+            }
+
             focusOnDriverAndRoute()
+
+            Task { @MainActor in
+                VoiceActionBridge.shared.activeTripID = trip.id
+            }
+
+            let sosObs = NotificationCenter.default.addObserver(forName: .voiceSOS, object: nil, queue: .main) { _ in
+                HapticManager.shared.triggerNotification(type: .error)
+                showingSOSAlert = true
+            }
+            let pauseObs = NotificationCenter.default.addObserver(forName: .voicePauseResume, object: nil, queue: .main) { _ in
+                HapticManager.shared.triggerImpact(style: .medium)
+                withAnimation(.spring()) {
+                    isTripStopped.toggle()
+                    UserDefaults.standard.set(isTripStopped, forKey: "trip_\(trip.id.uuidString)_paused")
+                }
+            }
+            let rerouteObs = NotificationCenter.default.addObserver(forName: .voiceReroute, object: nil, queue: .main) { _ in
+                HapticManager.shared.triggerImpact(style: .medium)
+                showingRerouteConfirm = true
+            }
+            voiceTokens = [sosObs, pauseObs, rerouteObs]
         }
         .onReceive(locationService.$location) { newLocation in
             guard let newLocation = newLocation else { return }
@@ -959,6 +989,12 @@ struct ActiveNavigationDetailView: View {
             voiceGuidance.update(remainingDistance: remainingMeters, nearestCoordIdx: nearestIdx)
         }
         .onDisappear {
+            voiceTokens.forEach { NotificationCenter.default.removeObserver($0) }
+            voiceTokens.removeAll()
+            VoiceActionBridge.shared.activeTripID = nil
+            locationService.onDeviationAlert = nil
+            locationService.onJerkDetected = nil
+            showingJerkCountdown = false
             locationService.stopTracking()
             voiceGuidance.stop()
         }
@@ -991,6 +1027,68 @@ struct ActiveNavigationDetailView: View {
         }
     }
     
+    @MainActor
+    private func triggerEmergencySOS() async {
+        do {
+            try await services.tripService.updateTripStatus(
+                id: trip.id,
+                status: .cancelled,
+                rejectionReason: "SOS Emergency: Automatically cancelled via emergency SOS alert during active navigation."
+            )
+
+            let event = SOSEvent(
+                id: UUID(),
+                tripId: trip.id,
+                driverId: driver?.id ?? user.id,
+                vehicleId: assignedVehicle,
+                type: "critical",
+                status: .pending,
+                latitude: locationService.location?.coordinate.latitude ?? 0,
+                longitude: locationService.location?.coordinate.longitude ?? 0,
+                resolvedBy: nil,
+                resolvedAt: nil,
+                notes: nil,
+                createdAt: Date()
+            )
+            _ = try? await services.sosService.createEvent(event)
+
+            let notification = AppNotification(
+                id: UUID(),
+                title: "CRITICAL: Driver SOS Emergency",
+                message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation) during active navigation.",
+                type: "sos_emergency",
+                isRead: false,
+                referenceId: trip.id,
+                recipientId: nil,
+                createdAt: Date()
+            )
+            _ = try? await services.notificationService.createNotification(notification)
+
+            onBack()
+        } catch {
+            print("Failed to cancel trip on SOS: \(error)")
+        }
+    }
+
+    @MainActor
+    private func triggerJerkCountdown() {
+        showingJerkCountdown = true
+        jerkCountdownSeconds = 5
+        Task {
+            for seconds in (1...4).reversed() {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                let cancelled = await MainActor.run { !showingJerkCountdown }
+                if cancelled { return }
+                await MainActor.run { jerkCountdownSeconds = seconds }
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            let shouldFire = await MainActor.run { showingJerkCountdown }
+            guard shouldFire else { return }
+            await MainActor.run { showingJerkCountdown = false }
+            await triggerEmergencySOS()
+        }
+    }
+
     private func calculateRemainingDistance(from index: Int, coordinates: [CLLocationCoordinate2D]) -> Double {
         guard index >= 0, index < coordinates.count else { return 0.0 }
         var distance: Double = 0.0
@@ -1046,7 +1144,7 @@ struct SlideToCancel: View {
                 )
             
             Text("SLIDE TO CANCEL DISPATCH")
-                .font(.system(size: 11, weight: .black, design: .rounded))
+                .font(.caption.weight(.black))
                 .foregroundColor(Color.red.opacity(0.8))
                 .tracking(2.0)
                 .frame(maxWidth: .infinity)

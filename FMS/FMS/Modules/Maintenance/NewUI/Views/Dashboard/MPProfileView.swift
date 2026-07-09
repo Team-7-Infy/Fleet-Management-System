@@ -177,7 +177,7 @@ private struct ProfileHeaderCard: View {
                 Divider().opacity(0.6)
 
                 HStack(spacing: 16) {
-                    ProfileHeaderMetric(title: "Personnel ID", value: String(user.id.uuidString.prefix(8)).uppercased())
+                    ProfileHeaderMetric(title: "Personnel ID", value: user.displayId)
                     Divider().frame(height: 32)
                     ProfileHeaderMetric(title: "Joined", value: formatDate(user.createdat))
                 }

@@ -294,112 +294,87 @@ struct ManagerTripFormSheet: View {
                 }
                 
                 FleetFormSection(title: "Vehicle & Driver Selection") {
-                    HStack(spacing: 16) {
-                        Image(systemName: "car.fill")
-                            .font(.system(size: 18))
-                            .foregroundStyle(FleetPalette.accent)
-                            .frame(width: 24)
-                        
-                        Picker("Required Type", selection: $form.vehicleTypeRequested) {
+                    FleetFormRow(icon: "car.fill", title: "Required Type") {
+                        Picker(selection: $form.vehicleTypeRequested) {
                             Text("Any").tag("")
                             ForEach(Self.vehicleTypes, id: \.self) { type in
                                 Text(type.capitalized).tag(type)
                             }
+                        } label: {
+                            Text(form.vehicleTypeRequested.isEmpty ? "Any type" : form.vehicleTypeRequested.capitalized)
                         }
+                        .pickerStyle(.menu)
                         .tint(FleetPalette.accent)
+                        .labelsHidden()
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
                     
                     Divider().padding(.leading, 44)
                     
-                    HStack(spacing: 16) {
-                        Image(systemName: "wand.and.stars.inverse")
-                            .font(.system(size: 18))
-                            .foregroundStyle(FleetPalette.accent)
-                            .frame(width: 24)
-                        Toggle("Auto Assign", isOn: $form.isAutoAssign)
-                            .tint(FleetPalette.accent)
+                    FleetFormRow(icon: "wand.and.stars.inverse", title: "Auto Assign") {
+                        Toggle("", isOn: $form.isAutoAssign)
+                            .labelsHidden()
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
                     
                     if !form.isAutoAssign {
                         Divider().padding(.leading, 44)
-                        
-                        HStack(spacing: 16) {
-                            Image(systemName: "bus.fill")
-                                .font(.system(size: 18))
-                                .foregroundStyle(FleetPalette.accent)
-                                .frame(width: 24)
-                            
-                            Picker("Vehicle", selection: $form.selectedVehicleId) {
-                                Text("Select").tag(Optional<UUID>.none)
+                        FleetFormRow(icon: "bus.fill", title: "Vehicle") {
+                            Picker(selection: $form.selectedVehicleId) {
+                                Text("Select Vehicle").tag(Optional<UUID>.none)
                                 ForEach(availableVehicles) { vehicle in
                                     Text(vehicle.licencePlate).tag(Optional(vehicle.id))
                                 }
+                            } label: {
+                                Text(availableVehicles.first(where: { $0.id == form.selectedVehicleId })?.licencePlate ?? "Select")
                             }
+                            .pickerStyle(.menu)
                             .tint(FleetPalette.accent)
+                            .labelsHidden()
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
                         
                         Divider().padding(.leading, 44)
                         
-                        HStack(spacing: 16) {
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 18))
-                                .foregroundStyle(FleetPalette.accent)
-                                .frame(width: 24)
-                            
-                            Picker("Driver", selection: $form.selectedDriverId) {
-                                Text("Select").tag(Optional<UUID>.none)
+                        FleetFormRow(icon: "person.fill", title: "Driver") {
+                            Picker(selection: $form.selectedDriverId) {
+                                Text("Select Driver").tag(Optional<UUID>.none)
                                 ForEach(availableDrivers) { driver in
                                     let user = usersViewModel.user(for: driver.userId)
-                                    Text(user?.displayName ?? "Driver").tag(Optional(driver.id))
+                                    let uidPrefix = driver.userId.displayId(.user)
+                                    Text("\(user?.displayName ?? "Driver") (\(uidPrefix))").tag(Optional(driver.id))
+                                }
+                            } label: {
+                                if let dId = form.selectedDriverId, let driver = usersViewModel.drivers.first(where: { $0.id == dId }), let user = usersViewModel.user(for: driver.userId) {
+                                    Text("\(user.displayName) (\(driver.userId.displayId(.user)))")
+                                } else {
+                                    Text("Select")
                                 }
                             }
+                            .pickerStyle(.menu)
                             .tint(FleetPalette.accent)
+                            .labelsHidden()
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
                     }
                 }
                 .animation(.easeInOut, value: form.isAutoAssign)
                 
                 FleetFormSection(title: "Schedule") {
-                    HStack(spacing: 16) {
-                        Image(systemName: "calendar.badge.clock")
-                            .font(.system(size: 18))
-                            .foregroundStyle(FleetPalette.accent)
-                            .frame(width: 24)
-                        
-                        DatePicker("Start Time", selection: $form.startTime, in: minimumStartTime...)
-                            .tint(FleetPalette.accent)
+                    FleetFormRow(icon: "calendar.badge.clock", title: "Start") {
+                        DatePicker("", selection: $form.startTime, in: minimumStartTime...)
+                            .labelsHidden()
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
                     
                     Divider().padding(.leading, 44)
                     
-                    HStack(spacing: 16) {
-                        Image(systemName: "flag.checkered")
-                            .font(.system(size: 18))
-                            .foregroundStyle(FleetPalette.accent)
-                            .frame(width: 24)
-                        
+                    FleetFormRow(icon: "flag.checkered", title: routeEstimate == nil ? "Expected End" : "ETA") {
                         DatePicker(
-                            routeEstimate == nil ? "End Time" : "ETA",
+                            "",
                             selection: Binding(
                                 get: { form.endTime ?? form.startTime.addingTimeInterval(3600) },
                                 set: { form.endTime = $0 }
                             ),
                             in: form.startTime...
                         )
-                        .tint(FleetPalette.accent)
+                        .labelsHidden()
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
                 }
 
                 FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)

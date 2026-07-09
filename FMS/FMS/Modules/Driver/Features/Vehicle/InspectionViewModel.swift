@@ -5,13 +5,25 @@ import UIKit
 @MainActor
 class InspectionViewModel: ObservableObject {
     @Published var items: [InspectionItem] = [
-        InspectionItem(name: "Tires & Pressure", icon: "tire"),
-        InspectionItem(name: "Brakes & Fluid", icon: "minus.circle.fill"),
-        InspectionItem(name: "Headlights & Tail Lights", icon: "headlight.high.beam.fill"),
-        InspectionItem(name: "Engine Oil & Coolant", icon: "drop.fill"),
-        InspectionItem(name: "Mirrors & Windshield", icon: "macwindow"),
-        InspectionItem(name: "Wipers & Washer Fluid", icon: "cloud.rain.fill")
+        InspectionItem(name: "Tires & Pressure", icon: "tire", category: "Exterior"),
+        InspectionItem(name: "Brakes & Fluid", icon: "minus.circle.fill", category: "Mechanical"),
+        InspectionItem(name: "Headlights & Tail Lights", icon: "headlight.high.beam.fill", category: "Electrical"),
+        InspectionItem(name: "Engine Oil & Coolant", icon: "drop.fill", category: "Engine"),
+        InspectionItem(name: "Mirrors & Windshield", icon: "macwindow", category: "Exterior"),
+        InspectionItem(name: "Wipers & Washer Fluid", icon: "cloud.rain.fill", category: "Exterior"),
+        InspectionItem(name: "Other", icon: "ellipsis.circle.fill", category: "Other")
     ]
+
+    var categories: [String] {
+        let cats = Set(items.map(\.category))
+        return ["All"] + cats.sorted()
+    }
+
+    var groupedItems: [(category: String, items: [InspectionItem])] {
+        Dictionary(grouping: items, by: \.category)
+            .map { ($0.key, $0.value) }
+            .sorted { $0.category < $1.category }
+    }
     
     @Published var isSubmitting: Bool = false
     

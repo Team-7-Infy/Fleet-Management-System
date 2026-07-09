@@ -49,7 +49,7 @@ struct ManagerUsersView: View {
         case .drivers:
             return ["Available", "On Trip", "Scheduled", "Unavailable"]
         case .mechanics:
-            return ["Available", "In Progress", "Unavailable"]
+            return ["Available", "In Service", "Unavailable"]
         }
     }
 
@@ -185,8 +185,27 @@ struct ManagerUsersView: View {
                 .frame(width: 200)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Add User", systemImage: "plus", action: openAddUser)
-                    .tint(FleetPalette.textPrimary)
+                HStack(spacing: 12) {
+                    Menu {
+                        Button {
+                            Task { await viewModel.recalculateAndReloadScores() }
+                        } label: {
+                            Label("Recalculate All", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        Button {
+                            Task {
+                                let count = await viewModel.backfillMissingScores()
+                                viewModel.successMessage = "Backfilled \(count) missing driver score(s)."
+                            }
+                        } label: {
+                            Label("Backfill Missing", systemImage: "plus.circle")
+                        }
+                    } label: {
+                        Label("Scores", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    Button("Add User", systemImage: "plus", action: openAddUser)
+                }
+                .tint(FleetPalette.textPrimary)
             }
         }
         .onChange(of: selectedSegment) { _, _ in
@@ -199,6 +218,7 @@ struct ManagerUsersView: View {
                 trips: tripsViewModel.trips,
                 tasks: maintenanceViewModel.tasks
             )
+            await viewModel.recalculateAndReloadScores()
         }
     }
 
@@ -228,7 +248,7 @@ struct ManagerUsersView: View {
     private func matchesSearch(_ user: User, query: String) -> Bool {
         let searchable = [
             user.displayName,
-            user.shortUID
+            user.displayId
         ]
         return searchable.contains {
             $0.localizedCaseInsensitiveContains(query)
@@ -252,7 +272,7 @@ private struct ManagerUserCard: View {
                     .foregroundStyle(FleetPalette.textPrimary)
                     .lineLimit(1)
 
-                Text("UID \(user.shortUID)")
+                Text(user.displayId)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(FleetPalette.textSecondary)
                     .lineLimit(1)
@@ -304,6 +324,7 @@ struct ManagerUserDetailView: View {
                 switch user.role {
                 case .driver:
                     driverInfoCard
+                    driverScoreCard
                     driverTripHistorySection
                 case .maintenancePersonnel:
                     maintenanceInfoCard
@@ -382,7 +403,7 @@ struct ManagerUserDetailView: View {
                     .foregroundStyle(FleetPalette.textSecondary)
 
                 HStack(spacing: 8) {
-                    Text("UID \(user.shortUID)")
+                    Text(user.displayId)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(FleetPalette.textSecondary)
 
@@ -485,6 +506,50 @@ struct ManagerUserDetailView: View {
                 }
             }
         }
+    }
+
+    private var driverScoreCard: some View {
+        guard let driverProfile else { return AnyView(EmptyView()) }
+        let score = viewModel.driverScore(for: driverProfile.id)
+
+        return AnyView(VStack(alignment: .leading, spacing: 10) {
+            DashboardSectionTitle("Driver Safety Score")
+
+            GlassPanel(hasBorder: false) {
+                if let score {
+                    VStack(spacing: 12) {
+                        HStack {
+                            Text("Overall Score")
+                                .font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Text("\(Int(score.overallScore))")
+                                .font(.title.weight(.heavy))
+                                .foregroundStyle(score.overallScore >= 70 ? .green : score.overallScore >= 40 ? .orange : .red)
+                        }
+                        Divider()
+                        if let ins = score.inspectionFalseRate {
+                            InfoRow(title: "Inspection Compliance", value: "\(Int(ins))%")
+                        }
+                        if let geo = score.geofenceViolationRate {
+                            InfoRow(title: "Route Adherence", value: "\(Int(geo))%")
+                        }
+                        if let comp = score.complianceViolationRate {
+                            InfoRow(title: "Schedule Adherence", value: "\(Int(comp))%")
+                        }
+                        if let mile = score.mileageAccuracy {
+                            InfoRow(title: "Mileage Accuracy", value: "\(Int(mile))%")
+                        }
+                        InfoRow(title: "Last Calculated", value: score.calculatedAt.formatted(date: .abbreviated, time: .shortened))
+                    }
+                } else {
+                    EmptyStateView(
+                        title: "Score Not Calculated Yet",
+                        message: "The driver safety score will be available after the first completed trip.",
+                        systemImage: "chart.bar.xaxis"
+                    )
+                }
+            }
+        })
     }
 
     private var maintenanceInfoCard: some View {
@@ -755,10 +820,10 @@ func calculateUserStatus(
             return (user.isActive ? "Active" : "Inactive", user.isActive ? FleetPalette.success : FleetPalette.neutral)
         }
 
-        // Check if they are In Progress
-        let hasActiveWork = tasks.contains { $0.executedBy == personnel.id && $0.status == .inProgress }
+        // Check if they are In Service (assigned to a work order, whether assigned or actively in progress)
+        let hasActiveWork = tasks.contains { $0.executedBy == personnel.id && ($0.status == .assigned || $0.status == .inProgress) }
         if hasActiveWork {
-            return ("In Progress", FleetPalette.warning)
+            return ("In Service", FleetPalette.warning)
         }
 
         return ("Available", FleetPalette.success)

@@ -3,6 +3,9 @@ import SwiftUI
 struct WorkOrderCard: View {
     let workOrder: WorkOrder
     var action: (() -> Void)?
+    var onDelete: (() -> Void)?
+
+    @State private var showDeleteConfirmation = false
 
     var body: some View {
         Button {
@@ -11,7 +14,7 @@ struct WorkOrderCard: View {
             VStack(alignment: .leading, spacing: AppSpacing.small) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: AppSpacing.xSmall) {
-                        Text(workOrder.id.uuidString.prefix(8).uppercased())
+                        Text(workOrder.displayId)
                             .font(AppTypography.headline)
                         Text("\(workOrder.vehicleName) - \(workOrder.title)")
                             .font(AppTypography.callout)
@@ -29,6 +32,21 @@ struct WorkOrderCard: View {
             .appCardStyle()
         }
         .buttonStyle(CardButtonStyle())
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if workOrder.status != .completed && workOrder.status != .fake {
+                Button(role: .destructive) {
+                    showDeleteConfirmation = true
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        }
+        .confirmationDialog("Delete Work Order", isPresented: $showDeleteConfirmation) {
+            Button("Delete", role: .destructive) { onDelete?() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This action cannot be undone. The work order will be permanently deleted.")
+        }
         .accessibilityLabel(AccessibilityText.workOrder(workOrder.id.uuidString, status: workOrder.status.title))
     }
 }

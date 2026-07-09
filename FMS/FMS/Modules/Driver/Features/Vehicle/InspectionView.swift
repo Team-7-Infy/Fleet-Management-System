@@ -24,6 +24,7 @@ struct InspectionView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var localStore: LocalDataStore
 
+    @State private var selectedCategory: String = "All"
     @State private var odometerInput: String = ""
     @State private var fuelInput: String = ""
 
@@ -43,6 +44,17 @@ struct InspectionView: View {
         return 75 + number
     }
 
+    private var availableCategories: [String] {
+        viewModel.categories
+    }
+    
+    private var filteredItems: [InspectionItem] {
+        if selectedCategory == "All" {
+            return viewModel.items
+        }
+        return viewModel.items.filter { $0.category == selectedCategory }
+    }
+    
     private var isSubmitEnabled: Bool {
         let hasFailedDefect = viewModel.items.contains { item in
             item.status == .failed && !item.failDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -184,15 +196,36 @@ struct InspectionView: View {
                         .cornerRadius(16)
                         .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
 
-                        ForEach(viewModel.items) { item in
-                            InspectionRow(item: item) { newStatus in
-                                let generator = UIImpactFeedbackGenerator(style: .light)
-                                generator.impactOccurred()
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                    viewModel.updateStatus(for: item.id, to: newStatus)
+                        Picker("Category", selection: $selectedCategory) {
+                            ForEach(availableCategories, id: \.self) { cat in
+                                Text(cat).tag(cat)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(.bottom, 8)
+
+                        let filtered = filteredItems
+                        let grouped = Dictionary(grouping: filtered, by: \.category)
+                        let sortedCategories = grouped.keys.sorted()
+                        ForEach(sortedCategories, id: \.self) { category in
+                            Section {
+                                ForEach(grouped[category] ?? []) { item in
+                                    InspectionRow(item: item) { newStatus in
+                                        let generator = UIImpactFeedbackGenerator(style: .light)
+                                        generator.impactOccurred()
+                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                            viewModel.updateStatus(for: item.id, to: newStatus)
+                                        }
+                                    } onDetailsChange: { desc, img in
+                                        viewModel.updateDetails(for: item.id, description: desc, image: img)
+                                    }
                                 }
-                            } onDetailsChange: { desc, img in
-                                viewModel.updateDetails(for: item.id, description: desc, image: img)
+                            } header: {
+                                Text(category)
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.secondary)
+                                    .textCase(.uppercase)
+                                    .padding(.top, 4)
                             }
                         }
                     }
@@ -446,6 +479,10 @@ struct InspectionView: View {
                     }
                 } catch {
                     print("Failed to persist inspection: \(error)")
+                    await showAlert(title: "Inspection Error", message: "Failed to save inspection results. Please check your network connection and try again.")
+                    await MainActor.run {
+                        viewModel.isSubmitting = false
+                    }
                 }
             }
             
@@ -542,20 +579,17 @@ struct InspectionView: View {
                     }
                 }
                 
-                let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
-                for fmUser in fmUsers {
-                    let note = AppNotification(
-                        id: UUID(),
-                        title: "\(isPostTrip ? "Post-trip" : "Pre-trip") Inspection Failed",
-                        message: "\(failedItems.count) defect(s) found on \(vehicle.licencePlate). Work order(s) created for: \(failedItems.map(\.name).joined(separator: ", ")).",
-                        type: "work_order_assigned",
-                        isRead: false,
-                        referenceId: tripUuid,
-                        recipientId: fmUser.id,
-                        createdAt: Date()
-                    )
-                    _ = try? await services.notificationService.createNotification(note)
-                }
+                let note = AppNotification(
+                    id: UUID(),
+                    title: "\(isPostTrip ? "Post-trip" : "Pre-trip") Inspection Failed",
+                    message: "\(failedItems.count) defect(s) found on \(vehicle.licencePlate). Work order(s) created for: \(failedItems.map(\.name).joined(separator: ", ")).",
+                    type: "work_order_assigned",
+                    isRead: false,
+                    referenceId: tripUuid,
+                    recipientId: nil,
+                    createdAt: Date()
+                )
+                _ = try? await services.notificationService.createNotification(note)
                 
                 // 4. Update the vehicle status to .maintenance and clear its driver in DB
                 var updatedVehicle = vehicle
@@ -615,12 +649,7 @@ struct InspectionView: View {
                 }
             } catch {
                 print("Failed to execute pre-trip defect workflow: \(error)")
-                await MainActor.run {
-                    viewModel.isSubmitting = false
-                    alertTitle = "Error"
-                    alertMessage = "Failed to process inspection report. Please check your network and try again."
-                    showingAlert = true
-                }
+                await showAlert(title: "Inspection Processing Error", message: "Failed to create work orders for the defects found. The inspection results have been saved. Please contact the fleet manager to manually schedule repairs.")
             }
         }
     }

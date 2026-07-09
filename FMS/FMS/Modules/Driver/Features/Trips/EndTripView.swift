@@ -66,7 +66,7 @@ struct EndTripView: View {
                                 .font(.headline)
                                 .fontWeight(.bold)
                                 .foregroundColor(.white)
-                            Text("Trip ID: \(trip.id.shortIdentifier)")
+                            Text("Trip ID: \(trip.displayId)")
                                 .font(.subheadline)
                                 .foregroundColor(.white.opacity(0.85))
                         }
@@ -305,6 +305,7 @@ struct EndTripView: View {
                 updatedTrip.distanceKm = distanceDelta
 
                 _ = try await services.tripService.updateTrip(updatedTrip)
+                try? await services.userManagementService.calculateAndUpsertDriverScore(driverId: driverId)
                 UserDefaults.standard.removeObject(forKey: "trip_\(trip.id.uuidString)_paused")
 
                 // 3. Update vehicle odometer
@@ -360,23 +361,24 @@ struct EndTripView: View {
                         }
                     }
 
-                    let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
-                    for fmUser in fmUsers {
-                        let postTripNotification = AppNotification(
+                    let postTripNotification = AppNotification(
                             id: UUID(),
                             title: "Post-trip Inspection Failed",
                             message: "\(failedItems.count) defect(s) found on \(vehicle.licencePlate). Work order(s) created for: \(failedItems.map(\.name).joined(separator: ", ")).",
                             type: "work_order_assigned",
                             isRead: false,
                             referenceId: trip.id,
-                            recipientId: fmUser.id,
+                            recipientId: nil,
                             createdAt: Date()
                         )
                         _ = try? await services.notificationService.createNotification(postTripNotification)
-                    }
 
                     vehicle.status = .inMaintenance
                     vehicle.driverId = nil
+                } else {
+                    // Clean trip end — unassign driver and make vehicle available again
+                    vehicle.driverId = nil
+                    vehicle.status = .available
                 }
 
                 _ = try await services.vehicleService.updateVehicle(vehicle)

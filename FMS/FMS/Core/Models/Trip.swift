@@ -51,7 +51,20 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
 }
 
 extension Trip {
+    var displayId: String { id.displayId(.trip) }
+
     var totalCost: Double {
         (fuelCost ?? 0) + (miscellaneousCost ?? 0)
+    }
+
+    var effectiveTripStatus: TripStatus {
+        if actualStartTime != nil && endTime != nil {
+            return .completed
+        }
+        return status
+    }
+
+    var effectiveStartTime: Date {
+        actualStartTime ?? startTime
     }
 }

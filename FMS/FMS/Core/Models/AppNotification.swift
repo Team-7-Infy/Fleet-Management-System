@@ -23,19 +23,13 @@ struct AppNotification: Identifiable, Codable, Hashable, Sendable {
 
     var sfSymbolName: String {
         switch type {
-        case "inventory_alert":
-            return "shippingbox.fill"
         case "trip_assignment":
             return "car.fill"
         case "route_deviation":
             return "exclamationmark.triangle.fill"
-        case "maintenance_due":
-            return "wrench.and.screwdriver.fill"
         case "overdue_post_trip":
             return "clock.badge.exclamationmark.fill"
-        case "pretrip_noshow":
-            return "xmark.octagon.fill"
-        case "work_order_assigned", "work_order_assigned_urgent":
+        case "work_order_assigned":
             let lowerTitle = title.lowercased()
             if lowerTitle.contains("oil") || lowerTitle.contains("flush") {
                 return "drop.fill"

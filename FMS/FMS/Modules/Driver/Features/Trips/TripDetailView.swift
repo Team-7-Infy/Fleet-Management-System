@@ -4,7 +4,7 @@ struct TripDetailView: View {
     let trip: Trip
     var vehicleNumber: String = ""
     var services: AppServices? = nil
-    var onAccept: (() async -> Void)? = nil
+    var onAccept: (() async -> Bool)? = nil
     var onReject: ((String) async -> Void)? = nil
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var localStore: LocalDataStore
@@ -21,6 +21,7 @@ struct TripDetailView: View {
     @State private var showingRejectSheet = false
     @State private var preTripFuelLevel: Double? = nil
     @State private var tripFuelLogs: [FuelLog] = []
+    @State private var isAccepting = false
 
     var body: some View {
         ZStack {
@@ -73,7 +74,23 @@ struct TripDetailView: View {
                         .cornerRadius(16)
                     }
 
-                    if trip.status == .cancelled && trip.cancellationReason == "no_show_pretrip" {
+                    if trip.status == .cancelled && (trip.cancellationReason?.localizedCaseInsensitiveContains("SOS") == true || trip.cancellationReason?.localizedCaseInsensitiveContains("emergency") == true) {
+                        VStack(spacing: 8) {
+                            HStack {
+                                Image(systemName: "exclamationmark.octagon.fill")
+                                Text("SOS Emergency")
+                                    .fontWeight(.bold)
+                            }
+                            Text("SOS emergency was triggered during this trip. The trip was cancelled and emergency services have been notified.")
+                                .font(.caption)
+                                .multilineTextAlignment(.center)
+                        }
+                        .foregroundColor(.white)
+                        .padding(16)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.red)
+                        .cornerRadius(16)
+                    } else if trip.status == .cancelled && trip.cancellationReason == "no_show_pretrip" {
                         VStack(spacing: 8) {
                             HStack {
                                 Image(systemName: "xmark.octagon.fill")
@@ -98,7 +115,7 @@ struct TripDetailView: View {
                         // Clean Inline Title Header
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
-                                Text(trip.id.shortIdentifier)
+                                Text(trip.displayId)
                                     .font(.system(size: 32, weight: .black, design: .rounded))
                                     .foregroundColor(.primary)
 
@@ -303,20 +320,36 @@ struct TripDetailView: View {
                                     }
 
                                     Button(action: {
-                                        Task { await onAccept?() }
+                                        guard !isAccepting else { return }
+                                        isAccepting = true
+                                        Task {
+                                            let success = await onAccept?() ?? false
+                                            await MainActor.run {
+                                                isAccepting = false
+                                                if success {
+                                                    dismiss()
+                                                }
+                                            }
+                                        }
                                     }) {
                                         HStack {
+                                            if isAccepting {
+                                                ProgressView()
+                                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                    .padding(.trailing, 4)
+                                            }
                                             Image(systemName: "checkmark.circle.fill")
-                                            Text("Accept")
+                                            Text(isAccepting ? "Accepting..." : "Accept")
                                                 .fontWeight(.bold)
                                         }
                                         .foregroundColor(.white)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 16)
-                                        .background(Color.green)
+                                        .background(isAccepting ? Color.green.opacity(0.6) : Color.green)
                                         .cornerRadius(16)
                                         .shadow(color: Color.green.opacity(0.15), radius: 8, x: 0, y: 4)
                                     }
+                                    .disabled(isAccepting)
                                 }
                             }
                         } else if trip.status == .accepted {
@@ -480,7 +513,7 @@ struct CompletedTripDetailView: View {
             // Clean Inline Title Header
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text(trip.id.shortIdentifier)
+                    Text(trip.displayId)
                         .font(.system(size: 32, weight: .black, design: .rounded))
                         .foregroundColor(.primary)
 
