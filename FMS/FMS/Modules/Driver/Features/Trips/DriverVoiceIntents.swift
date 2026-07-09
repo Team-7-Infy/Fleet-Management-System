@@ -10,8 +10,11 @@ struct SOSIntent: AppIntent {
         guard tripID != nil else {
             return .result(dialog: "Open your active trip in FleetMS first, then try SOS again.")
         }
-        NotificationCenter.default.post(name: .voiceSOS, object: nil)
-        return .result(dialog: "Triggering emergency SOS.")
+        try await requestConfirmation(
+            dialog: IntentDialog("This will alert dispatch and share your location. Trigger emergency SOS?")
+        )
+        await MainActor.run { VoiceActionBridge.shared.onConfirmedSOS?() }
+        return .result(dialog: "Emergency SOS triggered. Dispatch has been alerted.")
     }
 }
 
@@ -38,7 +41,10 @@ struct RerouteIntent: AppIntent {
         guard tripID != nil else {
             return .result(dialog: "Open your active trip in FleetMS first.")
         }
-        NotificationCenter.default.post(name: .voiceReroute, object: nil)
-        return .result(dialog: "Recalculating your route.")
+        try await requestConfirmation(
+            dialog: IntentDialog("Recalculate your route from your current location?")
+        )
+        await MainActor.run { VoiceActionBridge.shared.onConfirmedReroute?() }
+        return .result(dialog: "Finding a better route for you.")
     }
 }
