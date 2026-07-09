@@ -57,8 +57,6 @@ struct InventoryView: View {
         }
         .background(AppColor.background.ignoresSafeArea())
         .navigationBarHidden(true)
-        .onTapGesture { isSearchFocused = false }
-        // ── Threshold Sheet ──────────────────────────────────────
         .sheet(item: $viewModel.thresholdSheetItem) { item in
             InventoryThresholdSheet(item: item, store: viewModel.thresholdStore)
                 .presentationDetents([.medium])
