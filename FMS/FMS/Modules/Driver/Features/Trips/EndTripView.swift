@@ -17,8 +17,6 @@ struct EndTripView: View {
     @State private var showAlert = false
     @State private var alertMessage = ""
 
-    @State private var postTripComments: String = ""
-
     @StateObject private var inspectionViewModel = InspectionViewModel()
 
     private var isFormValid: Bool {
@@ -45,30 +43,24 @@ struct EndTripView: View {
                             .font(.headline)
                             .fontWeight(.bold)
                             .foregroundColor(.white)
-
+                        
                         HStack {
-                            Button(action: { dismiss() }) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "chevron.left")
-                                        .font(.title3)
-                                        .fontWeight(.bold)
-                                    Text("Back")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                }
-                                .foregroundColor(.white.opacity(0.85))
-                            }
                             Spacer()
+                            Button(action: {
+                                dismiss()
+                            }) {
+                                textClose
+                            }
                         }
                     }
                     .padding(.horizontal)
                     .padding(.top, 44)
-
+                    
                     HStack(spacing: 12) {
                         Image(systemName: "shield.fill")
                             .font(.title2)
                             .foregroundColor(.white)
-
+                        
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Post-Trip Safety Inspection")
                                 .font(.headline)
@@ -105,7 +97,7 @@ struct EndTripView: View {
                                     .foregroundColor(.secondary)
                                     .tracking(1.0)
                             }
-
+                            
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack {
                                     Image(systemName: "speedometer")
@@ -115,7 +107,7 @@ struct EndTripView: View {
                                         .fontWeight(.semibold)
                                         .foregroundColor(.primary)
                                 }
-
+                                
                                 HStack(spacing: 6) {
                                     TextField("e.g. \(Int(previousOdometer))", text: $endOdometer)
                                         .keyboardType(.numberPad)
@@ -128,7 +120,7 @@ struct EndTripView: View {
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
                                 }
-
+                                
                                 if let val = Double(endOdometer), val < previousOdometer {
                                     Text("Odometer must be at least \(Int(previousOdometer)) km")
                                         .font(.caption)
@@ -148,7 +140,7 @@ struct EndTripView: View {
                                         .fontWeight(.semibold)
                                         .foregroundColor(.primary)
                                 }
-
+                                
                                 HStack(spacing: 8) {
                                     TextField("e.g. 75", text: $endFuel)
                                         .keyboardType(.numberPad)
@@ -157,12 +149,12 @@ struct EndTripView: View {
                                         .padding(.vertical, 8)
                                         .background(Color(.systemGray6))
                                         .cornerRadius(8)
-
+                                    
                                     Text("%")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
                                 }
-
+                                
                                 if !endFuel.isEmpty {
                                     if let val = Int(endFuel), (val < 0 || val > 100) {
                                         Text("Fuel level must be between 0 and 100")
@@ -203,29 +195,6 @@ struct EndTripView: View {
                             }
                         }
 
-                        // General Comments / Other Defects
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("OTHER COMMENTS / DEFECTS")
-                                .font(.system(size: 11, weight: .black))
-                                .foregroundColor(.secondary)
-                                .tracking(1.0)
-
-                            TextEditor(text: $postTripComments)
-                                .font(.subheadline)
-                                .frame(minHeight: 80)
-                                .padding(8)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color(.separator).opacity(0.3), lineWidth: 1)
-                                )
-
-                            Text("Optional: Add any additional notes about vehicle condition.")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-
                         // Action Button
                         Button(action: submitTrip) {
                             HStack {
@@ -254,6 +223,7 @@ struct EndTripView: View {
                 }
             }
         }
+        .toolbar(.hidden, for: .navigationBar)
         .task {
             if let vehicleId = trip.vehicleId,
                let vehicle = try? await services.vehicleService.fetchVehicle(id: vehicleId) {
@@ -265,6 +235,17 @@ struct EndTripView: View {
         } message: {
             Text(alertMessage)
         }
+    }
+
+    private var textClose: some View {
+        Text("Close")
+            .font(.subheadline)
+            .fontWeight(.semibold)
+            .foregroundColor(.black)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.85))
+            .clipShape(Capsule())
     }
 
     private func submitTrip() {
@@ -294,7 +275,7 @@ struct EndTripView: View {
                     status: failedItems.isEmpty ? .passed : .failed,
                     odometerReading: Double(endOdometer),
                     fuelLevel: Double(endFuel),
-                    notes: postTripComments.isEmpty ? nil : postTripComments,
+                    notes: nil,
                     createdAt: Date()
                 )
                 let saved = try await services.inspectionService.createInspection(inspection)
@@ -351,12 +332,7 @@ struct EndTripView: View {
 
                         let description = "Post-trip inspection failed for \(item.name) on vehicle \(vehicle.licencePlate) (VIN: \(vehicle.id.uuidString)). Odometer: \(endOdometer) km, Fuel: \(endFuel)%. Details: \(item.failDescription)"
 
-                        let bestPersonnelId = try? await services.maintenanceService.getNextLeastLoadedAssignee()
-                        var personnelObj: MaintenancePersonnel? = nil
-                        if let pid = bestPersonnelId {
-                            let allP = (try? await services.userManagementService.fetchMaintenancePersonnel()) ?? []
-                            personnelObj = allP.first(where: { $0.id == pid })
-                        }
+                        let bestPersonnel = try? await services.workOrderAssignmentService.findBestPersonnel()
 
                         let maintenanceTask = MaintenanceTask(
                             id: UUID(),
@@ -364,10 +340,10 @@ struct EndTripView: View {
                             description: description,
                             scheduledDate: DateOnly(wrappedValue: Date()),
                             isUrgent: true,
-                            scheduledBy: nil,
-                            executedBy: bestPersonnelId,
-                            status: bestPersonnelId != nil ? .assigned : .scheduled,
-                            reportedDate: Date(),
+                            scheduledBy: UUID(uuidString: "21000000-0000-0000-0000-000000000001"),
+                            executedBy: bestPersonnel?.id,
+                            status: bestPersonnel != nil ? .assigned : .scheduled,
+                            reportedDate: nil,
                             completedAt: nil,
                             timeTakenHours: nil,
                             partsSummary: nil,
@@ -379,7 +355,7 @@ struct EndTripView: View {
                         let taskVehicle = TaskVehicle(taskId: maintenanceTask.id, vin: vehicle.id)
                         try await services.maintenanceService.addTaskVehicle(taskVehicle)
 
-                        if let personnel = personnelObj {
+                        if let personnel = bestPersonnel {
                             await sendWorkOrderNotification(services: services, task: maintenanceTask, personnel: personnel, title: item.name)
                         }
                     }
@@ -401,8 +377,6 @@ struct EndTripView: View {
                 }
 
                 _ = try await services.vehicleService.updateVehicle(vehicle)
-
-                await RoutineMaintenanceScheduler.checkAndSchedule(vehicle: vehicle, services: services)
 
                 await MainActor.run {
                     isSubmitting = false

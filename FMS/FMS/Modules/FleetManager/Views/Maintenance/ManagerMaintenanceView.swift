@@ -323,6 +323,13 @@ private struct ManagerInventoryView: View {
                         LazyVStack(spacing: 12) {
                             ForEach(filteredParts) { part in
                                 InventoryPartRow(part: part)
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            Task { await deletePart(part) }
+                                        } label: {
+                                            Label("Delete Part", systemImage: "trash")
+                                        }
+                                    }
                             }
                         }
                     }
@@ -455,6 +462,15 @@ private struct ManagerInventoryView: View {
                 ])
                 isImporting = false
             }
+        }
+    }
+
+    private func deletePart(_ part: InventoryPart) async {
+        do {
+            try await inventoryService.deletePart(id: part.id)
+            await MainActor.run { parts.removeAll { $0.id == part.id } }
+        } catch {
+            await MainActor.run { errorMessage = "Failed to delete part: \(error.localizedDescription)" }
         }
     }
 }

@@ -28,19 +28,20 @@ struct InspectionView: View {
     @State private var odometerInput: String = ""
     @State private var fuelInput: String = ""
 
-    private var filteredItems: [InspectionItem] {
-        if selectedCategory == "All" { return viewModel.items }
-        return viewModel.items.filter { $0.category == selectedCategory }
+    private var currentOdometer: Int {
+        let seed = trip.tripId.filter { "0123456789".contains($0) }
+        let number = (Int(seed) ?? 84) % 10000
+        return 124000 + (number * 120)
     }
-
-    private var availableCategories: [String] {
-        let cats = Set(viewModel.items.map(\.category))
-        return ["All"] + cats.sorted()
-    }
-    @State private var generalComments: String = ""
 
     private var previousOdometer: Double {
-        vehicle?.odometer ?? 0
+        vehicle?.odometer ?? Double(currentOdometer)
+    }
+
+    private var currentFuelLevel: Int {
+        let seed = trip.tripId.filter { "0123456789".contains($0) }
+        let number = (Int(seed) ?? 75) % 25
+        return 75 + number
     }
 
     private var isSubmitEnabled: Bool {
@@ -77,18 +78,12 @@ struct InspectionView: View {
                             .foregroundColor(.white)
                         
                         HStack {
-                            Button(action: { dismiss() }) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "chevron.left")
-                                        .font(.title3)
-                                        .fontWeight(.bold)
-                                    Text("Back")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                }
-                                .foregroundColor(.white.opacity(0.85))
-                            }
                             Spacer()
+                            Button(action: { dismiss() }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.white.opacity(0.85))
+                            }
                         }
                     }
                     .padding(.horizontal)
@@ -161,7 +156,7 @@ struct InspectionView: View {
                                 }
                                 
                                 HStack(spacing: 8) {
-                                    TextField("e.g. 75", text: $fuelInput)
+                                    TextField("e.g. \(currentFuelLevel)", text: $fuelInput)
                                         .keyboardType(.numberPad)
                                         .font(.subheadline)
                                         .padding(.horizontal, 12)
@@ -222,33 +217,6 @@ struct InspectionView: View {
                                     .padding(.top, 4)
                             }
                         }
-
-                        // General Comments / Other Defects
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("OTHER COMMENTS / DEFECTS")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(.secondary)
-
-                            TextEditor(text: $generalComments)
-                                .font(.subheadline)
-                                .frame(minHeight: 80)
-                                .padding(8)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color(.separator).opacity(0.3), lineWidth: 1)
-                                )
-
-                            Text("Optional: Add any additional notes about vehicle condition.")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding()
-                        .background(Color(UIColor.secondarySystemGroupedBackground))
-                        .cornerRadius(16)
-                        .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
                     }
                     .padding()
                 }
@@ -392,6 +360,7 @@ struct InspectionView: View {
                 .zIndex(100)
             }
         }
+        .toolbar(.hidden, for: .navigationBar)
         .alert(isPresented: $showingAlert) {
             Alert(
                 title: Text(alertTitle),
@@ -425,7 +394,7 @@ struct InspectionView: View {
             status: inspectionStatus,
             odometerReading: Double(odometerInput),
             fuelLevel: Double(fuelInput),
-            notes: generalComments.isEmpty ? nil : generalComments,
+            notes: nil,
             createdAt: Date()
         )
         let saved = try await services.inspectionService.createInspection(inspection)
@@ -497,15 +466,6 @@ struct InspectionView: View {
                         vehicleModel.odometer = odoVal
                         _ = try await services.vehicleService.updateVehicle(vehicleModel)
                     }
-
-                    await MainActor.run {
-                        if !isPostTrip {
-                            localStore.markTripInspected(trip.tripId, vehicleId: vehicleId)
-                        }
-                        viewModel.isSubmitting = false
-                        dismiss()
-                        onComplete?()
-                    }
                 } catch {
                     print("Failed to persist inspection: \(error)")
                     await showAlert(title: "Inspection Error", message: "Failed to save inspection results. Please check your network connection and try again.")
@@ -513,6 +473,15 @@ struct InspectionView: View {
                         viewModel.isSubmitting = false
                     }
                 }
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                viewModel.isSubmitting = false
+                if !isPostTrip {
+                    localStore.markTripInspected(trip.tripId)
+                }
+                dismiss()
+                onComplete?()
             }
             return
         }
@@ -564,12 +533,7 @@ struct InspectionView: View {
                     let prefix = isPostTrip ? "Post-trip" : "Pre-trip"
                     let description = "\(prefix) inspection failed for \(item.name) on vehicle \(vehicle.licencePlate) (VIN: \(vehicle.id.uuidString)). Odometer: \(odometerInput) km, Fuel: \(fuelInput)%. Details: \(item.failDescription)"
                     
-                    let bestPersonnelId = try? await services.maintenanceService.getNextLeastLoadedAssignee()
-                    var personnelObj: MaintenancePersonnel? = nil
-                    if let pid = bestPersonnelId {
-                        let allP = (try? await services.userManagementService.fetchMaintenancePersonnel()) ?? []
-                        personnelObj = allP.first(where: { $0.id == pid })
-                    }
+                    let bestPersonnel = try? await services.workOrderAssignmentService.findBestPersonnel()
                     
                     let maintenanceTask = MaintenanceTask(
                         id: UUID(),
@@ -577,10 +541,10 @@ struct InspectionView: View {
                         description: description,
                         scheduledDate: DateOnly(wrappedValue: Date()),
                         isUrgent: true,
-                        scheduledBy: nil,
-                        executedBy: bestPersonnelId,
-                        status: bestPersonnelId != nil ? .assigned : .scheduled,
-                        reportedDate: Date(),
+                        scheduledBy: UUID(uuidString: "21000000-0000-0000-0000-000000000001"),
+                        executedBy: bestPersonnel?.id,
+                        status: bestPersonnel != nil ? .assigned : .scheduled,
+                        reportedDate: nil,
                         completedAt: nil,
                         timeTakenHours: nil,
                         partsSummary: nil,
@@ -594,7 +558,7 @@ struct InspectionView: View {
                     let taskVehicle = TaskVehicle(taskId: maintenanceTask.id, vin: vehicle.id)
                     try await services.maintenanceService.addTaskVehicle(taskVehicle)
                     
-                    if let personnel = personnelObj {
+                    if let personnel = bestPersonnel {
                         await sendWorkOrderNotification(
                             services: services,
                             task: maintenanceTask,
@@ -652,8 +616,9 @@ struct InspectionView: View {
                     
                     await MainActor.run {
                         viewModel.isSubmitting = false
+                        localStore.markTripInspected(trip.tripId)
                         self.replacementVehicle = replacement
-                        self.animationMessage = "Vehicle \(vehicle.licencePlate) has been sent to maintenance. \(failedItems.count) separate work order(s) created. Vehicle \(replacement.licencePlate) has been automatically assigned to your trip. Please perform a pre-trip inspection on the new vehicle before starting."
+                        self.animationMessage = "Vehicle \(vehicle.licencePlate) has been sent to maintenance. \(failedItems.count) separate work order(s) created. Vehicle \(replacement.licencePlate) has been automatically assigned to your trip."
                         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                             showingComplaintRaisedAnimation = true
                         }
@@ -797,7 +762,7 @@ struct InspectionRow: View {
                                     )
                                 }
                             }
-                            .fullScreenCover(isPresented: $showingCamera) {
+                            .sheet(isPresented: $showingCamera) {
                                 CameraPicker(selectedImage: Binding(
                                     get: { selectedImage },
                                     set: { newImage in

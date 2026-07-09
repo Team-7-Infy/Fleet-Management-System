@@ -18,6 +18,14 @@ struct MaintenanceActionMenu: View {
 
     var body: some View {
         Menu {
+            if task.status != .completed {
+                Button {
+                    Task { await viewModel.updateStatus(task, status: .completed) }
+                } label: {
+                    Label("Mark as Done", systemImage: "checkmark.circle")
+                }
+                Divider()
+            }
             Menu("Assign") {
                 ForEach(personnel) { person in
                     Button(usersViewModel.user(for: person.userId)?.displayName ?? person.id.uuidString) {

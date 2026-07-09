@@ -64,67 +64,66 @@ struct DashboardView: View {
     @State private var completedTripForSuccess: Trip? = nil
     @State private var dashboardNow = Date()
 
-    var body: some View {
-        // 1. Live Trip (if available)
-        let liveTrip = trips.first(where: { $0.status == .inProgress })
+    private var liveTrip: Trip? {
+        trips.first(where: { $0.status == .inProgress })
+    }
 
-        // 2. All Scheduled Trips
-        let allScheduled = trips.filter {
+    private var allScheduled: [Trip] {
+        trips.filter {
             $0.status == .accepted || $0.status == .pending || $0.status == .scheduled
         }.sorted { $0.startTime < $1.startTime }
+    }
 
-        // The nearest accepted Scheduled Trip (top card if no Live Trip exists).
-        // Unaccepted trips (scheduled/pending) never appear as the hero card —
-        // they must be accepted first via Trip Detail.
-        let nearestScheduledTrip = liveTrip == nil ? allScheduled.first(where: {
-            $0.status == .accepted
-        }) : nil
+    private var nearestScheduledTrip: Trip? {
+        liveTrip == nil ? allScheduled.first(where: { $0.status == .accepted }) : nil
+    }
 
-        // Is Pre-Trip Inspection enabled for the nearest Scheduled Trip?
-        let isInspectionEnabled: Bool = {
-            if let nearest = nearestScheduledTrip {
-                let windowBefore = nearest.startTime.addingTimeInterval(-TripTimingPolicy.preTripInspectionWindow)
-                return dashboardNow >= windowBefore
-            }
-            return false
-        }()
+    private var isInspectionEnabled: Bool {
+        guard let nearest = nearestScheduledTrip else { return false }
+        let windowBefore = nearest.startTime.addingTimeInterval(-TripTimingPolicy.preTripInspectionWindow)
+        return dashboardNow >= windowBefore
+    }
 
-        let isStartTripEnabled: Bool = {
-            guard let nearest = nearestScheduledTrip else { return false }
-            let windowStart = nearest.startTime.addingTimeInterval(-TripTimingPolicy.startTripWindow)
-            let windowEnd = nearest.startTime.addingTimeInterval(TripTimingPolicy.startTripLateGraceWindow)
-            return dashboardNow >= windowStart && dashboardNow <= windowEnd
-        }()
+    private var isStartTripEnabled: Bool {
+        guard let nearest = nearestScheduledTrip else { return false }
+        let windowStart = nearest.startTime.addingTimeInterval(-TripTimingPolicy.startTripWindow)
+        let windowEnd = nearest.startTime.addingTimeInterval(TripTimingPolicy.startTripLateGraceWindow)
+        return dashboardNow >= windowStart && dashboardNow <= windowEnd
+    }
 
-        // Is Start Trip window expired
-        let isStartTripExpired: Bool = {
-            guard let nearest = nearestScheduledTrip else { return false }
-            return dashboardNow > nearest.startTime.addingTimeInterval(TripTimingPolicy.startTripLateGraceWindow)
-        }()
+    private var isStartTripExpired: Bool {
+        guard let nearest = nearestScheduledTrip else { return false }
+        return dashboardNow > nearest.startTime.addingTimeInterval(TripTimingPolicy.startTripLateGraceWindow)
+    }
 
-        // Remaining scheduled trips for the section list below
-        let remainingScheduled = allScheduled.filter { trip in
+    private var remainingScheduled: [Trip] {
+        allScheduled.filter { trip in
             if let nearest = nearestScheduledTrip {
                 return trip.id != nearest.id
             }
             return true
         }
+    }
 
-        // Top 3 remaining scheduled trips for the main dashboard list
-        let displayedScheduled = Array(remainingScheduled.prefix(3))
+    private var displayedScheduled: [Trip] {
+        Array(remainingScheduled.prefix(3))
+    }
 
-        // History trips (Completed, Rejected, Cancelled, RejectionPending) sorted by completion time (latest first)
-        let historyTrips = trips.filter {
+    private var historyTrips: [Trip] {
+        trips.filter {
             $0.status == .completed || $0.status == .rejected || $0.status == .cancelled || $0.status == .rejectionPending
         }.sorted { t1, t2 in
             let end1 = t1.endTime ?? t1.startTime
             let end2 = t2.endTime ?? t2.startTime
             return end1 > end2
         }
+    }
 
-        // Top 3 history trips for the main dashboard list
-        let displayedHistory = Array(historyTrips.prefix(3))
+    private var displayedHistory: [Trip] {
+        Array(historyTrips.prefix(3))
+    }
 
+    var body: some View {
         return NavigationStack {
             ZStack {
                 Color(UIColor.systemGroupedBackground)

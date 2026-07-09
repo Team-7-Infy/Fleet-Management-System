@@ -99,8 +99,10 @@ struct ManagerTripsView: View {
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search trips")
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
+            ToolbarItem(placement: .topBarLeading) {
                 TripFilterMenu(filter: $filter)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Add Trip", systemImage: "plus", action: openAddTrip)
             }
         }

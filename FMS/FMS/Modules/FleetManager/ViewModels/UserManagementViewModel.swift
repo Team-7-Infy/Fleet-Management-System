@@ -126,10 +126,11 @@ final class UserManagementViewModel: ObservableObject {
                 try? await service.bulkUpdateMaintenancePersonnelStatuses(updates: personnelUpdates)
             }
 
+            let activeUserIds = Set(loadedUsers.map(\.id))
             users = loadedUsers
-            drivers = loadedDrivers
-            maintenancePersonnel = loadedMaintenance
-            fleetManagers = try await fetchedFleetManagers
+            drivers = loadedDrivers.filter { activeUserIds.contains($0.userId) }
+            maintenancePersonnel = loadedMaintenance.filter { activeUserIds.contains($0.userId) }
+            fleetManagers = (try await fetchedFleetManagers).filter { activeUserIds.contains($0.userId) }
             driverScores = try await fetchedScores
             errorMessage = nil
         } catch is CancellationError {

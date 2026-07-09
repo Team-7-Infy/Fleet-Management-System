@@ -104,7 +104,7 @@ struct ManagerServiceDetailView: View {
                     .font(.title3.bold())
                 InfoRow(title: "Vehicle", value: vehicle.map { "\($0.licencePlate) - \($0.make) \($0.model)" } ?? "Not linked")
                 InfoRow(title: "Assigned to", value: assignee?.displayName ?? "Unassigned")
-                InfoRow(title: "Reported by", value: reporter?.displayName ?? "System")
+                InfoRow(title: "Reported by", value: reporter.map { "\($0.displayName) (Manager)" } ?? "System")
                 InfoRow(title: "Reported date", value: FleetManagerFormat.shortDateTime.string(from: currentTask.reportedOrScheduledDate))
                 InfoRow(title: "Scheduled date", value: FleetManagerFormat.day.string(from: currentTask.scheduledDate.date))
                 photosSection
