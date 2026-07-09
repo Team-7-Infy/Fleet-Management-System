@@ -79,6 +79,7 @@ final class SupabaseWorkOrderService: WorkOrderServicing {
         // When completed, reset the vehicle status to active
         if status == .completed {
             try await markVehicleActive(for: id)
+            try? await markPersonnelAvailable(for: id)
         }
     }
     
@@ -213,7 +214,6 @@ final class SupabaseWorkOrderService: WorkOrderServicing {
                 .execute()
         }
     }
-    
     func fetchPersonnelHourlyRate(id: UUID) async throws -> Double {
         struct RateResponse: Codable {
             let hourlyRate: Double
@@ -230,5 +230,21 @@ final class SupabaseWorkOrderService: WorkOrderServicing {
             .execute()
             .value
         return rate.hourlyRate
+    }
+
+    private func markPersonnelAvailable(for taskID: UUID) async throws {
+        let tasks: [WorkOrder] = try await client
+            .from("maintenance_task")
+            .select("executedby")
+            .eq("taskid", value: taskID.uuidString)
+            .execute()
+            .value
+        if let executedBy = tasks.first?.executedBy {
+            try await client
+                .from("maintenance_personnel")
+                .update(["status": AnyJSON.string("available")])
+                .eq("personnelid", value: executedBy.uuidString)
+                .execute()
+        }
     }
 }
