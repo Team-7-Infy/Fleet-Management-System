@@ -38,7 +38,7 @@ struct AllUpcomingWorkOrdersView: View {
                             .shadow(color: AppColor.textPrimary.opacity(0.06), radius: 8, x: 0, y: 4)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 20)
-                                    .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                                    .stroke(Color.gray, lineWidth: 1)
                             )
                     )
                 }
@@ -80,7 +80,7 @@ struct AllUpcomingWorkOrdersView: View {
                     .font(.system(size: 16))
                     .foregroundStyle(AppColor.brand)
                     .frame(width: 36, height: 36)
-                    .background(Color.gray.opacity(0.1))
+                    .background(Color.gray)
                     .clipShape(Circle())
                 
                 VStack(alignment: .leading, spacing: 2) {

@@ -81,8 +81,7 @@ struct LoginView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         Text("Login")
                             .font(.custom("ClashGrotesk-Medium", size: 32))
-//                            .font(.system(size: 32, weight: .semibold))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(FleetPalette.textPrimary)
                             .padding(.top, 32)
                             .padding(.horizontal, 24)
 
@@ -93,7 +92,7 @@ struct LoginView: View {
                     .padding(.bottom, 24 + (activeKeyboardHeight > 0 ? activeKeyboardHeight : geometry.safeAreaInsets.bottom))
                     .background(
                         UnevenRoundedRectangle(topLeadingRadius: 20, topTrailingRadius: 20)
-                            .fill(Color(hex: 0xF6FAFD))
+                            .fill(FleetPalette.surface)
                             .ignoresSafeArea(edges: .bottom)
                     )
                 }
@@ -267,12 +266,12 @@ struct LoginView: View {
             content()
         }
         .font(.body)
-        .foregroundStyle(.black)
+        .foregroundStyle(FleetPalette.textPrimary)
         .padding(.horizontal, 16)
         .frame(height: 56)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color.white)
+                .fill(Color(UIColor.secondarySystemGroupedBackground))
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 3)
         )
         .overlay(
@@ -295,7 +294,7 @@ struct LoginView: View {
     }
 
     private var textColor: Color {
-        .black
+        FleetPalette.textPrimary
     }
 
     private var pageBackground: Color {

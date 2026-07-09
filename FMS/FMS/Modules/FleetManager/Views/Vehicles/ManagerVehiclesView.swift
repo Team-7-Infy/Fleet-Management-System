@@ -125,6 +125,8 @@ struct ManagerVehiclesView: View {
                 .listStyle(.insetGrouped)
                 .scrollContentBackground(.hidden)
                 .background(FleetPalette.background)
+                .listRowSeparatorTint(Color.gray)
+                .tint(FleetPalette.textPrimary)
             }
         }
         .fleetScreenBackground()
@@ -161,9 +163,11 @@ struct ManagerVehiclesView: View {
                     Image(systemName: "line.3.horizontal.decrease")
                 }
                 .accessibilityLabel("Filter vehicles")
+                .tint(FleetPalette.textPrimary)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Add Vehicle", systemImage: "plus", action: openAddVehicle)
+                    .tint(FleetPalette.textPrimary)
             }
         }
         .refreshable {

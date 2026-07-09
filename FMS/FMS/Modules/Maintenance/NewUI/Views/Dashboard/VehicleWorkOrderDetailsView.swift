@@ -87,7 +87,7 @@ struct VehicleWorkOrderDetailsView: View {
             .padding(.top, AppSpacing.large)
             .padding(.bottom, AppSpacing.xLarge)
         }
-        .background(Color(hex: 0xF4F5F9).ignoresSafeArea())
+        .background(AppColor.background.ignoresSafeArea())
         .navigationTitle("Work Order Details")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -343,7 +343,7 @@ struct ReportWorkOrderSheet: View {
                             .font(.system(size: 16, weight: .regular, design: .rounded))
                             .frame(height: 120)
                             .padding(8)
-                            .background(Color.gray.opacity(0.1))
+                            .background(Color.gray)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)

@@ -26,7 +26,7 @@ struct InventoryView: View {
                 }
             }
         }
-        .background(Color(hex: 0xF4F5F9).ignoresSafeArea())
+        .background(AppColor.background.ignoresSafeArea())
         .navigationBarHidden(true)
         .onTapGesture { isSearchFocused = false }
         // ── Threshold Sheet ──────────────────────────────────────
