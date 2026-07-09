@@ -257,14 +257,12 @@ final class TripManagementViewModel: ObservableObject {
 
     func delete(_ trip: Trip) async {
         do {
-            try await tripService.cancelTrip(id: trip.id)
-            if let index = trips.firstIndex(where: { $0.id == trip.id }) {
-                trips[index].status = .cancelled
-            }
+            try await tripService.deleteTrip(id: trip.id)
+            trips.removeAll { $0.id == trip.id }
             if let vehicleId = trip.vehicleId {
                 try await vehicleService.unassignDriver(vehicleId: vehicleId)
             }
-            showSuccessMessage("Trip cancelled.")
+            showSuccessMessage("Trip deleted.")
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription

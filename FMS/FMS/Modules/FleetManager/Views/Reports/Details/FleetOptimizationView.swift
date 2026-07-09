@@ -141,6 +141,7 @@ struct FleetOptimizationView: View {
                     vehicle: item.vehicle,
                     viewModel: vehiclesViewModel,
                     usersViewModel: usersViewModel,
+                    maintenanceViewModel: maintenanceViewModel,
                     openMaintenanceRequest: { _ in }
                 )
             } label: {
