@@ -104,7 +104,7 @@ struct UpcomingMaintenanceListView: View {
                                     .shadow(color: AppColor.textPrimary.opacity(0.06), radius: 8, x: 0, y: 4)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 20)
-                                            .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                                            .stroke(Color.gray, lineWidth: 1)
                                     )
                             )
                         }

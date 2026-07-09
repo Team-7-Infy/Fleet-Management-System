@@ -119,7 +119,7 @@ struct MPDashboardView: View {
                 await viewModel.load()
             }
         }
-        .background(Color(hex: 0xF4F5F9).ignoresSafeArea())
+        .background(AppColor.background.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $isShowingProfile) {
             MPProfileView(dependencies: dependencies, onLogout: onLogout)
@@ -165,8 +165,10 @@ struct MPDashboardView: View {
             Spacer()
             
             HStack(spacing: 16) {
-                NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
-                    isShowingNotifications = true
+                Button(action: { isShowingNotifications = true }) {
+                    NotificationBadge(unreadCount: notificationViewModel.unreadCount) {
+                        isShowingNotifications = true
+                    }
                 }
                 Button {
                     isShowingProfile = true

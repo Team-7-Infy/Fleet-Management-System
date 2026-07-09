@@ -738,6 +738,7 @@ struct HomeHeaderView: View {
 }
 // MARK: - 2. Active Route Card
 struct ActiveRouteCard: View {
+    @Environment(\.colorScheme) var colorScheme
     let tripId: String
     let startLocation: String
     let endLocation: String
@@ -918,7 +919,9 @@ struct ActiveRouteCard: View {
         .padding(32)
         .background(
             LinearGradient(
-                colors: [Color(red: 0.0, green: 0.5, blue: 1.0), Color(red: 0.05, green: 0.3, blue: 0.95)],
+                colors: colorScheme == .dark
+                    ? [Color(hex: 0x113B70), Color(hex: 0x0B2347)]
+                    : [Color(red: 0.0, green: 0.5, blue: 1.0), Color(red: 0.05, green: 0.3, blue: 0.95)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )

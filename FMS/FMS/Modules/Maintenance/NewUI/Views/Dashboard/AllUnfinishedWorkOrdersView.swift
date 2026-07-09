@@ -38,7 +38,7 @@ struct AllUnfinishedWorkOrdersView: View {
                             .shadow(color: AppColor.textPrimary.opacity(0.06), radius: 8, x: 0, y: 4)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 20)
-                                    .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                                    .stroke(Color.gray, lineWidth: 1)
                             )
                     )
                 }
@@ -65,7 +65,7 @@ struct AllUnfinishedWorkOrdersView: View {
                     .scaledToFit()
                     .frame(width: 32, height: 32)
                     .padding(6)
-                    .background(Color.gray.opacity(0.1))
+                    .background(Color.gray)
                     .clipShape(Circle())
                 
                 VStack(alignment: .leading, spacing: 4) {

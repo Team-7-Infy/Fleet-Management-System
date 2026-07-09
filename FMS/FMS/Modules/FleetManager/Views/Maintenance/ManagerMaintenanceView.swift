@@ -101,12 +101,15 @@ struct ManagerMaintenanceView: View {
                         }
                     }
                 }
+                .tint(FleetPalette.textPrimary)
                 NavigationLink {
                     ManagerInventoryView(inventoryService: inventoryService, onNotification: onNotification)
                 } label: {
                     Image(systemName: "shippingbox")
                 }
+                .tint(FleetPalette.textPrimary)
                 Button("Request Workshop", systemImage: "plus", action: openMaintenanceRequest)
+                    .tint(FleetPalette.textPrimary)
             }
         }
         .task {
@@ -135,69 +138,79 @@ private struct ManagerWorkOrderCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(task.displayTitle)
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(FleetPalette.textPrimary)
-                        .lineLimit(2)
-
-                    if let vehicle {
-                        Text(vehicle.licencePlate)
-                            .font(.subheadline)
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(FleetPalette.maintenanceStatus(task.status))
+                .frame(width: 6)
+            
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(task.displayTitle)
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(FleetPalette.textPrimary)
+                                .lineLimit(2)
+                            
+                            if task.isUrgent {
+                                UrgentTag()
+                            }
+                        }
+                        
+                        if let vehicle {
+                            HStack(spacing: 6) {
+                                Image(systemName: "car.fill")
+                                    .font(.caption)
+                                Text(vehicle.licencePlate)
+                                    .font(.subheadline)
+                            }
                             .foregroundStyle(FleetPalette.textSecondary)
-                            .lineLimit(1)
-                    } else {
-                        Text("No Vehicle Linked")
-                            .font(.subheadline)
-                            .foregroundStyle(FleetPalette.textTertiary)
-                            .lineLimit(1)
+                        } else {
+                            Text("No Vehicle Linked")
+                                .font(.subheadline)
+                                .foregroundStyle(FleetPalette.textTertiary)
+                        }
                     }
-                }
-
-                Spacer(minLength: 8)
-
-                VStack(alignment: .trailing, spacing: 8) {
+                    
+                    Spacer(minLength: 12)
+                    
                     StatusPill(
                         text: task.status.title,
                         color: FleetPalette.maintenanceStatus(task.status),
                         dotSize: 8
                     )
+                }
 
-                    if task.isUrgent {
-                        UrgentTag()
+                Divider()
+                    .overlay(Color.gray.opacity(0.3))
+
+                HStack {
+                    HStack(spacing: 5) {
+                        Image(systemName: "calendar")
+                            .font(.caption)
+                        Text("Reported \(task.hoursAgoText)")
+                            .font(.caption)
+                    }
+                    .foregroundStyle(FleetPalette.textSecondary)
+                    
+                    Spacer()
+                    
+                    if let cost = task.totalCost, cost > 0 {
+                        Text("Cost: ₹\(Int(cost))")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(FleetPalette.success)
                     }
                 }
             }
-
-            Divider()
-                .background(FleetPalette.tertiary.opacity(0.5))
-
-            HStack {
-                HStack(spacing: 5) {
-                    Image(systemName: "calendar")
-                        .font(.caption)
-                    Text("Reported \(task.hoursAgoText)")
-                        .font(.caption)
-                }
-                .foregroundStyle(FleetPalette.textSecondary)
-                
-                Spacer()
-                
-                if let cost = task.totalCost, cost > 0 {
-                    Text("Cost: ₹\(Int(cost))")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(FleetPalette.success)
-                }
-            }
+            .padding(16)
         }
-        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(FleetPalette.surface)
-                .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 6)
+        .background(FleetPalette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
         )
         .contextMenu {
             if task.status != .completed && task.status != .verified && task.status != .closed {

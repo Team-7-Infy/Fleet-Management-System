@@ -236,118 +236,146 @@ struct ManagerTripFormSheet: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                TripPlaceButton(
-                    title: "Pickup",
-                    value: selectedPickup?.displayName ?? form.startLocation,
-                    placeholder: "Starting point",
-                    systemImage: "mappin.circle.fill"
-                ) {
-                    pickingPlace = .pickup
-                }
-
-                TripPlaceButton(
-                    title: "Destination",
-                    value: selectedDestination?.displayName ?? form.endLocation,
-                    placeholder: "Destination",
-                    systemImage: "mappin.and.ellipse.circle.fill"
-                ) {
-                    pickingPlace = .destination
-                }
-
-                TripRouteSelectionMap(
-                    pickup: selectedPickup,
-                    destination: selectedDestination,
-                    route: routeEstimate?.route
-                )
-
-                if isCalculatingRoute {
-                    Label("Calculating route", systemImage: "clock.arrow.circlepath")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(FleetPalette.accent)
-                } else if let routeEstimate {
-                    TripRouteEstimateCard(estimate: routeEstimate)
-                } else if let routeMessage {
-                    Label(routeMessage, systemImage: "exclamationmark.triangle")
-                        .font(.subheadline)
-                        .foregroundStyle(FleetPalette.warning)
-                }
-
-                Picker(selection: $form.vehicleTypeRequested) {
-                    Text("Any").tag("")
-                    ForEach(Self.vehicleTypes, id: \.self) { type in
-                        Text(type.capitalized).tag(type)
+            VStack(spacing: 24) {
+                
+                FleetFormSection(title: "Route Details") {
+                    TripPlaceButton(
+                        title: "Pickup",
+                        value: selectedPickup?.displayName ?? form.startLocation,
+                        placeholder: "Starting point",
+                        systemImage: "mappin.circle.fill"
+                    ) {
+                        pickingPlace = .pickup
                     }
-                } label: {
-                    TripSelectionMenuLabel(
-                        title: "Required Vehicle Type",
-                        value: form.vehicleTypeRequested.isEmpty ? nil : form.vehicleTypeRequested.capitalized,
-                        placeholder: "Any type",
-                        systemImage: "car.fill"
-                    )
-                }
-                .pickerStyle(.menu)
-                .tint(FleetPalette.accent)
-                .fleetField()
-
-                Toggle("Auto Assign", isOn: $form.isAutoAssign)
-                    .fleetField()
-
-                if !form.isAutoAssign {
-                    Picker(selection: $form.selectedVehicleId) {
-                        Text("Select Vehicle").tag(Optional<UUID>.none)
-                        ForEach(availableVehicles) { vehicle in
-                            Text(vehicle.licencePlate).tag(Optional(vehicle.id))
-                        }
-                    } label: {
-                        TripSelectionMenuLabel(
-                            title: "Vehicle",
-                            value: availableVehicles.first(where: { $0.id == form.selectedVehicleId })?.licencePlate,
-                            placeholder: "Select vehicle",
-                            systemImage: "bus.fill"
+                    
+                    Divider().padding(.leading, 44)
+                    
+                    TripPlaceButton(
+                        title: "Destination",
+                        value: selectedDestination?.displayName ?? form.endLocation,
+                        placeholder: "Destination",
+                        systemImage: "mappin.and.ellipse.circle.fill"
+                    ) {
+                        pickingPlace = .destination
+                    }
+                    
+                    if selectedPickup != nil || selectedDestination != nil {
+                        Divider().padding(.horizontal, 16)
+                        
+                        TripRouteSelectionMap(
+                            pickup: selectedPickup,
+                            destination: selectedDestination,
+                            route: routeEstimate?.route
                         )
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                     }
-                    .pickerStyle(.menu)
-                    .tint(FleetPalette.accent)
-                    .fleetField()
-
-                    Picker(selection: $form.selectedDriverId) {
-                        Text("Select Driver").tag(Optional<UUID>.none)
-                        ForEach(availableDrivers) { driver in
-                            let user = usersViewModel.user(for: driver.userId)
-                            let uidPrefix = String(driver.id.uuidString.prefix(8))
-                            Text("\(user?.displayName ?? "Driver") (\(uidPrefix))").tag(Optional(driver.id))
-                        }
-                    } label: {
-                        TripSelectionMenuLabel(
-                            title: "Driver",
-                            value: form.selectedDriverId.flatMap { dId in
-                                let driver = usersViewModel.drivers.first(where: { $0.id == dId })
-                                let user = driver.flatMap { usersViewModel.user(for: $0.userId) }
-                                let uidPrefix = String(dId.uuidString.prefix(8))
-                                return "\(user?.displayName ?? "Driver") (\(uidPrefix))"
-                            },
-                            placeholder: "Select driver",
-                            systemImage: "person.fill"
-                        )
+                    
+                    if isCalculatingRoute {
+                        Divider().padding(.horizontal, 16)
+                        Label("Calculating route...", systemImage: "clock.arrow.circlepath")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(FleetPalette.accent)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                    } else if let routeEstimate {
+                        Divider().padding(.horizontal, 16)
+                        TripRouteEstimateCard(estimate: routeEstimate)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                    } else if let routeMessage {
+                        Divider().padding(.horizontal, 16)
+                        Label(routeMessage, systemImage: "exclamationmark.triangle")
+                            .font(.subheadline)
+                            .foregroundStyle(FleetPalette.warning)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
                     }
-                    .pickerStyle(.menu)
-                    .tint(FleetPalette.accent)
-                    .fleetField()
                 }
-
-                DatePicker("Start", selection: $form.startTime, in: minimumStartTime...)
-                    .fleetField()
-
-                DatePicker(
-                    routeEstimate == nil ? "Expected End" : "ETA",
-                    selection: Binding(
-                        get: { form.endTime ?? form.startTime.addingTimeInterval(3600) },
-                        set: { form.endTime = $0 }
-                    ),
-                    in: form.startTime...
-                )
-                .fleetField()
+                
+                FleetFormSection(title: "Vehicle & Driver Selection") {
+                    FleetFormRow(icon: "car.fill", title: "Required Type") {
+                        Picker(selection: $form.vehicleTypeRequested) {
+                            Text("Any").tag("")
+                            ForEach(Self.vehicleTypes, id: \.self) { type in
+                                Text(type.capitalized).tag(type)
+                            }
+                        } label: {
+                            Text(form.vehicleTypeRequested.isEmpty ? "Any type" : form.vehicleTypeRequested.capitalized)
+                        }
+                        .pickerStyle(.menu)
+                        .tint(FleetPalette.accent)
+                        .labelsHidden()
+                    }
+                    
+                    Divider().padding(.leading, 44)
+                    
+                    FleetFormRow(icon: "wand.and.stars.inverse", title: "Auto Assign") {
+                        Toggle("", isOn: $form.isAutoAssign)
+                            .labelsHidden()
+                    }
+                    
+                    if !form.isAutoAssign {
+                        Divider().padding(.leading, 44)
+                        FleetFormRow(icon: "bus.fill", title: "Vehicle") {
+                            Picker(selection: $form.selectedVehicleId) {
+                                Text("Select Vehicle").tag(Optional<UUID>.none)
+                                ForEach(availableVehicles) { vehicle in
+                                    Text(vehicle.licencePlate).tag(Optional(vehicle.id))
+                                }
+                            } label: {
+                                Text(availableVehicles.first(where: { $0.id == form.selectedVehicleId })?.licencePlate ?? "Select")
+                            }
+                            .pickerStyle(.menu)
+                            .tint(FleetPalette.accent)
+                            .labelsHidden()
+                        }
+                        
+                        Divider().padding(.leading, 44)
+                        
+                        FleetFormRow(icon: "person.fill", title: "Driver") {
+                            Picker(selection: $form.selectedDriverId) {
+                                Text("Select Driver").tag(Optional<UUID>.none)
+                                ForEach(availableDrivers) { driver in
+                                    let user = usersViewModel.user(for: driver.userId)
+                                    let uidPrefix = String(driver.id.uuidString.prefix(8))
+                                    Text("\(user?.displayName ?? "Driver") (\(uidPrefix))").tag(Optional(driver.id))
+                                }
+                            } label: {
+                                if let dId = form.selectedDriverId, let driver = usersViewModel.drivers.first(where: { $0.id == dId }), let user = usersViewModel.user(for: driver.userId) {
+                                    Text("\(user.displayName) (\(String(dId.uuidString.prefix(8))))")
+                                } else {
+                                    Text("Select")
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .tint(FleetPalette.accent)
+                            .labelsHidden()
+                        }
+                    }
+                }
+                .animation(.easeInOut, value: form.isAutoAssign)
+                
+                FleetFormSection(title: "Schedule") {
+                    FleetFormRow(icon: "calendar.badge.clock", title: "Start") {
+                        DatePicker("", selection: $form.startTime, in: minimumStartTime...)
+                            .labelsHidden()
+                    }
+                    
+                    Divider().padding(.leading, 44)
+                    
+                    FleetFormRow(icon: "flag.checkered", title: routeEstimate == nil ? "Expected End" : "ETA") {
+                        DatePicker(
+                            "",
+                            selection: Binding(
+                                get: { form.endTime ?? form.startTime.addingTimeInterval(3600) },
+                                set: { form.endTime = $0 }
+                            ),
+                            in: form.startTime...
+                        )
+                        .labelsHidden()
+                    }
+                }
 
                 FeedbackView(success: viewModel.successMessage, error: viewModel.errorMessage)
 
@@ -359,11 +387,15 @@ struct ManagerTripFormSheet: View {
                     }
                 } label: {
                     Label("Create Trip", systemImage: "wand.and.stars")
+                        .font(.headline)
                         .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(FleetPalette.accent)
                 .disabled(form.isValid == false)
+                .padding(.top, 8)
+                .padding(.bottom, 24)
             }
             .padding()
         }
@@ -377,8 +409,6 @@ struct ManagerTripFormSheet: View {
                     pickingPlace = nil
                 }
             }
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
         }
         .onAppear {
             minimumStartTime = Date()
@@ -455,43 +485,6 @@ struct ManagerTripFormSheet: View {
     }
 }
 
-private struct TripSelectionMenuLabel: View {
-    var title: String
-    var value: String?
-    var placeholder: String
-    var systemImage: String
-
-    private var displayedValue: String {
-        let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmedValue.isEmpty ? placeholder : trimmedValue
-    }
-
-    private var hasValue: Bool {
-        value?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Label(title, systemImage: systemImage)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(FleetPalette.textPrimary)
-
-            Spacer(minLength: 8)
-
-            Text(displayedValue)
-                .font(.body)
-                .foregroundStyle(hasValue ? FleetPalette.textSecondary : FleetPalette.textTertiary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
-
-            Image(systemName: "chevron.up.chevron.down")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(FleetPalette.accent)
-        }
-        .contentShape(Rectangle())
-    }
-}
-
 private struct TripPlaceButton: View {
     var title: String
     var value: String
@@ -506,35 +499,10 @@ private struct TripPlaceButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: systemImage)
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(FleetPalette.accent)
-                    .frame(width: 32, height: 32)
-                    .background(FleetPalette.softBlue, in: Circle())
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(FleetPalette.textSecondary)
-                    Text(displayedValue)
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? FleetPalette.textSecondary : FleetPalette.textPrimary)
-                        .lineLimit(2)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(FleetPalette.accent)
-            }
-            .padding(.horizontal, 14)
-            .frame(minHeight: 66)
-            .background(FleetPalette.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(FleetPalette.tertiary.opacity(0.70), lineWidth: 1)
+            FleetFormRow(icon: systemImage, title: title) {
+                Text(displayedValue)
+                    .lineLimit(1)
+                    .foregroundStyle(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? FleetPalette.textSecondary : FleetPalette.textPrimary)
             }
         }
         .buttonStyle(.plain)
@@ -633,73 +601,115 @@ private struct TripPlacePickerSheet: View {
     var onSelect: (TripPlace) -> Void
     @Environment(\.dismiss) private var dismiss
     @StateObject private var search = TripPlaceSearchViewModel()
-    @State private var isResolving = false
+    @State private var position: MapCameraPosition = .automatic
+    @State private var selectedPlace: TripPlace?
 
     var body: some View {
-        VStack(spacing: 14) {
-            TextField(field.placeholder, text: $search.query)
-                .textInputAutocapitalization(.words)
-                .autocorrectionDisabled()
-                .fleetField()
-                .padding(.horizontal)
-
-            if isResolving {
-                ProgressView("Finding place")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if search.results.isEmpty {
-                EmptyStateView(
-                    title: "Search for a place",
-                    message: "Enter a city, depot, warehouse, landmark, or full address.",
-                    systemImage: "magnifyingglass"
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding()
-            } else {
-                List(search.results, id: \.self) { completion in
-                    Button {
-                        Task {
-                            await resolve(completion)
-                        }
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(completion.title)
-                                .font(.headline)
-                                .foregroundStyle(FleetPalette.textPrimary)
-                            if completion.subtitle.isEmpty == false {
-                                Text(completion.subtitle)
-                                    .font(.subheadline)
-                                    .foregroundStyle(FleetPalette.textSecondary)
-                            }
-                        }
-                        .padding(.vertical, 5)
+        ZStack(alignment: .top) {
+            Map(position: $position) {
+                if let place = selectedPlace {
+                    Marker(place.name, coordinate: place.coordinate)
+                        .tint(FleetPalette.accent)
+                }
+            }
+            .ignoresSafeArea(edges: .bottom)
+            .onChange(of: selectedPlace?.id) { _, _ in
+                if let place = selectedPlace {
+                    withAnimation {
+                        position = .region(MKCoordinateRegion(center: place.coordinate, latitudinalMeters: 1000, longitudinalMeters: 1000))
                     }
                 }
-                .listStyle(.plain)
+            }
+
+            VStack(spacing: 0) {
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(FleetPalette.textSecondary)
+                    TextField(field.placeholder, text: $search.query)
+                        .textInputAutocapitalization(.words)
+                        .autocorrectionDisabled()
+                        .submitLabel(.search)
+                    if !search.query.isEmpty {
+                        Button {
+                            search.query = ""
+                            selectedPlace = nil
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(FleetPalette.textSecondary)
+                        }
+                    }
+                }
+                .padding()
+                .background(FleetPalette.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                .padding()
+
+                if !search.results.isEmpty && selectedPlace == nil {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            ForEach(search.results, id: \.self) { completion in
+                                Button {
+                                    Task {
+                                        if let place = try? await search.place(for: completion) {
+                                            selectedPlace = place
+                                            search.query = place.name
+                                            search.results = []
+                                        }
+                                    }
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(completion.title)
+                                            .font(.headline)
+                                            .foregroundStyle(FleetPalette.textPrimary)
+                                        if completion.subtitle.isEmpty == false {
+                                            Text(completion.subtitle)
+                                                .font(.subheadline)
+                                                .foregroundStyle(FleetPalette.textSecondary)
+                                        }
+                                    }
+                                    .padding()
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(FleetPalette.surface)
+                                }
+                                .buttonStyle(.plain)
+                                Divider()
+                            }
+                        }
+                    }
+                    .background(FleetPalette.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                    .padding(.horizontal)
+                    .frame(maxHeight: 300)
+                }
+            }
+
+            if let place = selectedPlace {
+                VStack {
+                    Spacer()
+                    Button {
+                        onSelect(place)
+                    } label: {
+                        Text("Confirm Location")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(FleetPalette.accent)
+                    .padding()
+                    .background(FleetPalette.surface.opacity(0.9))
+                }
             }
         }
         .navigationTitle("Select \(field.title)")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Cancel") {
-                    dismiss()
-                }
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Cancel") { dismiss() }
+                    .tint(FleetPalette.textPrimary)
             }
-        }
-    }
-
-    @MainActor
-    private func resolve(_ completion: MKLocalSearchCompletion) async {
-        isResolving = true
-        defer { isResolving = false }
-
-        do {
-            if let place = try await search.place(for: completion) {
-                onSelect(place)
-                dismiss()
-            }
-        } catch {
-            search.errorMessage = error.localizedDescription
         }
     }
 }

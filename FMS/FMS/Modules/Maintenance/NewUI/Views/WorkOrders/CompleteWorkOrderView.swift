@@ -326,7 +326,7 @@ struct CompleteWorkOrderView: View {
                 MPEmptyStateView(title: "Not Found", message: "Work order details could not be loaded.", systemImage: AppIcon.workOrder)
             }
         }
-        .background(Color(hex: 0xF4F5F9).ignoresSafeArea())
+        .background(AppColor.background.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
