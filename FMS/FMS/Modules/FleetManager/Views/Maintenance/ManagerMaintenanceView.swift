@@ -103,7 +103,7 @@ struct ManagerMaintenanceView: View {
                 }
                 .tint(FleetPalette.textPrimary)
                 NavigationLink {
-                    ManagerInventoryView(inventoryService: inventoryService, onNotification: onNotification)
+                    InventoryView()
                 } label: {
                     Image(systemName: "shippingbox")
                 }
