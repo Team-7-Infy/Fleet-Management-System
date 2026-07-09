@@ -945,12 +945,15 @@ struct ActiveNavigationDetailView: View {
 
             Task { @MainActor in
                 VoiceActionBridge.shared.activeTripID = trip.id
+                VoiceActionBridge.shared.onConfirmedSOS = { [self] in
+                    Task { await self.triggerEmergencySOS() }
+                }
+                VoiceActionBridge.shared.onConfirmedReroute = { [self] in
+                    let coord = locationService.location?.coordinate ?? viewModel.startCoordinate
+                    viewModel.rerouteFromCurrentLocation(currentCoordinate: coord)
+                }
             }
 
-            let sosObs = NotificationCenter.default.addObserver(forName: .voiceSOS, object: nil, queue: .main) { _ in
-                HapticManager.shared.triggerNotification(type: .error)
-                showingSOSAlert = true
-            }
             let pauseObs = NotificationCenter.default.addObserver(forName: .voicePauseResume, object: nil, queue: .main) { _ in
                 HapticManager.shared.triggerImpact(style: .medium)
                 withAnimation(.spring()) {
@@ -958,11 +961,7 @@ struct ActiveNavigationDetailView: View {
                     UserDefaults.standard.set(isTripStopped, forKey: "trip_\(trip.id.uuidString)_paused")
                 }
             }
-            let rerouteObs = NotificationCenter.default.addObserver(forName: .voiceReroute, object: nil, queue: .main) { _ in
-                HapticManager.shared.triggerImpact(style: .medium)
-                showingRerouteConfirm = true
-            }
-            voiceTokens = [sosObs, pauseObs, rerouteObs]
+            voiceTokens = [pauseObs]
         }
         .onReceive(locationService.$location) { newLocation in
             guard let newLocation = newLocation else { return }
@@ -992,6 +991,8 @@ struct ActiveNavigationDetailView: View {
             voiceTokens.forEach { NotificationCenter.default.removeObserver($0) }
             voiceTokens.removeAll()
             VoiceActionBridge.shared.activeTripID = nil
+            VoiceActionBridge.shared.onConfirmedSOS = nil
+            VoiceActionBridge.shared.onConfirmedReroute = nil
             locationService.onDeviationAlert = nil
             locationService.onJerkDetected = nil
             showingJerkCountdown = false
