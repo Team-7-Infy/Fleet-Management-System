@@ -115,7 +115,7 @@ struct TripDetailView: View {
                         // Clean Inline Title Header
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
-                                Text(trip.id.shortIdentifier)
+                                Text(trip.displayId)
                                     .font(.system(size: 32, weight: .black, design: .rounded))
                                     .foregroundColor(.primary)
 
@@ -513,7 +513,7 @@ struct CompletedTripDetailView: View {
             // Clean Inline Title Header
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text(trip.id.shortIdentifier)
+                    Text(trip.displayId)
                         .font(.system(size: 32, weight: .black, design: .rounded))
                         .foregroundColor(.primary)
 

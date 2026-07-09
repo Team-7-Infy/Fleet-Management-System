@@ -147,6 +147,12 @@ final class UserManagementViewModel: ObservableObject {
         driverScores = (try? await service.fetchAllDriverScores()) ?? []
     }
 
+    func backfillMissingScores() async -> Int {
+        guard let count = try? await service.backfillMissingDriverScores() else { return 0 }
+        driverScores = (try? await service.fetchAllDriverScores()) ?? []
+        return count
+    }
+
     func driverScore(for driverId: UUID) -> DriverScore? {
         driverScores.first { $0.driverId == driverId }
     }

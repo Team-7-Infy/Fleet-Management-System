@@ -24,17 +24,17 @@ class PerformanceViewModel: ObservableObject {
                 let completed = allTrips.filter { $0.status == .completed }
                 let totalDistance = completed.compactMap(\.distanceKm).reduce(0.0, +)
 
-                // Fetch driver score
                 let score = try? await userManagementService.fetchDriverScore(driverId: driverId)
 
                 let complianceRate = (score?.complianceViolationRate ?? 100.0) / 100.0
-                let geofenceViolations = Int(score?.geofenceViolationRate ?? 0.0)
                 let hasTrips = !completed.isEmpty
                 let totalFuelConsumed = completed.compactMap(\.fuelConsumed).reduce(0, +)
                 let fuel = totalFuelConsumed > 0 && totalDistance > 0 ? totalDistance / totalFuelConsumed : (hasTrips ? 14.5 : 0.0)
                 let compliance = hasTrips ? complianceRate : 0.0
-                let careScore = hasTrips ? Int(100 - (score?.inspectionFalseRate ?? 0.0)) : 0
-                let safetyScoreVal = Int(score?.overallScore ?? 0)
+                let careScore = hasTrips ? Int(score?.inspectionFalseRate ?? 75.0) : 0
+                let safetyScoreVal = Int(score?.overallScore ?? 75)
+                let geofenceEvents = score?.geofenceEventCount ?? 0
+                let speedingEvents = score?.speedingEventCount ?? 0
 
                 await MainActor.run {
                     self.metrics = PerformanceMetrics(
@@ -44,8 +44,8 @@ class PerformanceViewModel: ObservableObject {
                         distanceCovered: totalDistance,
                         onTimeDeliveryRate: compliance,
                         vehicleCareScore: careScore,
-                        harshBrakingEvents: geofenceViolations / 3,
-                        speedingEvents: geofenceViolations % 3,
+                        harshBrakingEvents: geofenceEvents,
+                        speedingEvents: speedingEvents,
                         idleTimeMinutes: 45
                     )
                     self.isLoading = false

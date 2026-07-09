@@ -169,6 +169,8 @@ final actor UserManagementService: UserManagementServiceProtocol {
                 "geofence_violation_rate": score.geofenceViolationRate.map { .double($0) } ?? .null,
                 "compliance_violation_rate": score.complianceViolationRate.map { .double($0) } ?? .null,
                 "mileage_accuracy": score.mileageAccuracy.map { .double($0) } ?? .null,
+                "geofence_event_count": score.geofenceEventCount.map { .integer($0) } ?? .null,
+                "speeding_event_count": score.speedingEventCount.map { .integer($0) } ?? .null,
                 "calculated_at": .string(ISO8601DateFormatter().string(from: Date()))
             ]
             try await supabase.client
@@ -254,20 +256,98 @@ final actor UserManagementService: UserManagementServiceProtocol {
             mileageScore = 75.0
         }
 
-        let overall = (inspectionScore + geofenceScore + complianceScore + mileageScore) / 4.0
+        // Count real geofence events and speeding events for sub-metrics
+        let allTrips: [Trip] = (try? await supabase.client
+            .from("trips")
+            .select()
+            .eq("driverid", value: driverId.uuidString)
+            .execute()
+            .value) ?? []
+        let allTripIds = allTrips.map(\.id.uuidString)
+        var geofenceEventCount = 0
+        if !allTripIds.isEmpty {
+            let allAlerts: [DeviationAlert] = (try? await supabase.client
+                .from("deviation_alert")
+                .select()
+                .in("tripid", values: allTripIds)
+                .execute()
+                .value) ?? []
+            geofenceEventCount = allAlerts.count
+        }
+
+        var speedingEventCount = 0
+        if !allTripIds.isEmpty {
+            let telemetry: [Telemetry] = (try? await supabase.client
+                .from("telemetry_log")
+                .select()
+                .in("tripid", values: allTripIds)
+                .execute()
+                .value) ?? []
+            speedingEventCount = telemetry.filter { $0.speed ?? 0 > 120 }.count
+        }
+
+        let baseOverall = (inspectionScore + geofenceScore + complianceScore + mileageScore) / 4.0
+
+        // Subtract active unexpired penalties
+        let penalties: [DriverScorePenalty] = (try? await supabase.client
+            .from("driver_score_penalties")
+            .select()
+            .eq("driver_id", value: driverId.uuidString)
+            .execute()
+            .value) ?? []
+        let now = Date()
+        let totalPenalty = penalties
+            .filter { $0.expiresAt == nil || $0.expiresAt! > now }
+            .reduce(0.0) { $0 + $1.points }
+        let finalOverall = max(0, baseOverall - totalPenalty)
 
         let score = DriverScore(
             id: UUID(),
             driverId: driverId,
-            overallScore: overall.rounded(),
+            overallScore: finalOverall.rounded(),
             inspectionFalseRate: (inspectionScore * 100).rounded() / 100,
             geofenceViolationRate: (geofenceScore * 100).rounded() / 100,
             complianceViolationRate: (complianceScore * 100).rounded() / 100,
             mileageAccuracy: (mileageScore * 100).rounded() / 100,
-            calculatedAt: Date()
+            calculatedAt: Date(),
+            geofenceEventCount: geofenceEventCount,
+            speedingEventCount: speedingEventCount
         )
 
         return try await upsertDriverScore(score)
+    }
+
+    func backfillMissingDriverScores() async throws -> Int {
+        struct CompletedTripDriver: Decodable, Sendable { let driverid: UUID }
+        let completedTripDrivers: [CompletedTripDriver] = try await supabase.client
+            .from("trips")
+            .select("driverid")
+            .eq("status", value: "completed")
+            .not("driverid", operator: .is, value: "null")
+            .execute()
+            .value
+
+        let candidateIds = Set(completedTripDrivers.map(\.driverid))
+
+        struct ExistingScoreDriver: Decodable, Sendable { let driver_id: UUID }
+        let existing: [ExistingScoreDriver] = try await supabase.client
+            .from("driver_scores")
+            .select("driver_id")
+            .execute()
+            .value
+        let scoredIds = Set(existing.map(\.driver_id))
+
+        let missingIds = candidateIds.subtracting(scoredIds)
+        var successCount = 0
+        for driverId in missingIds {
+            do {
+                _ = try await calculateAndUpsertDriverScore(driverId: driverId)
+                successCount += 1
+            } catch {
+                print("Backfill failed for driver \(driverId): \(error)")
+            }
+        }
+        return successCount
     }
 
     func fetchDriverScore(driverId: UUID) async throws -> DriverScore? {

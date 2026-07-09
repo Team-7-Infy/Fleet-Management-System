@@ -250,7 +250,7 @@ private struct ManagerTripCard: View {
     var driver: User?
 
     private var tripShortID: String {
-        "TRP-" + String(trip.id.uuidString.prefix(5)).uppercased()
+        trip.displayId
     }
 
     private var tripDateFormatter: DateFormatter {

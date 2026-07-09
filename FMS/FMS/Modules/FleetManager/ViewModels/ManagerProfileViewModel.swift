@@ -37,7 +37,7 @@ final class ManagerProfileViewModel: ObservableObject {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd MMM, yyyy"
         dateOfJoining = formatter.string(from: user.createdAt)
-        managerId = String(user.id.uuidString.prefix(8)).uppercased()
+        managerId = user.displayId
     }
 
     func loadStats() async {

@@ -363,21 +363,28 @@ final class ReportsViewModel: ObservableObject {
     }
 
     var averageDriverScore: Int {
-        let scores = usersViewModel.driverScores.map(\.overallScore)
-        guard scores.isEmpty == false else {
-            let fallback = usersViewModel.drivers.count
-            let hasCompletedTrips = tripsViewModel.trips.contains { $0.status == .completed }
-            if hasCompletedTrips && fallback > 0 {
-                DispatchQueue.main.async { [weak self] in
-                    self?.showScoreWarning = true
-                }
+        let allDrivers = usersViewModel.drivers
+        guard !allDrivers.isEmpty else { return 0 }
+        var totalScore = 0.0
+        var hasUnscored = false
+        for driver in allDrivers {
+            if let s = usersViewModel.driverScore(for: driver.id) {
+                totalScore += s.overallScore
+            } else {
+                totalScore += 75
+                hasUnscored = true
             }
-            return fallback > 0 ? 75 : 0
         }
-        DispatchQueue.main.async { [weak self] in
-            self?.showScoreWarning = false
+        if hasUnscored {
+            DispatchQueue.main.async { [weak self] in
+                self?.showScoreWarning = true
+            }
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.showScoreWarning = false
+            }
         }
-        return Int(scores.reduce(0, +) / Double(scores.count))
+        return Int(totalScore / Double(allDrivers.count))
     }
 
     // MARK: - Aggregated Fleet Health
