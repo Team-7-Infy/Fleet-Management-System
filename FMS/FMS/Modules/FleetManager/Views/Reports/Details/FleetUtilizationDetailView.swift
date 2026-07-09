@@ -144,6 +144,7 @@ struct FleetUtilizationDetailView: View {
                 vehicle: item.vehicle,
                 viewModel: vehiclesViewModel,
                 usersViewModel: usersViewModel,
+                tripsViewModel: reportsViewModel.tripsViewModel,
                 maintenanceViewModel: maintenanceViewModel,
                 openMaintenanceRequest: { _ in }
             )

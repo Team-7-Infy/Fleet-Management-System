@@ -93,6 +93,7 @@ struct ManagerVehiclesView: View {
                                 vehicle: vehicle,
                                 viewModel: viewModel,
                                 usersViewModel: usersViewModel,
+                                tripsViewModel: tripsViewModel,
                                 maintenanceViewModel: maintenanceViewModel,
                                 openMaintenanceRequest: openMaintenanceRequest
                             )
@@ -271,6 +272,7 @@ struct ManagerVehicleDetailView: View {
     var vehicle: Vehicle
     @ObservedObject var viewModel: VehicleViewModel
     @ObservedObject var usersViewModel: UserManagementViewModel
+    @ObservedObject var tripsViewModel: TripManagementViewModel
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
     var openMaintenanceRequest: (UUID?) -> Void
 
