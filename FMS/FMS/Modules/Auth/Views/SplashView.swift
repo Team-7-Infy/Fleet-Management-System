@@ -17,6 +17,8 @@ struct SplashView: View {
 
     // Minimum time the splash is always shown (seconds)
     private let minimumDuration: Double = 2.0
+    
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ZStack {
@@ -32,8 +34,9 @@ struct SplashView: View {
         }
         .task {
             // ── Run all three in parallel ────────────────────────────────
+            let isDark = (colorScheme == .dark)
             async let authResult   = fetchSession()
-            async let assetsResult = preloadLoginAssets()
+            async let assetsResult = preloadLoginAssets(isDark: isDark)
             async let timerDone    = minimumTimer()
 
             // Wait for all three — splash stays until every one finishes
@@ -57,20 +60,21 @@ struct SplashView: View {
 
     /// Writes BG-Video to a temp file and builds the AVQueuePlayer.
     /// Returns nil if the asset is missing or the write fails.
-    private func preloadLoginAssets() async -> LoginAssets? {
+    private func preloadLoginAssets(isDark: Bool) async -> LoginAssets? {
         return await Task.detached(priority: .userInitiated) {
-            guard let dataAsset = NSDataAsset(name: "BG-Video") else {
-                print("SplashView: BG-Video asset not found")
+            let assetName = isDark ? "BG-Video_Dark" : "BG-Video"
+            guard let dataAsset = NSDataAsset(name: assetName) else {
+                print("SplashView: \(assetName) asset not found")
                 return nil
             }
 
             let fileURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent("BG-Video.mp4")
+                .appendingPathComponent("\(assetName).mp4")
 
             do {
                 try dataAsset.data.write(to: fileURL, options: .atomic)
             } catch {
-                print("SplashView: Failed to write BG-Video — \(error)")
+                print("SplashView: Failed to write \(assetName) — \(error)")
                 return nil
             }
 

@@ -222,7 +222,8 @@ struct FleetManagerDashboardView: View {
                 tripsViewModel: tripsViewModel,
                 maintenanceViewModel: maintenanceViewModel,
                 initialMaintenanceVehicleId: maintenanceVehicleId,
-                currentUserId: currentUserId
+                currentUserId: currentUserId,
+                services: services
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
@@ -360,6 +361,7 @@ struct FleetManagerDashboardView: View {
                 viewModel: tripsViewModel,
                 vehiclesViewModel: vehiclesViewModel,
                 usersViewModel: usersViewModel,
+                expenseService: services.expenseService,
                 openAddTrip: { addSheet = .trip }
             )
             .navigationDestination(isPresented: $showingNotifications) {
@@ -412,6 +414,7 @@ struct ManagerAddSheetView: View {
     @ObservedObject var maintenanceViewModel: MaintenanceViewModel
     var initialMaintenanceVehicleId: UUID?
     var currentUserId: UUID?
+    let services: AppServices
 
     var body: some View {
         NavigationStack {
@@ -434,7 +437,8 @@ struct ManagerAddSheetView: View {
                     usersViewModel: usersViewModel,
                     tripsViewModel: tripsViewModel,
                     initialVehicleId: initialMaintenanceVehicleId,
-                    currentUserId: currentUserId
+                    currentUserId: currentUserId,
+                    services: services
                 )
             }
         }

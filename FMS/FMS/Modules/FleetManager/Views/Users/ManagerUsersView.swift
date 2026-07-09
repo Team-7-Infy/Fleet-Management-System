@@ -186,23 +186,7 @@ struct ManagerUsersView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 12) {
-                    Menu {
-                        Button {
-                            Task { await viewModel.recalculateAndReloadScores() }
-                        } label: {
-                            Label("Recalculate All", systemImage: "arrow.triangle.2.circlepath")
-                        }
-                        Button {
-                            Task {
-                                let count = await viewModel.backfillMissingScores()
-                                viewModel.successMessage = "Backfilled \(count) missing driver score(s)."
-                            }
-                        } label: {
-                            Label("Backfill Missing", systemImage: "plus.circle")
-                        }
-                    } label: {
-                        Label("Scores", systemImage: "arrow.triangle.2.circlepath")
-                    }
+
                     Button("Add User", systemImage: "plus", action: openAddUser)
                 }
                 .tint(FleetPalette.textPrimary)

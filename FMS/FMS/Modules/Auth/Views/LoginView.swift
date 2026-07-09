@@ -346,6 +346,7 @@ struct LoopingVideoPlayerView: View {
         self.preloadedAssets = preloadedAssets
     }
 
+    @Environment(\.colorScheme) private var colorScheme
     @State private var player: AVQueuePlayer?
     @State private var playerLooper: AVPlayerLooper?
 
@@ -358,28 +359,28 @@ struct LoopingVideoPlayerView: View {
                     playerLooper = assets.videoLooper
                     assets.videoPlayer.play()
                 } else {
-                    setupPlayer()
+                    setupPlayer(isDark: colorScheme == .dark)
                 }
+            }
+            .onChange(of: colorScheme) { _, newScheme in
+                setupPlayer(isDark: newScheme == .dark)
             }
             .onDisappear {
                 player?.pause()
             }
     }
 
-    private func setupPlayer() {
-        guard player == nil else {
-            player?.play()
-            return
-        }
-
+    private func setupPlayer(isDark: Bool) {
+        let assetName = isDark ? "BG-Video_Dark" : "BG-Video"
+        
         // Load video from Assets.xcassets dataset
-        guard let asset = NSDataAsset(name: "BG-Video") else {
-            print("Failed to find BG-Video asset")
+        guard let asset = NSDataAsset(name: assetName) else {
+            print("Failed to find \(assetName) asset")
             return
         }
 
         let tempDirectory = FileManager.default.temporaryDirectory
-        let fileURL = tempDirectory.appendingPathComponent("BG-Video.mp4")
+        let fileURL = tempDirectory.appendingPathComponent("\(assetName).mp4")
 
         do {
             try asset.data.write(to: fileURL, options: .atomic)
