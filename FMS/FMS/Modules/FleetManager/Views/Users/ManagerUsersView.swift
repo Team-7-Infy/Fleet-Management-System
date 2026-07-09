@@ -185,8 +185,27 @@ struct ManagerUsersView: View {
                 .frame(width: 200)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Add User", systemImage: "plus", action: openAddUser)
-                    .tint(FleetPalette.textPrimary)
+                HStack(spacing: 12) {
+                    Menu {
+                        Button {
+                            Task { await viewModel.recalculateAndReloadScores() }
+                        } label: {
+                            Label("Recalculate All", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        Button {
+                            Task {
+                                let count = await viewModel.backfillMissingScores()
+                                viewModel.successMessage = "Backfilled \(count) missing driver score(s)."
+                            }
+                        } label: {
+                            Label("Backfill Missing", systemImage: "plus.circle")
+                        }
+                    } label: {
+                        Label("Scores", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    Button("Add User", systemImage: "plus", action: openAddUser)
+                }
+                .tint(FleetPalette.textPrimary)
             }
         }
         .onChange(of: selectedSegment) { _, _ in
@@ -199,6 +218,7 @@ struct ManagerUsersView: View {
                 trips: tripsViewModel.trips,
                 tasks: maintenanceViewModel.tasks
             )
+            await viewModel.recalculateAndReloadScores()
         }
     }
 
@@ -228,7 +248,7 @@ struct ManagerUsersView: View {
     private func matchesSearch(_ user: User, query: String) -> Bool {
         let searchable = [
             user.displayName,
-            user.shortUID
+            user.displayId
         ]
         return searchable.contains {
             $0.localizedCaseInsensitiveContains(query)
@@ -252,7 +272,7 @@ private struct ManagerUserCard: View {
                     .foregroundStyle(FleetPalette.textPrimary)
                     .lineLimit(1)
 
-                Text("UID \(user.shortUID)")
+                Text(user.displayId)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(FleetPalette.textSecondary)
                     .lineLimit(1)
@@ -383,7 +403,7 @@ struct ManagerUserDetailView: View {
                     .foregroundStyle(FleetPalette.textSecondary)
 
                 HStack(spacing: 8) {
-                    Text("UID \(user.shortUID)")
+                    Text(user.displayId)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(FleetPalette.textSecondary)
 

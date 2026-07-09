@@ -49,6 +49,16 @@ struct ReportsHubView: View {
         .fleetScreenBackground()
         .navigationTitle("Reports & Analytics")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await usersViewModel.recalculateAndReloadScores() }
+                } label: {
+                    Label("Recalculate Scores", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .tint(FleetPalette.textPrimary)
+            }
+        }
     }
 
     // MARK: - Trip Report

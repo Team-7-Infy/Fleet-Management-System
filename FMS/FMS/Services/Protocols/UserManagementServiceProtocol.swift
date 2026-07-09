@@ -34,6 +34,7 @@ protocol UserManagementServiceProtocol: AnyObject, Sendable {
     func fetchDriverScore(driverId: UUID) async throws -> DriverScore?
     func fetchAllDriverScores() async throws -> [DriverScore]
     func calculateAndUpsertDriverScore(driverId: UUID) async throws -> DriverScore
+    func backfillMissingDriverScores() async throws -> Int
     func fetchDriverSchedules(driverId: UUID) async throws -> [DriverSchedule]
     func fetchDriverSchedules(overlappingStart: Date, overlappingEnd: Date) async throws -> [DriverSchedule]
     func createDriverSchedule(_ schedule: DriverSchedule) async throws -> DriverSchedule

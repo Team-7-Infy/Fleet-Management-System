@@ -210,7 +210,7 @@ struct VehicleWorkOrderDetailsView: View {
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
                         } else if let scheduledBy = workOrder.scheduledBy {
-                            Text("ID \(scheduledBy.uuidString.prefix(6))")
+                            Text("ID \(scheduledBy.displayId(.user))")
                                 .font(.system(size: 14, weight: .bold, design: .rounded))
                                 .foregroundStyle(Color.black)
                                 .lineLimit(1)

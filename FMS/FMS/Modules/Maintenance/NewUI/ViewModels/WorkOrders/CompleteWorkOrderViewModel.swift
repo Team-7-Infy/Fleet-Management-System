@@ -56,7 +56,7 @@ final class CompleteWorkOrderViewModel: ObservableObject {
         vehicleService = dependencies.vehicleService
     }
 
-    private var isLoaded = false
+    @Published var isLoaded = false
     
     func load() async {
         if isLoaded { return }
@@ -64,12 +64,18 @@ final class CompleteWorkOrderViewModel: ObservableObject {
         do {
             workOrder = try await workOrderService.workOrder(id: workOrderID)
             inventoryParts = try await workOrderService.fetchInventory()
-            
+
+            // Populate voice-intent cache so PartEntityQuery has data
+            await PartEntityCache.shared.update(with: inventoryParts)
+
             var fetchedVehicleType: String? = nil
             if let vinStr = workOrder?.vehicleID, let vin = UUID(uuidString: vinStr) {
                 if let vehicle = try? await vehicleService.vehicle(id: vin) {
                     fetchedVehicleType = vehicle.vehicleType
                 }
+            }
+            await MainActor.run {
+                VoiceActionBridge.shared.currentVehicleType = fetchedVehicleType
             }
             
             var fetchedRate: Double = 500.0

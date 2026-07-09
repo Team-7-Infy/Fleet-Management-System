@@ -7,6 +7,7 @@ final class VoiceActionBridge: ObservableObject {
 
     @Published var activeTripID: UUID? = nil
     @Published var openWorkOrderID: WorkOrder.ID? = nil
+    @Published var currentVehicleType: String? = nil
 
     private init() {}
 }

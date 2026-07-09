@@ -51,6 +51,8 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
 }
 
 extension Trip {
+    var displayId: String { id.displayId(.trip) }
+
     var totalCost: Double {
         (fuelCost ?? 0) + (miscellaneousCost ?? 0)
     }

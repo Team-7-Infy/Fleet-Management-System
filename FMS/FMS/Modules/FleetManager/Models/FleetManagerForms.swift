@@ -471,10 +471,6 @@ extension User {
         return name.isEmpty ? email : name
     }
 
-    var shortUID: String {
-        String(id.uuidString.prefix(8)).uppercased()
-    }
-
     var avatarImageURL: URL? {
         if let avatarUrl,
            let url = URL(string: avatarUrl) {

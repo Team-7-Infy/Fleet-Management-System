@@ -66,7 +66,7 @@ struct EndTripView: View {
                                 .font(.headline)
                                 .fontWeight(.bold)
                                 .foregroundColor(.white)
-                            Text("Trip ID: \(trip.id.shortIdentifier)")
+                            Text("Trip ID: \(trip.displayId)")
                                 .font(.subheadline)
                                 .foregroundColor(.white.opacity(0.85))
                         }
@@ -305,6 +305,7 @@ struct EndTripView: View {
                 updatedTrip.distanceKm = distanceDelta
 
                 _ = try await services.tripService.updateTrip(updatedTrip)
+                try? await services.userManagementService.calculateAndUpsertDriverScore(driverId: driverId)
                 UserDefaults.standard.removeObject(forKey: "trip_\(trip.id.uuidString)_paused")
 
                 // 3. Update vehicle odometer

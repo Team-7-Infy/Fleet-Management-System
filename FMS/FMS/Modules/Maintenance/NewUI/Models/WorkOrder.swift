@@ -217,3 +217,7 @@ extension WorkOrder {
         }
     }
 }
+
+extension WorkOrder {
+    var displayId: String { id.displayId(.workOrder) }
+}
