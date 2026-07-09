@@ -14,7 +14,7 @@ struct WorkOrderCard: View {
             VStack(alignment: .leading, spacing: AppSpacing.small) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: AppSpacing.xSmall) {
-                        Text(workOrder.id.uuidString.prefix(8).uppercased())
+                        Text(workOrder.displayId)
                             .font(AppTypography.headline)
                         Text("\(workOrder.vehicleName) - \(workOrder.title)")
                             .font(AppTypography.callout)

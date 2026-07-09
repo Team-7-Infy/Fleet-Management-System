@@ -457,7 +457,7 @@ final class TripManagementViewModel: ObservableObject {
 
         var candidates: [Candidate] = []
         for driver in drivers {
-            let driverScore = (try? await userManagementService.fetchDriverScore(driverId: driver.id))?.overallScore ?? 0
+            let driverScore = (try? await userManagementService.fetchDriverScore(driverId: driver.id))?.overallScore ?? 75
             let activeCount = trips.filter { $0.driverId == driver.id && activeWorkStatuses.contains($0.status) }.count
 
             let normalizedScore = driverScore / 100.0

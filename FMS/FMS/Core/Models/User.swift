@@ -126,3 +126,7 @@ enum UserProfileValidation {
         value.range(of: pattern, options: .regularExpression) != nil
     }
 }
+
+extension User {
+    var displayId: String { id.displayId(.user) }
+}

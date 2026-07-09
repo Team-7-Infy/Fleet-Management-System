@@ -1089,7 +1089,7 @@ struct PendingRequestCard: View {
         VStack(alignment: .leading, spacing: 14) {
             // Header: ID and Vehicle
             HStack {
-                Text(trip.id.shortIdentifier)
+                Text(trip.displayId)
                     .font(.system(size: 16, weight: .black, design: .rounded))
                     .foregroundColor(.blue)
                 Spacer()
@@ -2388,7 +2388,7 @@ struct PostTripInspectionCard: View {
             HStack(spacing: 8) {
                 Image(systemName: "number")
                     .foregroundColor(.secondary)
-                Text("Trip ID: \(trip.id.shortIdentifier)")
+                Text("Trip ID: \(trip.displayId)")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
@@ -2436,7 +2436,7 @@ struct PostTripInspectionCard: View {
                     let notification = AppNotification(
                         id: UUID(),
                         title: "Overdue Post-Trip Inspection",
-                        message: "Post-trip inspection for \(plate) (Trip \(trip.id.shortIdentifier)) is overdue. Driver has not completed the inspection within the 2-hour window.",
+                        message: "Post-trip inspection for \(plate) (Trip \(trip.displayId)) is overdue. Driver has not completed the inspection within the 2-hour window.",
                         type: "overdue_post_trip",
                         isRead: false,
                         referenceId: trip.id,

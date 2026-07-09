@@ -339,19 +339,17 @@ struct CompleteWorkOrderView: View {
         }
         .onAppear {
             VoiceActionBridge.shared.openWorkOrderID = workOrderID
+        }
+        .onReceive(viewModel.$isLoaded) { [self] loaded in
+            guard loaded else { return }
 
-            let addPartObs = NotificationCenter.default.addObserver(forName: .voiceAddPart, object: nil, queue: .main) { [self] note in
-                guard let partName = note.userInfo?["partName"] as? String else { return }
-                let quantity = note.userInfo?["quantity"] as? Int ?? 1
-
-                let candidates = viewModel.inventoryParts.filter { $0.matches(searchText: partName) }
-                if candidates.count == 1, let part = candidates.first {
+            let addPartObs = NotificationCenter.default.addObserver(forName: .voiceAddPart, object: nil, queue: .main) { note in
+                guard let partID = note.userInfo?["partID"] as? String,
+                      let quantity = note.userInfo?["quantity"] as? Int else { return }
+                if let part = viewModel.inventoryParts.first(where: { $0.id.uuidString == partID }) {
                     viewModel.addPart(part, quantity: quantity)
-                } else if candidates.isEmpty {
-                    voiceAlertMessage = "Could not find a part matching \"\(partName)\". Please add it manually from the parts sheet."
-                    showVoiceAlert = true
                 } else {
-                    voiceAlertMessage = "Multiple parts match \"\(partName)\". Please select one from the parts sheet."
+                    voiceAlertMessage = "Part no longer in inventory."
                     showVoiceAlert = true
                 }
             }
@@ -382,6 +380,7 @@ struct CompleteWorkOrderView: View {
             voiceTokens.forEach { NotificationCenter.default.removeObserver($0) }
             voiceTokens.removeAll()
             VoiceActionBridge.shared.openWorkOrderID = nil
+            VoiceActionBridge.shared.currentVehicleType = nil
             viewModel.pauseWorkOrder()
         }
         .sheet(isPresented: $showingAddPartsSheet) {

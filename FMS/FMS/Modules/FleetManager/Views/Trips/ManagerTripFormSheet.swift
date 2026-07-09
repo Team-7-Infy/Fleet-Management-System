@@ -338,12 +338,12 @@ struct ManagerTripFormSheet: View {
                                 Text("Select Driver").tag(Optional<UUID>.none)
                                 ForEach(availableDrivers) { driver in
                                     let user = usersViewModel.user(for: driver.userId)
-                                    let uidPrefix = String(driver.id.uuidString.prefix(8))
+                                    let uidPrefix = driver.userId.displayId(.user)
                                     Text("\(user?.displayName ?? "Driver") (\(uidPrefix))").tag(Optional(driver.id))
                                 }
                             } label: {
                                 if let dId = form.selectedDriverId, let driver = usersViewModel.drivers.first(where: { $0.id == dId }), let user = usersViewModel.user(for: driver.userId) {
-                                    Text("\(user.displayName) (\(String(dId.uuidString.prefix(8))))")
+                                    Text("\(user.displayName) (\(driver.userId.displayId(.user)))")
                                 } else {
                                     Text("Select")
                                 }

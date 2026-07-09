@@ -39,7 +39,7 @@ struct JobSummaryView: View {
         VStack(alignment: .leading, spacing: AppSpacing.medium) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: AppSpacing.small) {
-                    Text(workOrder.id.uuidString.prefix(8).uppercased())
+                    Text(workOrder.displayId)
                         .font(AppTypography.largeTitle)
                         .minimumScaleFactor(0.75)
                     Text(workOrder.title)
