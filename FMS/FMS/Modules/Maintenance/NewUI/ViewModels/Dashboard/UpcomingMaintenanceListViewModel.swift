@@ -65,7 +65,7 @@ final class UpcomingMaintenanceListViewModel: ObservableObject {
             
             if !dayOrders.isEmpty {
                 let dashboardOrders = dayOrders.map { order in
-                    let vehicle = vehicles.first(where: { $0.id.uuidString == order.vehicleID })
+                    let vehicle = vehicles.first(where: { $0.id.uuidString.caseInsensitiveCompare(order.vehicleID) == .orderedSame })
                     return DashboardWorkOrder(workOrder: order, vehicle: vehicle)
                 }.sorted {
                     if $0.workOrder.isUrgent == true && $1.workOrder.isUrgent != true {

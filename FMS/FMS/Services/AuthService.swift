@@ -3,20 +3,26 @@ import Supabase
 
 enum AuthError: LocalizedError {
     case userNotFound
+    case profileNotFound
     case userNotCreated
     case functionError(String)
     case invalidUserID
+    case accountDisabled
 
     var errorDescription: String? {
         switch self {
         case .userNotFound:
             return "User not found. Please try signing up first."
+        case .profileNotFound:
+            return "Signed in, but no account profile was found. Please contact your fleet manager — your account may need to be recreated."
         case .userNotCreated:
             return "Could not create user profile. Please try again."
         case let .functionError(detail):
             return "Server error: \(detail)"
         case .invalidUserID:
             return "Invalid response from server."
+        case .accountDisabled:
+            return "Your account has been deactivated or deleted. Please contact your Fleet Manager."
         }
     }
 }
@@ -71,24 +77,38 @@ final actor AuthService: AuthServiceProtocol {
 
         try await supabase.client.auth.signIn(email: normalizedEmail, password: normalizedPassword)
 
+        // NOTE: `.single()` throws PostgREST's "cannot coerce the result to a
+        // single JSON object" error whenever the query returns zero rows (or
+        // more than one). That's exactly what a brand-new driver hits if the
+        // "users" row ends up keyed to a different id than the auth account
+        // that actually signs in (e.g. a mismatch coming from the invite-user
+        // edge function). Decoding as an array with `.limit(1)` never throws
+        // for zero rows, so we can fall back to an email lookup and give a
+        // clear error instead of crashing on a raw Postgres error string.
         if let authUser = supabase.client.auth.currentUser {
-            let user: User = try await supabase.client
+            let usersById: [User] = try await supabase.client
                 .from("users")
                 .select()
                 .eq("userid", value: authUser.id.uuidString)
-                .single()
+                .limit(1)
                 .execute()
                 .value
-            return user
+            if let user = usersById.first {
+                return user
+            }
         }
 
-        let user: User = try await supabase.client
+        let usersByEmail: [User] = try await supabase.client
             .from("users")
             .select()
             .eq("email", value: normalizedEmail)
-            .single()
+            .limit(1)
             .execute()
             .value
+
+        guard let user = usersByEmail.first else {
+            throw AuthError.profileNotFound
+        }
         return user
     }
 
@@ -98,14 +118,14 @@ final actor AuthService: AuthServiceProtocol {
 
     func currentSession() async throws -> User? {
         guard let authUser = supabase.client.auth.currentUser else { return nil }
-        let user: User = try await supabase.client
+        let users: [User] = try await supabase.client
             .from("users")
             .select()
             .eq("userid", value: authUser.id.uuidString)
-            .single()
+            .limit(1)
             .execute()
             .value
-        return user
+        return users.first
     }
 
     func createAuthIdentity(email: String, password: String) async throws -> UUID {

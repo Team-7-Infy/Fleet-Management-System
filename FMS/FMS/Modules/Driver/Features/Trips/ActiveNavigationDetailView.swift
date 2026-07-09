@@ -37,6 +37,13 @@ extension MKMultiPoint {
     }
 }
 
+// MARK: - Safe Collection Subscript
+extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
 // MARK: - Live Navigation View Model
 class LiveNavigationViewModel: ObservableObject {
     @Published var startCoordinate: CLLocationCoordinate2D
@@ -45,80 +52,13 @@ class LiveNavigationViewModel: ObservableObject {
     @Published var routeCoordinates: [CLLocationCoordinate2D] = []
     @Published var waypoints: [RouteWaypoint] = []
     
-    var geofencePolygonCoordinates: [CLLocationCoordinate2D] {
-        guard routeCoordinates.count >= 2 else { return [] }
-        
-        // 1. Filter coordinate points to ensure consecutive points are at least 80 meters apart.
-        // This removes GPS micro-noise, redundant points, and avoids extreme directional flips.
-        var coords: [CLLocationCoordinate2D] = []
-        for coord in routeCoordinates {
-            if let last = coords.last {
-                let dist = CLLocation(latitude: last.latitude, longitude: last.longitude)
-                    .distance(from: CLLocation(latitude: coord.latitude, longitude: coord.longitude))
-                if dist >= 80 {
-                    coords.append(coord)
-                }
-            } else {
-                coords.append(coord)
-            }
-        }
-        if let last = routeCoordinates.last, coords.last?.latitude != last.latitude || coords.last?.longitude != last.longitude {
-            coords.append(last)
-        }
-        
-        guard coords.count >= 2 else { return [] }
-        
-        var leftCoords: [CLLocationCoordinate2D] = []
-        var rightCoords: [CLLocationCoordinate2D] = []
-        let offsetDegrees: Double = 0.0027 // Approx 300 meters buffer
-        
-        for i in 0..<coords.count {
-            let current = coords[i]
-            let lat = current.latitude
-            let lon = current.longitude
-            
-            var dx: Double = 0
-            var dy: Double = 0
-            
-            if i == 0 {
-                let next = coords[i+1]
-                dx = next.latitude - lat
-                dy = next.longitude - lon
-            } else if i == coords.count - 1 {
-                let prev = coords[i-1]
-                dx = lat - prev.latitude
-                dy = lon - prev.longitude
-            } else {
-                let prev = coords[i-1]
-                let next = coords[i+1]
-                dx = next.latitude - prev.latitude
-                dy = next.longitude - prev.longitude
-            }
-            
-            let len = sqrt(dx*dx + dy*dy)
-            if len > 0 {
-                dx /= len
-                dy /= len
-            } else {
-                dx = 1
-                dy = 0
-            }
-            
-            let lx = lat - dy * offsetDegrees
-            let ly = lon + dx * offsetDegrees
-            let rx = lat + dy * offsetDegrees
-            let ry = lon - dx * offsetDegrees
-            
-            leftCoords.append(CLLocationCoordinate2D(latitude: lx, longitude: ly))
-            rightCoords.append(CLLocationCoordinate2D(latitude: rx, longitude: ry))
-        }
-        
-        return leftCoords + rightCoords.reversed()
-    }
-    
     @Published var distanceCovered: String = "120 km"
     @Published var distanceRemaining: String = "45 km"
     @Published var eta: String = "14:30 PM"
+    @Published var routeStepInstructions: [String] = []
+    @Published var routeStepDistances: [CLLocationDistance] = []
+    @Published var routeTotalDistance: CLLocationDistance = 0
+    @Published var isRerouting: Bool = false
     
     let tripId: String
     let services: AppServices
@@ -214,6 +154,19 @@ class LiveNavigationViewModel: ObservableObject {
                 timeFormatter.timeStyle = .short
                 self.eta = timeFormatter.string(from: etaDate)
                 
+                self.routeTotalDistance = route.distance
+                var instructions: [String] = []
+                var distances: [CLLocationDistance] = []
+                for step in route.steps {
+                    let trimmed = step.instructions.trimmingCharacters(in: .whitespaces)
+                    if !trimmed.isEmpty {
+                        instructions.append(trimmed)
+                        distances.append(step.distance)
+                    }
+                }
+                self.routeStepInstructions = instructions
+                self.routeStepDistances = distances
+                
                 if self.waypoints.isEmpty {
                     self.generateWaypointsFromPolyline()
                 }
@@ -268,6 +221,76 @@ class LiveNavigationViewModel: ObservableObject {
         self.destinationName = name
         calculateRoute()
     }
+
+    func rerouteFromCurrentLocation(currentCoordinate: CLLocationCoordinate2D) {
+        isRerouting = true
+        let request = MKDirections.Request()
+        request.source = MKMapItem(placemark: MKPlacemark(coordinate: currentCoordinate))
+        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: endCoordinate))
+        request.transportType = .automobile
+        request.requestsAlternateRoutes = true
+
+        let directions = MKDirections(request: request)
+        directions.calculate { [weak self] response, error in
+            guard let self = self else { return }
+            guard let routes = response?.routes, !routes.isEmpty else {
+                DispatchQueue.main.async { self.isRerouting = false }
+                return
+            }
+            let chosen = routes.first(where: { self.isMeaningfullyDifferent($0.polyline.coordinates) }) ?? routes[0]
+
+            DispatchQueue.main.async {
+                self.routeCoordinates = chosen.polyline.coordinates
+                self.startCoordinate = currentCoordinate
+
+                let remainingDistanceKm = chosen.distance / 1000.0
+                self.distanceRemaining = String(format: "%.1f km", remainingDistanceKm)
+                let etaDate = Date().addingTimeInterval(chosen.expectedTravelTime)
+                let timeFormatter = DateFormatter()
+                timeFormatter.timeStyle = .short
+                self.eta = timeFormatter.string(from: etaDate)
+                self.routeTotalDistance = chosen.distance
+
+                var instructions: [String] = []
+                var distances: [CLLocationDistance] = []
+                for step in chosen.steps {
+                    let trimmed = step.instructions.trimmingCharacters(in: .whitespaces)
+                    if !trimmed.isEmpty {
+                        instructions.append(trimmed)
+                        distances.append(step.distance)
+                    }
+                }
+                self.routeStepInstructions = instructions
+                self.routeStepDistances = distances
+
+                self.regenerateWaypoints()
+            }
+        }
+    }
+
+    private func isMeaningfullyDifferent(_ candidate: [CLLocationCoordinate2D]) -> Bool {
+        guard let currentMid = routeCoordinates[safe: routeCoordinates.count / 2],
+              let candidateMid = candidate[safe: candidate.count / 2] else { return true }
+        let dist = CLLocation(latitude: currentMid.latitude, longitude: currentMid.longitude)
+            .distance(from: CLLocation(latitude: candidateMid.latitude, longitude: candidateMid.longitude))
+        return dist > 300
+    }
+
+    private func regenerateWaypoints() {
+        guard let tripUUID = UUID(uuidString: tripId) else { return }
+        Task {
+            do {
+                try await services.tripService.deleteRouteWaypoints(tripId: tripUUID)
+            } catch {
+                print("Failed to clear old waypoints before reroute: \(error)")
+            }
+            await MainActor.run {
+                self.waypoints = []
+                self.generateWaypointsFromPolyline()
+                self.isRerouting = false
+            }
+        }
+    }
 }
 
 // MARK: - Active Navigation Detail View
@@ -285,6 +308,7 @@ struct ActiveNavigationDetailView: View {
     
     // ViewModel state
     @StateObject private var viewModel: LiveNavigationViewModel
+    @StateObject private var voiceGuidance = VoiceGuidanceManager()
     
     // GPS Heading Position Tracker (iOS 17+)
     @State private var cameraPosition: MapCameraPosition = .userLocation(followsHeading: true, fallback: .automatic)
@@ -298,7 +322,6 @@ struct ActiveNavigationDetailView: View {
     
     // End Trip Flow States
     @State private var showingEndConfirmation = false
-    @State private var showingCompletionForm = false
     @State private var showingPostTripInspection = false
     @State private var postTripInspectionSubmitted = false
     @State private var showingTripSuccess = false
@@ -308,6 +331,9 @@ struct ActiveNavigationDetailView: View {
     
     // General SOS alerts
     @State private var showingSOSAlert = false
+    
+    // Reroute state
+    @State private var showingRerouteConfirm = false
     
     // Track last location used for route calculation (throttling MKDirections)
     @State private var lastCalculatedLocation: CLLocation? = nil
@@ -405,10 +431,6 @@ struct ActiveNavigationDetailView: View {
                     .tint(.green)
 
                 if !viewModel.routeCoordinates.isEmpty {
-                    // Geofence Corridor corridor tracking along the entire path
-                    MapPolyline(coordinates: viewModel.routeCoordinates)
-                        .stroke(Color.blue.opacity(0.10), lineWidth: 60)
-
                     // Remaining route ahead of the driver
                     if nearestIdx < viewModel.routeCoordinates.count - 1 {
                         let remainingCoords = Array(viewModel.routeCoordinates[nearestIdx...])
@@ -428,13 +450,6 @@ struct ActiveNavigationDetailView: View {
                     }
                 }
 
-                // Geofence area represented as a single closed polygon corridor
-                let polygonCoords = viewModel.geofencePolygonCoordinates
-                if !polygonCoords.isEmpty {
-                    MapPolygon(coordinates: polygonCoords)
-                        .foregroundStyle(Color.blue.opacity(0.06))
-                        .stroke(Color.blue.opacity(0.18), lineWidth: 1.5)
-                }
             }
             .onMapCameraChange { (context: MapCameraUpdateContext) in
                 let latMeters = context.region.span.latitudeDelta * 111_000
@@ -497,12 +512,10 @@ struct ActiveNavigationDetailView: View {
                         .frame(width: 44, height: 44)
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Proceed to")
-                                .font(.system(size: 18, weight: .bold))
+                            Text(voiceGuidance.currentInstruction.isEmpty ? "Proceed to the route" : voiceGuidance.currentInstruction)
+                                .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(.white)
-                            Text("the route")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(.white)
+                                .lineLimit(2)
                         }
                         
                         Spacer()
@@ -537,6 +550,28 @@ struct ActiveNavigationDetailView: View {
                         }
                         .accessibilityLabel("Re-center Map")
                         
+                        // 2. Reroute Button
+                        Button(action: {
+                            HapticManager.shared.triggerImpact(style: .medium)
+                            showingRerouteConfirm = true
+                        }) {
+                            if viewModel.isRerouting {
+                                ProgressView()
+                                    .frame(width: 50, height: 50)
+                                    .background(Circle().fill(Color.white))
+                                    .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
+                            } else {
+                                Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundColor(.orange)
+                                    .frame(width: 50, height: 50)
+                                    .background(Circle().fill(Color.white))
+                                    .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
+                            }
+                        }
+                        .disabled(viewModel.isRerouting)
+                        .accessibilityLabel("Reroute")
+                        
                         // 3. Add Fuel Button
                         Button(action: {
                             HapticManager.shared.triggerImpact(style: .medium)
@@ -555,6 +590,8 @@ struct ActiveNavigationDetailView: View {
                                 TripFuelHistoryView(
                                     isReadOnly: false,
                                     activeTripId: viewModel.tripId,
+                                    tripStatus: trip.status,
+                                    tripEndTime: trip.endTime,
                                     vehicleNumber: assignedVehicle,
                                     expenseService: services.expenseService,
                                     driverId: trip.driverId,
@@ -726,7 +763,16 @@ struct ActiveNavigationDetailView: View {
                         // Complete Trip Button
                         Button(action: {
                             HapticManager.shared.triggerImpact(style: .heavy)
-                            localStore.pendingPostTripInspectionTripId = trip.id.uuidString
+                            let deadline = Date().addingTimeInterval(2 * 3600)
+                            localStore.pendingPostTripInspection = PendingPostTripInspection(
+                                tripId: trip.id.uuidString,
+                                deadline: deadline
+                            )
+                            Task {
+                                var updatedTrip = trip
+                                updatedTrip.postTripInspectionDueAt = deadline
+                                _ = try? await services.tripService.updateTrip(updatedTrip)
+                            }
                             onBack()
                         }) {
                             Text("Complete Trip")
@@ -742,49 +788,6 @@ struct ActiveNavigationDetailView: View {
                         .padding(.horizontal)
                         .padding(.top, 4)
                         .padding(.bottom, 8)
-                        .sheet(isPresented: $showingCompletionForm) {
-                            TripCompletionFormView(
-                                activeTripId: trip.id.uuidString,
-                                trip: trip,
-                                previousOdometer: vehicles.first(where: { $0.id == trip.vehicleId })?.odometer ?? 0.0,
-                                onComplete: { finalOdometer, finalFuelLevel, needsMaintenance, driverNote in
-                                    Task {
-                                        var updatedTrip = trip
-                                        let startOdo = Double(UserDefaults.standard.integer(forKey: "trip_\(trip.id.uuidString)_pre_odo"))
-                                        let finalOdo = Double(finalOdometer) ?? (startOdo > 0 ? startOdo + 12.4 : 124000.0)
-                                        updatedTrip.finalOdometer = finalOdo
-                                        updatedTrip.finalFuelLevel = Double(finalFuelLevel.trimmingCharacters(in: CharacterSet(charactersIn: "%"))) ?? 75.0
-                                        updatedTrip.status = .completed
-                                        updatedTrip.endTime = Date()
-                                        updatedTrip.driverNote = driverNote
-                                        _ = try? await services.tripService.updateTrip(updatedTrip)
-                                        
-                                        // Update vehicle odometer in DB
-                                        if let vehicleId = trip.vehicleId,
-                                           var vehicleModel = try? await services.vehicleService.fetchVehicle(id: vehicleId) {
-                                            vehicleModel.odometer = finalOdo
-                                            _ = try? await services.vehicleService.updateVehicle(vehicleModel)
-                                        }
-                                        
-                                        let startOdoVal = startOdo > 0 ? startOdo : (finalOdo - 12.4)
-                                        let dist = max(1.2, finalOdo - startOdoVal)
-                                        let duration = max(15, Int(Date().timeIntervalSince(trip.startTime)) / 60)
-                                        let earn = Double(dist) * 1.95 + 2.0
-                                        
-                                        await MainActor.run {
-                                            locationService.stopTracking()
-                                            self.finalDistance = dist
-                                            self.finalDuration = duration
-                                            self.finalEarnings = earn
-                                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                                                self.showingTripSuccess = true
-                                            }
-                                        }
-                                    }
-                                }
-                            )
-                            .environmentObject(localStore)
-                        }
                     }
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
@@ -829,6 +832,16 @@ struct ActiveNavigationDetailView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
 
+        .alert("Recalculate Route?", isPresented: $showingRerouteConfirm) {
+            Button("Find Alternate Route") {
+                let current = locationService.location?.coordinate ?? viewModel.startCoordinate
+                viewModel.rerouteFromCurrentLocation(currentCoordinate: current)
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will calculate a new route to \(viewModel.destinationName) from your current location.")
+        }
+
         .alert(isPresented: $showingSOSAlert) {
             Alert(
                 title: Text("EMERGENCY SOS"),
@@ -841,22 +854,38 @@ struct ActiveNavigationDetailView: View {
                                 status: .cancelled,
                                 rejectionReason: "SOS Emergency: Automatically cancelled via emergency SOS alert during active navigation."
                             )
-                            
-                            // Send notification to manager instantly
-                            let fmUserId = try? await services.userManagementService.fetchUsers()
-                                .first(where: { $0.role == .fleetManager })?.id
-                            let notification = AppNotification(
+
+                            let event = SOSEvent(
                                 id: UUID(),
-                                title: "CRITICAL: Driver SOS Emergency",
-                                message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation) during active navigation.",
-                                type: "geofence_exit",
-                                isRead: false,
-                                referenceId: trip.id,
-                                recipientId: fmUserId,
+                                tripId: trip.id,
+                                driverId: driver?.id ?? user.id,
+                                vehicleId: assignedVehicle,
+                                type: "critical",
+                                status: .pending,
+                                latitude: locationService.location?.coordinate.latitude ?? 0,
+                                longitude: locationService.location?.coordinate.longitude ?? 0,
+                                resolvedBy: nil,
+                                resolvedAt: nil,
+                                notes: nil,
                                 createdAt: Date()
                             )
-                            _ = try? await services.notificationService.createNotification(notification)
-                            
+                            _ = try? await services.sosService.createEvent(event)
+
+                            let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
+                            for fmUser in fmUsers {
+                                let notification = AppNotification(
+                                    id: UUID(),
+                                    title: "CRITICAL: Driver SOS Emergency",
+                                    message: "Driver has triggered emergency SOS alert for Trip from \(trip.startLocation) to \(trip.endLocation) during active navigation.",
+                                    type: "sos_emergency",
+                                    isRead: false,
+                                    referenceId: trip.id,
+                                    recipientId: fmUser.id,
+                                    createdAt: Date()
+                                )
+                                _ = try? await services.notificationService.createNotification(notification)
+                            }
+
                             await MainActor.run {
                                 onBack()
                             }
@@ -911,19 +940,40 @@ struct ActiveNavigationDetailView: View {
             lastCalculatedLocation = newLocation
 
             guard !isTripStopped else { return }
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                cameraPosition = .userLocation(followsHeading: true, fallback: .automatic)
+            if isTrackingVehicle {
+                let followRegion = MKCoordinateRegion(
+                    center: newLocation.coordinate,
+                    latitudinalMeters: zoomMeters,
+                    longitudinalMeters: zoomMeters
+                )
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                    cameraPosition = .region(followRegion)
+                }
             }
 
             let nearestIdx = nearestRouteIndex(to: newLocation.coordinate, coordinates: viewModel.routeCoordinates)
             let remainingKm = calculateRemainingDistance(from: nearestIdx, coordinates: viewModel.routeCoordinates)
             liveDistanceRemaining = String(format: "%.1f km", remainingKm)
+
+            let remainingMeters = remainingKm * 1000.0
+            voiceGuidance.update(remainingDistance: remainingMeters, nearestCoordIdx: nearestIdx)
         }
         .onDisappear {
             locationService.stopTracking()
+            voiceGuidance.stop()
+        }
+        .onReceive(viewModel.$routeStepInstructions) { instructions in
+            guard !instructions.isEmpty else { return }
+            voiceGuidance.configure(
+                instructions: instructions,
+                distances: viewModel.routeStepDistances
+            )
         }
         .onReceive(viewModel.$waypoints) { waypoints in
-            guard !waypoints.isEmpty, let vehicleId = trip.vehicleId, let driverId = trip.driverId else { return }
+            guard !waypoints.isEmpty, let vehicleId = trip.vehicleId, let driverId = trip.driverId else {
+                locationService.stopMonitoringRoute()
+                return
+            }
             locationService.startMonitoringRoute(
                 tripId: trip.id,
                 vehicleId: vehicleId,
@@ -931,6 +981,13 @@ struct ActiveNavigationDetailView: View {
                 waypoints: waypoints,
                 service: services.tripService
             )
+        }
+        .onReceive(viewModel.$isRerouting) { isRerouting in
+            if !isRerouting {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                    focusOnDriverAndRoute()
+                }
+            }
         }
     }
     

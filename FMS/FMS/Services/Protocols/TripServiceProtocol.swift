@@ -18,6 +18,7 @@ protocol TripServiceProtocol: AnyObject, Sendable {
     func createDeviationAlert(_ alert: DeviationAlert) async throws -> DeviationAlert
     func fetchRouteWaypoints(tripId: UUID) async throws -> [RouteWaypoint]
     func persistRouteWaypoints(_ waypoints: [RouteWaypoint]) async throws -> [RouteWaypoint]
+    func deleteRouteWaypoints(tripId: UUID) async throws
     func fetchTelemetry(driverId: UUID) async throws -> [Telemetry]
     func logTelemetry(_ telemetry: Telemetry) async throws -> Telemetry
     func subscribeToTrips(forDriverId driverId: UUID) -> AsyncStream<Void>

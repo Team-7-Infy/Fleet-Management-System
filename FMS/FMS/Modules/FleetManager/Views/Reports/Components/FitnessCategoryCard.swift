@@ -34,4 +34,3 @@ struct FitnessCategoryCard<Content: View>: View {
         }
     }
 }
-

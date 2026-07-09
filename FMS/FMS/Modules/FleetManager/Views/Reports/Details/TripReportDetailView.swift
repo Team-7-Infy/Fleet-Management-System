@@ -93,7 +93,7 @@ struct TripReportDetailView: View {
                 .foregroundStyle(color)
                 .frame(width: 36, height: 36)
                 .background(color.opacity(0.08), in: Circle())
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
                     .font(.system(size: 16, weight: .bold, design: .rounded))
@@ -185,7 +185,7 @@ struct TripReportDetailView: View {
                             .tracking(0.8)
                             .foregroundStyle(FleetPalette.success)
                             .padding(.top, 8)
-                        
+
                         VStack(spacing: 8) {
                             ForEach(onTime, id: \.trip.id) { item in
                                 NavigationLink {
@@ -209,7 +209,7 @@ struct TripReportDetailView: View {
                             .tracking(0.8)
                             .foregroundStyle(FleetPalette.danger)
                             .padding(.top, 8)
-                        
+
                         VStack(spacing: 8) {
                             ForEach(delayed, id: \.trip.id) { item in
                                 NavigationLink {
@@ -240,20 +240,20 @@ struct TripReportDetailView: View {
             Image(systemName: isEarly ? "arrow.down.right.circle.fill" : "arrow.up.right.circle.fill")
                 .font(.title3)
                 .foregroundStyle(isEarly ? FleetPalette.success : FleetPalette.danger)
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(item.trip.startLocation) → \(item.trip.endLocation)")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(FleetPalette.textPrimary)
                     .lineLimit(1)
-                
+
                 Text(licencePlate)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(FleetPalette.textSecondary)
             }
-            
+
             Spacer(minLength: 8)
-            
+
             HStack(spacing: 4) {
                 Text(isEarly ? "\(Int(abs(item.deviation) / 60))m early" : "\(Int(item.deviation / 60))m late")
                     .font(.system(size: 12, weight: .bold, design: .rounded))
@@ -306,10 +306,10 @@ struct TripReportDetailView: View {
                             Text("Total fuel")
                                 .font(.footnote).foregroundStyle(FleetPalette.textSecondary)
                         }
-                        
+
                         Divider()
                             .frame(height: 36)
-                        
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text(avgFuel.formatted(.currency(code: "INR")))
                                 .font(.system(size: 22, weight: .bold, design: .rounded))
@@ -325,7 +325,7 @@ struct TripReportDetailView: View {
                         .tracking(0.8)
                         .foregroundStyle(FleetPalette.warning)
                         .padding(.top, 8)
-                    
+
                     VStack(spacing: 8) {
                         ForEach(top, id: \.trip.id) { item in
                             NavigationLink {
@@ -347,7 +347,7 @@ struct TripReportDetailView: View {
                         .tracking(0.8)
                         .foregroundStyle(FleetPalette.success)
                         .padding(.top, 8)
-                    
+
                     VStack(spacing: 8) {
                         ForEach(bottom, id: \.trip.id) { item in
                             NavigationLink {
@@ -377,20 +377,20 @@ struct TripReportDetailView: View {
             Image(systemName: isHighest ? "arrow.up.right.circle.fill" : "arrow.down.right.circle.fill")
                 .font(.title3)
                 .foregroundStyle(isHighest ? FleetPalette.warning : FleetPalette.success)
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(item.trip.startLocation) → \(item.trip.endLocation)")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(FleetPalette.textPrimary)
                     .lineLimit(1)
-                
+
                 Text(licencePlate)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(FleetPalette.textSecondary)
             }
-            
+
             Spacer(minLength: 8)
-            
+
             HStack(spacing: 4) {
                 Text(item.cost.formatted(.currency(code: "INR")))
                     .font(.system(size: 12, weight: .bold, design: .rounded))
@@ -409,4 +409,3 @@ struct TripReportDetailView: View {
         }
     }
 }
-

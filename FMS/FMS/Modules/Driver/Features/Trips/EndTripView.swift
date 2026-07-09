@@ -8,7 +8,7 @@ struct EndTripView: View {
 
     let trip: Trip
     let services: AppServices
-    var onComplete: ((_ finalOdometer: String, _ notes: String) -> Void)? = nil
+    var onComplete: ((_ finalOdometer: String, _ notes: String, _ distanceKm: Double) -> Void)? = nil
 
     @State private var endOdometer: String = ""
     @State private var endFuel: String = ""
@@ -16,6 +16,8 @@ struct EndTripView: View {
     @State private var previousOdometer: Double = 0.0
     @State private var showAlert = false
     @State private var alertMessage = ""
+
+    @State private var postTripComments: String = ""
 
     @StateObject private var inspectionViewModel = InspectionViewModel()
 
@@ -43,24 +45,30 @@ struct EndTripView: View {
                             .font(.headline)
                             .fontWeight(.bold)
                             .foregroundColor(.white)
-                        
+
                         HStack {
-                            Spacer()
-                            Button(action: {
-                                dismiss()
-                            }) {
-                                textClose
+                            Button(action: { dismiss() }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "chevron.left")
+                                        .font(.title3)
+                                        .fontWeight(.bold)
+                                    Text("Back")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                }
+                                .foregroundColor(.white.opacity(0.85))
                             }
+                            Spacer()
                         }
                     }
                     .padding(.horizontal)
                     .padding(.top, 44)
-                    
+
                     HStack(spacing: 12) {
                         Image(systemName: "shield.fill")
                             .font(.title2)
                             .foregroundColor(.white)
-                        
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Post-Trip Safety Inspection")
                                 .font(.headline)
@@ -97,7 +105,7 @@ struct EndTripView: View {
                                     .foregroundColor(.secondary)
                                     .tracking(1.0)
                             }
-                            
+
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack {
                                     Image(systemName: "speedometer")
@@ -107,7 +115,7 @@ struct EndTripView: View {
                                         .fontWeight(.semibold)
                                         .foregroundColor(.primary)
                                 }
-                                
+
                                 HStack(spacing: 6) {
                                     TextField("e.g. \(Int(previousOdometer))", text: $endOdometer)
                                         .keyboardType(.numberPad)
@@ -120,7 +128,7 @@ struct EndTripView: View {
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
                                 }
-                                
+
                                 if let val = Double(endOdometer), val < previousOdometer {
                                     Text("Odometer must be at least \(Int(previousOdometer)) km")
                                         .font(.caption)
@@ -140,7 +148,7 @@ struct EndTripView: View {
                                         .fontWeight(.semibold)
                                         .foregroundColor(.primary)
                                 }
-                                
+
                                 HStack(spacing: 8) {
                                     TextField("e.g. 75", text: $endFuel)
                                         .keyboardType(.numberPad)
@@ -149,12 +157,12 @@ struct EndTripView: View {
                                         .padding(.vertical, 8)
                                         .background(Color(.systemGray6))
                                         .cornerRadius(8)
-                                    
+
                                     Text("%")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
                                 }
-                                
+
                                 if !endFuel.isEmpty {
                                     if let val = Int(endFuel), (val < 0 || val > 100) {
                                         Text("Fuel level must be between 0 and 100")
@@ -195,6 +203,29 @@ struct EndTripView: View {
                             }
                         }
 
+                        // General Comments / Other Defects
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("OTHER COMMENTS / DEFECTS")
+                                .font(.system(size: 11, weight: .black))
+                                .foregroundColor(.secondary)
+                                .tracking(1.0)
+
+                            TextEditor(text: $postTripComments)
+                                .font(.subheadline)
+                                .frame(minHeight: 80)
+                                .padding(8)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color(.separator).opacity(0.3), lineWidth: 1)
+                                )
+
+                            Text("Optional: Add any additional notes about vehicle condition.")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+
                         // Action Button
                         Button(action: submitTrip) {
                             HStack {
@@ -223,7 +254,6 @@ struct EndTripView: View {
                 }
             }
         }
-        .toolbar(.hidden, for: .navigationBar)
         .task {
             if let vehicleId = trip.vehicleId,
                let vehicle = try? await services.vehicleService.fetchVehicle(id: vehicleId) {
@@ -235,17 +265,6 @@ struct EndTripView: View {
         } message: {
             Text(alertMessage)
         }
-    }
-
-    private var textClose: some View {
-        Text("Close")
-            .font(.subheadline)
-            .fontWeight(.semibold)
-            .foregroundColor(.black)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Color.white.opacity(0.85))
-            .clipShape(Capsule())
     }
 
     private func submitTrip() {
@@ -275,7 +294,7 @@ struct EndTripView: View {
                     status: failedItems.isEmpty ? .passed : .failed,
                     odometerReading: Double(endOdometer),
                     fuelLevel: Double(endFuel),
-                    notes: nil,
+                    notes: postTripComments.isEmpty ? nil : postTripComments,
                     createdAt: Date()
                 )
                 let saved = try await services.inspectionService.createInspection(inspection)
@@ -301,6 +320,8 @@ struct EndTripView: View {
                 updatedTrip.status = .completed
                 updatedTrip.endTime = Date()
                 updatedTrip.driverNote = failedItems.isEmpty ? "Post-trip check completed normally." : "Post-trip inspection failed."
+                let distanceDelta = max(0, odoDouble - previousOdometer)
+                updatedTrip.distanceKm = distanceDelta
 
                 _ = try await services.tripService.updateTrip(updatedTrip)
                 UserDefaults.standard.removeObject(forKey: "trip_\(trip.id.uuidString)_paused")
@@ -383,14 +404,14 @@ struct EndTripView: View {
                 }
 
                 _ = try await services.vehicleService.updateVehicle(vehicle)
-                
+
                 await RoutineMaintenanceScheduler.checkAndSchedule(vehicle: vehicle, services: services)
 
                 await MainActor.run {
                     isSubmitting = false
                     locationService.stopTracking()
                     dismiss()
-                    onComplete?(endOdometer, failedItems.isEmpty ? "Post-trip check completed normally." : "Post-trip inspection failed.")
+                    onComplete?(endOdometer, failedItems.isEmpty ? "Post-trip check completed normally." : "Post-trip inspection failed.", distanceDelta)
                 }
             } catch {
                 print("Failed to complete post-trip inspection: \(error)")

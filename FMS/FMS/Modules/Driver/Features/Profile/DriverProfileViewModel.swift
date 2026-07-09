@@ -5,9 +5,11 @@ import Supabase
 
 @MainActor
 final class DriverProfileViewModel: ObservableObject {
-    private let services: AppServices
-    private let driver: Driver?
+    let services: AppServices
+    let driver: Driver?
     private var user: User
+
+    var driverId: UUID? { driver?.id }
 
     @Published var driverName: String
     @Published var phone: String
@@ -69,24 +71,21 @@ final class DriverProfileViewModel: ObservableObject {
             let trips = try await services.tripService.fetchTrips(forDriverId: driverId)
             let completed = trips.filter { $0.status == .completed }
             let scoreRecord = try? await services.userManagementService.fetchDriverScore(driverId: driverId)
-            
+
             await MainActor.run {
-                completedTrips = completed.count
-                totalTrips = "\(trips.count)"
-                onTimeRate = trips.isEmpty ? "0%" : "\(Int(Double(completed.count) / Double(trips.count) * 100))%"
+                self.completedTrips = completed.count
+                self.totalTrips = "\(trips.count)"
+                self.onTimeRate = trips.isEmpty ? "0%" : "\(Int(Double(completed.count) / Double(trips.count) * 100))%"
+                self.safetyScore = Int(scoreRecord?.overallScore ?? 0)
+
                 if let last = trips.max(by: { ($0.startTime) < ($1.startTime) }) {
                     let f = DateFormatter()
                     f.dateFormat = "dd MMM, yyyy"
-                    lastTripDate = f.string(from: last.startTime)
-                }
-                if let scoreRecord = scoreRecord {
-                    safetyScore = Int(scoreRecord.overallScore)
-                } else {
-                    safetyScore = 85
+                    self.lastTripDate = f.string(from: last.startTime)
                 }
             }
         } catch {
-            print("Failed to load trips: \(error)")
+            print("Failed to load profile stats: \(error)")
         }
     }
 
@@ -148,6 +147,17 @@ final class DriverProfileViewModel: ObservableObject {
         defer { isSavingProfile = false }
 
         do {
+            // Check uniqueness of phone and email
+            let allUsers = try await services.userManagementService.fetchUsers()
+            if allUsers.contains(where: { $0.id != user.id && String($0.contact) == normalizedPhone }) {
+                errorMessage = "This phone number is already associated with another account."
+                return false
+            }
+            if allUsers.contains(where: { $0.id != user.id && $0.email.lowercased() == normalizedEmail.lowercased() }) {
+                errorMessage = "This email is already associated with another account."
+                return false
+            }
+
             var updatedUser = user
             let nameParts = splitName(normalizedName)
             updatedUser.fName = nameParts.first

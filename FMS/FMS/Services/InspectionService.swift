@@ -34,4 +34,13 @@ final actor InspectionService: InspectionServiceProtocol {
             .insert(item)
             .execute()
     }
+
+    func fetchInspectionItems(inspectionId: UUID) async throws -> [InspectionItemDB] {
+        try await supabase.client
+            .from("inspection_items")
+            .select()
+            .eq("inspection_id", value: inspectionId.uuidString)
+            .execute()
+            .value
+    }
 }

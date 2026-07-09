@@ -134,7 +134,7 @@ struct TripCompletionSuccessView: View {
                                     HStack(spacing: 6) {
                                         Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
                                             .foregroundColor(.green)
-                                        Text(String(format: "%.1f miles", distance))
+                                        Text(String(format: "%.1f km", distance))
                                             .font(.headline)
                                             .fontWeight(.bold)
                                     }

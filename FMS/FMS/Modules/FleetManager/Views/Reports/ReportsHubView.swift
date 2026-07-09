@@ -29,7 +29,7 @@ struct ReportsHubView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 vehicleHealthSectionSeparator
-                
+
                 VStack(alignment: .leading, spacing: 10) {
                     Text("TIMEFRAME")
                         .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -38,7 +38,7 @@ struct ReportsHubView: View {
                         .padding(.horizontal, 2)
                     PeriodFilterPicker(selectedPeriod: $viewModel.selectedPeriod)
                 }
-                
+
                 tripSection
                 expenditureSection
                 fleetUtilizationSection
@@ -57,7 +57,7 @@ struct ReportsHubView: View {
         FitnessCategoryCard {
             HStack(alignment: .top, spacing: 14) {
                 IconBubble(systemImage: "point.topleft.down.curvedto.point.bottomright.up", tint: FleetPalette.accent)
-                
+
                 FitnessMetricHeader(
                     label: "Trips",
                     value: "\(viewModel.totalFilteredTrips)",
@@ -112,7 +112,7 @@ struct ReportsHubView: View {
         FitnessCategoryCard {
             HStack(alignment: .top, spacing: 14) {
                 IconBubble(systemImage: "indianrupeesign.circle.fill", tint: .orange)
-                
+
                 FitnessMetricHeader(
                     label: "Expenditure",
                     value: viewModel.totalExpenditure.formatted(.currency(code: "INR")),
@@ -153,7 +153,7 @@ struct ReportsHubView: View {
         FitnessCategoryCard {
             HStack(alignment: .top, spacing: 14) {
                 IconBubble(systemImage: "car.2.fill", tint: FleetPalette.success)
-                
+
                 FitnessMetricHeader(
                     label: "Fleet Utilization",
                     value: "\(Int(viewModel.utilizationPercentCurrentMonth.rounded()))%",
@@ -232,7 +232,7 @@ struct ReportsHubView: View {
                             .frame(width: 106, height: 106)
                             .rotationEffect(.degrees(-90))
                             .shadow(color: color.opacity(0.3), radius: 5, x: 0, y: 3)
-                        
+
                         VStack(spacing: -2) {
                             Text("\(score)")
                                 .font(.system(size: 30, weight: .black, design: .rounded).monospacedDigit())
@@ -258,7 +258,7 @@ struct ReportsHubView: View {
                         Text("Fleet Health Index")
                             .font(.headline.bold())
                             .foregroundStyle(FleetPalette.textPrimary)
-                        
+
                         Text("Aggregate of vehicle health and driver scores")
                             .font(.caption)
                             .foregroundStyle(FleetPalette.textSecondary)
@@ -333,4 +333,3 @@ struct ReportsHubView: View {
         .frame(minHeight: 44)
     }
 }
-

@@ -6,6 +6,7 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
     var endLocation: String
     var startTime: Date
     var endTime: Date?
+    var actualStartTime: Date?
     var vehicleId: UUID?
     var driverId: UUID?
     var status: TripStatus
@@ -17,6 +18,11 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
     var finalFuelLevel: Double?
     var driverNote: String?
     var vehicleTypeRequested: String?
+    var postTripInspectionDueAt: Date?
+    var cancellationReason: String?
+    var postTripFlagged: Bool = false
+    var fuelConsumed: Double?
+    var fuelConsumedFlagged: Bool = false
 
     enum CodingKeys: String, CodingKey {
         case id = "tripid"
@@ -24,6 +30,7 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
         case endLocation = "endlocation"
         case startTime = "starttime"
         case endTime = "endtime"
+        case actualStartTime = "actual_start_time"
         case vehicleId = "vehicleid"
         case driverId = "driverid"
         case status
@@ -35,6 +42,11 @@ struct Trip: Identifiable, Codable, Hashable, Sendable {
         case finalFuelLevel = "final_fuel_level"
         case driverNote = "driver_note"
         case vehicleTypeRequested = "vehicletype_requested"
+        case postTripInspectionDueAt = "post_trip_inspection_due_at"
+        case cancellationReason = "cancellation_reason"
+        case postTripFlagged = "post_trip_flagged"
+        case fuelConsumed = "fuel_consumed"
+        case fuelConsumedFlagged = "fuel_consumed_flagged"
     }
 }
 
