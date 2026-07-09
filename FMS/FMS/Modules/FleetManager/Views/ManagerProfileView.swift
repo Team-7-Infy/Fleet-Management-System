@@ -113,6 +113,16 @@ private struct ProfileHeaderCard: View {
                             .frame(width: 76, height: 76)
                             .clipShape(Circle())
                             .shadow(radius: 4, x: 0, y: 2)
+                    } else if let avatarUrl = viewModel.user.avatarUrl,
+                              let url = URL(string: avatarUrl),
+                              let imageData = try? Data(contentsOf: url),
+                              let uiImage = UIImage(data: imageData) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 76, height: 76)
+                            .clipShape(Circle())
+                            .shadow(radius: 4, x: 0, y: 2)
                     } else {
                         Circle()
                             .fill(
@@ -240,6 +250,7 @@ private struct ProfilePerformanceSummary: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: 112)
                 .background(Color.blue.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .accessibilityLabel("Active trip ratio: \(activeTripRatio)%")
 
                 ProfileScoreTile(title: "Vehicles", value: totalVehicles, subtitle: "Total registered", icon: "car.2.fill")
                 ProfileScoreTile(title: "Drivers", value: totalDrivers, subtitle: "Active roster", icon: "person.2.fill")

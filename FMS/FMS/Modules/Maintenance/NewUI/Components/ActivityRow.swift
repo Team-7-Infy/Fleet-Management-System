@@ -26,10 +26,10 @@ struct ActivityRow: View {
                 }
                 
                 HStack(spacing: 4) {
-                    Image(systemName: activity.status == .completed ? FleetIcon.checkmark : "pause.fill")
+                    Image(systemName: activity.status == .fake ? "flag.fill" : (activity.status == .completed ? FleetIcon.checkmark : "pause.fill"))
                         .font(.system(size: 10))
                         .foregroundStyle(activity.status.color)
-                    Text(activity.status == .completed ? "Completed" : "In Progress")
+                    Text(activity.status == .fake ? "Flagged" : (activity.status == .completed ? "Completed" : "In Progress"))
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(activity.status.color)
                     

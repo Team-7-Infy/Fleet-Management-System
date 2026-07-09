@@ -360,20 +360,17 @@ struct EndTripView: View {
                         }
                     }
 
-                    let fmUsers = (try? await services.userManagementService.fetchUsers().filter { $0.role == .fleetManager }) ?? []
-                    for fmUser in fmUsers {
-                        let postTripNotification = AppNotification(
+                    let postTripNotification = AppNotification(
                             id: UUID(),
                             title: "Post-trip Inspection Failed",
                             message: "\(failedItems.count) defect(s) found on \(vehicle.licencePlate). Work order(s) created for: \(failedItems.map(\.name).joined(separator: ", ")).",
                             type: "work_order_assigned",
                             isRead: false,
                             referenceId: trip.id,
-                            recipientId: fmUser.id,
+                            recipientId: nil,
                             createdAt: Date()
                         )
                         _ = try? await services.notificationService.createNotification(postTripNotification)
-                    }
 
                     vehicle.status = .inMaintenance
                     vehicle.driverId = nil

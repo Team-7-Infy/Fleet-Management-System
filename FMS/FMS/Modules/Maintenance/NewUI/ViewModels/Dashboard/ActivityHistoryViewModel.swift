@@ -36,8 +36,16 @@ final class ActivityHistoryViewModel: ObservableObject {
     }
     
     var groupedActivities: [(header: String, activities: [Activity])] {
+        groupActivities(activities)
+    }
+
+    func groupedActivities(for filtered: [Activity]) -> [(header: String, activities: [Activity])] {
+        groupActivities(filtered)
+    }
+
+    private func groupActivities(_ items: [Activity]) -> [(header: String, activities: [Activity])] {
         let calendar = Calendar.current
-        let grouped = Dictionary(grouping: activities) { activity in
+        let grouped = Dictionary(grouping: items) { activity in
             calendar.startOfDay(for: activity.date)
         }
         
